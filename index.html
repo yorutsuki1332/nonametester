@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIGHTNING | 日常選品與飾品</title>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+    <style>
+        /* CSS 與先前完全相同，這裡濃縮顯示 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --border-color: #f0f0f0; --radius-md: 10px; }
+        body { background-color: var(--bg-white); color: var(--text-main); }
+        nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background-color: rgba(255, 255, 255, 0.95); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); }
+        .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+        .cart-icon-wrapper { cursor: pointer; position: relative; }
+        .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); font-size: 11px; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;}
+        .hero { margin: 100px 4% 0; height: 40vh; background-color: var(--baby-yellow); border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .container { max-width: 1200px; margin: 60px auto; padding: 0 4%; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 40px 30px; }
+        
+        /* 修改商品卡片佈局，讓點擊連結生效 */
+        .product-card { display: flex; flex-direction: column; position: relative; transition: all 0.3s; border: 1px solid transparent;}
+        .product-card:hover { transform: translateY(-5px); }
+        .product-link { text-decoration: none; color: inherit; display: block; flex-grow: 1; }
+        .product-image-placeholder { height: 340px; background-color: #f9f9f8; border-radius: var(--radius-md); display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
+        .product-tag { position: absolute; top: 15px; left: 15px; background: #111; color: #fff; font-size: 10px; padding: 4px 10px; border-radius: 4px; z-index: 2;}
+        .product-name { font-size: 15px; font-weight: 500; margin-bottom: 5px; }
+        .product-price { font-size: 15px; font-weight: 600; margin-bottom: 15px; }
+        .add-to-cart-btn { width: 100%; background: transparent; border: 1px solid #e5e5e5; padding: 10px; border-radius: var(--radius-md); cursor: pointer; transition: 0.3s; }
+        .add-to-cart-btn:hover { background: var(--baby-yellow); border-color: var(--baby-yellow); }
+        
+        /* 購物車樣式省略 (與上一版相同) */
+        .cart-drawer { position: fixed; top: 0; right: 0; width: 400px; height: 100%; background: #fff; box-shadow: -5px 0 30px rgba(0,0,0,0.1); z-index: 2000; transform: translateX(100%); transition: 0.4s; display: flex; flex-direction: column;}
+        .cart-drawer.open { transform: translateX(0); }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: 0.4s; }
+        .overlay.open { opacity: 1; visibility: visible; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">LIGHTNING</div>
+        <div class="cart-icon-wrapper" onclick="toggleCart(true)">
+            🛒 <div class="cart-count" id="cartCount">0</div>
+        </div>
+    </nav>
+    <div class="hero">
+        <h1>日常的美好，源於細節</h1>
+    </div>
+    <main class="container">
+        <h2 style="text-align: center; margin-bottom: 40px; font-size: 20px;">全站商品</h2>
+        <div class="product-grid" id="productGrid"></div>
+    </main>
+
+    <div class="overlay" id="cartOverlay" onclick="toggleCart(false)"></div>
+    <div class="cart-drawer" id="cartDrawer">
+        <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+            <h2>購物車</h2><button onclick="toggleCart(false)" style="border:none; background:none; font-size: 20px;">✖</button>
+        </div>
+        <div id="cartItemsContainer" style="flex-grow: 1; padding: 20px; overflow-y: auto;"></div>
+        <div style="padding: 20px; border-top: 1px solid #eee;">
+            <div style="display:flex; justify-content: space-between; font-weight:bold; margin-bottom:15px;"><span>總計</span><span id="cartTotal">NT$ 0</span></div>
+            <button onclick="alert('結帳')" style="width:100%; padding:15px; background:#111; color:#fff; border:none; border-radius:10px;">前往結帳</button>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ 貼上你的 Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
+            authDomain: "tester-ec75c.firebaseapp.com",
+            projectId: "tester-ec75c",
+            storageBucket: "tester-ec75c.firebasestorage.app",
+            messagingSenderId: "761357583297",
+            appId: "1:761357583297:web:5d7bc8f4afc16a38cce540",
+            measurementId: "G-PGXJMR5LMT"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let products = [];
+        let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
+
+        document.addEventListener('DOMContentLoaded', () => { fetchProductsFromCloud(); updateCartUI(); });
+
+        function fetchProductsFromCloud() {
+            db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
+                products = [];
+                querySnapshot.forEach((doc) => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                renderProducts();
+            });
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = products.map(p => `
+                <div class="product-card">
+                    ${p.tag ? `<div class="product-tag">${p.tag}</div>` : ''}
+                    <a href="product.html?id=${p.id}" class="product-link">
+                        <div class="product-image-placeholder"><span>${p.category}</span></div>
+                        <div class="product-info">
+                            <h3 class="product-name">${p.name}</h3>
+                            <div class="product-price">NT$ ${p.price.toLocaleString()}</div>
+                        </div>
+                    </a>
+                    <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">加入購物車</button>
+                </div>
+            `).join('');
+        }
+
+        // 購物車邏輯 (濃縮版)
+        function toggleCart(open) { document.getElementById('cartDrawer').classList.toggle('open', open); document.getElementById('cartOverlay').classList.toggle('open', open); }
+        function addToCart(id) {
+            const p = products.find(x => x.id === id);
+            const item = cart.find(x => x.id === id);
+            if (item) item.quantity++; else cart.push({ id: p.id, name: p.name, price: p.price, quantity: 1 });
+            localStorage.setItem('lightning_life_cart', JSON.stringify(cart)); updateCartUI();
+        }
+        function updateCartUI() {
+            document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
+            document.getElementById('cartTotal').innerText = `NT$ ` + cart.reduce((s, i) => s + i.price * i.quantity, 0).toLocaleString();
+            document.getElementById('cartItemsContainer').innerHTML = cart.map(i => `<div style="margin-bottom:15px;">${i.name} x ${i.quantity} (NT$ ${i.price * i.quantity})</div>`).join('');
+        }
+    </script>
+</body>
+</html>
