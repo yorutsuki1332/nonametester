@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIGHTNING ADMIN | 商品上架後台</title>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+    <style>
+        /* 共用變數與重設：延續 LIGHTNING 的純白日常留白風格 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Noto Sans TC', 'Helvetica Neue', sans-serif;
+        }
+
+        :root {
+            --bg-main: #f9f9f8;
+            --bg-white: #ffffff;
+            --baby-yellow: #FEF9C3;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --border-color: #e5e5e5;
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 側邊導覽列 */
+        aside {
+            width: 260px;
+            background-color: var(--bg-white);
+            border-right: 1px solid var(--border-color);
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 50px;
+            color: var(--text-main);
+            padding-left: 10px;
+        }
+
+        .logo span {
+            color: var(--text-muted);
+            font-size: 12px;
+            display: block;
+            margin-top: 5px;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-menu li a {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+        }
+
+        .nav-menu li a:hover, .nav-menu li a.active {
+            background-color: var(--baby-yellow);
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* 主內容區塊 */
+        main {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 40px 5%;
+            max-width: 1200px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* 表單卡片區塊 */
+        .form-card {
+            background-color: var(--bg-white);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        /* 網格排版 */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .form-grid.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .form-group label span {
+            color: #ff6b6b;
+            margin-left: 3px;
+        }
+
+        .form-control {
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            color: var(--text-main);
+            background-color: var(--bg-white);
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: #d4a373;
+            box-shadow: 0 0 0 3px rgba(254, 249, 195, 0.5);
+        }
+
+        .price-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .price-prefix {
+            position: absolute;
+            left: 15px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .price-input-wrapper .form-control {
+            padding-left: 50px;
+            width: 100%;
+        }
+
+        /* 操作按鈕 */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-outline:hover {
+            background-color: #f5f5f5;
+            color: var(--text-main);
+        }
+
+        .btn-primary {
+            background-color: #111111;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background-color: #333333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 提示通知 (Toast) */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(200%);
+            background-color: var(--text-main);
+            color: #ffffff;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 3000;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            aside { width: 100%; height: auto; position: relative; padding: 20px; flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+            .logo { margin-bottom: 0; }
+            .nav-menu { display: none; }
+            main { margin-left: 0; padding: 20px; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="logo">LIGHTNING<span>SELLER CENTER</span></div>
+        <ul class="nav-menu"><li><a href="#" class="active">📍 上架新商品</a></li></ul>
+    </aside>
+    <main>
+        <div class="page-header">
+            <h1>上架新商品</h1><p>新增了「商品描述」區塊，讓買家點進頁面能看到詳情。</p>
+        </div>
+        <div class="form-card">
+            <form id="addProductForm">
+                <h2 class="form-section-title">基本資訊</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="productName">商品名稱 <span>*</span></label>
+                        <input type="text" id="productName" class="form-control" placeholder="例如：極簡純銀細緻鎖骨鍊" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="productSKU">商品編號 (SKU) <span>*</span></label>
+                        <input type="text" id="productSKU" class="form-control" placeholder="例如：LT-2026-001" required>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="productCategory">商品分類 <span>*</span></label>
+                        <select id="productCategory" class="form-control" required>
+                            <option value="" disabled selected>請選擇商品分類</option>
+                            <option value="ACCESSORY">精緻飾品 (ACCESSORY)</option>
+                            <option value="DAILY WEAR">日常衣著 (DAILY WEAR)</option>
+                            <option value="BAGS">包款配件 (BAGS)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="productTag">行銷標籤 (選填)</label>
+                        <select id="productTag" class="form-control">
+                            <option value="">無標籤</option>
+                            <option value="NEW">全新商品 (NEW)</option>
+                            <option value="HOT">熱賣單品 (HOT)</option>
+                        </select>
+                    </div>
+                </div>
+                <h2 class="form-section-title">價格設定</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="salePrice">商品售價 <span>*</span></label>
+                        <div class="price-input-wrapper">
+                            <span class="price-prefix">HKD </span>
+                            <input type="number" id="salePrice" class="form-control" placeholder="0" min="0" required>
+                        </div>
+                    </div>
+                </div>
+                <h2 class="form-section-title">商品詳情</h2>
+                <div class="form-grid full">
+                    <div class="form-group">
+                        <label>商品詳細描述 (支援多行)</label>
+                        <textarea id="productDesc" class="form-control" placeholder="請輸入材質、尺寸或品牌故事..." required></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="document.getElementById('addProductForm').reset()">清空</button>
+                    <button type="submit" class="btn btn-primary">確認上架商品</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <div class="toast" id="toastMessage">✅ 商品上架成功！雲端資料庫已同步。</div>
+
+    <script>
+        // ⚠️ 貼上你的 Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
+            authDomain: "tester-ec75c.firebaseapp.com",
+            projectId: "tester-ec75c",
+            storageBucket: "tester-ec75c.firebasestorage.app",
+            messagingSenderId: "761357583297",
+            appId: "1:761357583297:web:5d7bc8f4afc16a38cce540",
+            measurementId: "G-PGXJMR5LMT"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.getElementById('addProductForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newProduct = {
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                name: document.getElementById('productName').value,
+                price: parseInt(document.getElementById('salePrice').value),
+                category: document.getElementById('productCategory').value,
+                tag: document.getElementById('productTag').value,
+                description: document.getElementById('productDesc').value // 新增描述欄位
+            };
+
+            db.collection("products").add(newProduct).then(() => {
+                const toast = document.getElementById('toastMessage');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+                this.reset();
+            });
+        });
+    </script>
+</body>
+</html>
