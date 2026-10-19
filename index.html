@@ -216,7 +216,7 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const auth = firebase.auth(); // 🌟 初始化 Auth
+        const auth = firebase.auth();
 
         let products = [];
         let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
@@ -225,6 +225,12 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchProductsFromCloud();
+            updateCartUI();
+        });
+
+        // 🌟 核心修正：當使用者從其他頁面（如 product.html）返回主頁時，自動重新同步 localStorage 的購物車資料
+        window.addEventListener('pageshow', (event) => {
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             updateCartUI();
         });
 
@@ -274,7 +280,6 @@
             if (isRegisterMode) {
                 const email = document.getElementById('authEmail').value.trim();
                 try {
-                    // 1. 檢查帳戶 ID 是否已被使用
                     const docRef = db.collection("users").doc(accountId);
                     const docSnap = await docRef.get();
                     if (docSnap.exists) {
@@ -282,10 +287,8 @@
                         return;
                     }
 
-                    // 2. 建立 Firebase 帳號
                     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                     
-                    // 3. 寫入 users 對應集合
                     await docRef.set({
                         accountId: accountId,
                         email: email,
@@ -301,7 +304,6 @@
                 }
             } else {
                 try {
-                    // 1. 透過帳戶 ID 查詢對應的 Email
                     const docRef = db.collection("users").doc(accountId);
                     const docSnap = await docRef.get();
 
@@ -311,8 +313,6 @@
                     }
 
                     const email = docSnap.data().email;
-
-                    // 2. 進行登入
                     await auth.signInWithEmailAndPassword(email, password);
                     
                     showToast('登入成功！');
@@ -333,7 +333,7 @@
                     if (!querySnapshot.empty) {
                         const accountId = querySnapshot.docs[0].id;
                         userSection.innerHTML = `👤 ID: ${accountId} <span style="color:#888; font-size:11px;" onclick="logout(event)">(登出)</span>`;
-                        userSection.onclick = null; // 已登入狀態點擊不開啟彈窗
+                        userSection.onclick = null;
                         return;
                     }
                 } catch (e) {}
@@ -395,6 +395,7 @@
         }
 
         function addToCart(productId) {
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) existingItem.quantity += 1;
@@ -403,6 +404,7 @@
         }
 
         function updateQuantity(productId, change) {
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
             const item = cart.find(item => item.id === productId);
             if (!item) return;
             item.quantity += change;
@@ -411,6 +413,7 @@
         }
 
         function removeFromCart(productId) {
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
             cart = cart.filter(item => item.id !== productId);
             saveCart(); updateCartUI();
         }
