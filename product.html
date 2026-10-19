@@ -23,22 +23,55 @@
         
         .product-gallery { background-color: #f9f9f8; border-radius: var(--radius-lg); height: 600px; display: flex; justify-content: center; align-items: center; font-size: 20px; color: #aaa; }
         
-        .product-info-wrapper { padding: 20px 0; }
-        .breadcrumbs { font-size: 13px; color: #888; margin-bottom: 15px; }
-        .detail-name { font-size: 32px; font-weight: 600; margin-bottom: 15px; line-height: 1.3;}
-        .detail-price { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 30px; }
+        /* 🌟 右側資訊區塊：使用 Flex 佈局固定高度與按鈕位置 */
+        .product-info-wrapper { 
+            padding: 10px 0; 
+            display: flex;
+            flex-direction: column;
+            height: 600px; /* 與左側 gallery 高度切齊 */
+        }
+        .breadcrumbs { font-size: 13px; color: #888; margin-bottom: 15px; flex-shrink: 0; }
+        .detail-name { font-size: 32px; font-weight: 600; margin-bottom: 15px; line-height: 1.3; flex-shrink: 0; }
+        .detail-price { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 20px; flex-shrink: 0; }
         
+        /* 🌟 商品描述：支援內部滾動 (Scrolling) 與防止破版 */
         .detail-description { 
             font-size: 15px; 
             color: #555; 
-            margin-bottom: 40px; 
+            margin-bottom: 20px; 
             white-space: pre-wrap; 
             line-height: 1.8;
-            overflow-wrap: break-word; /* 允許長單字或網址自動換行 */
-            word-break: break-word;    /* 避免超長字串撐破容器 */
+            overflow-y: auto; /* 超過高度時出現內部捲軸 */
+            flex-grow: 1; /* 自動佔滿中間剩餘空間 */
+            padding-right: 10px;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
         
-        .add-to-cart-huge { width: 100%; background: #111; color: #fff; padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+        /* 自定義捲軸樣式 (選填，讓外觀更簡約) */
+        .detail-description::-webkit-scrollbar {
+            width: 6px;
+        }
+        .detail-description::-webkit-scrollbar-thumb {
+            background-color: #ddd;
+            border-radius: 3px;
+        }
+
+        /* 🌟 加入購物車按鈕：固定在底部 */
+        .add-to-cart-huge { 
+            width: 100%; 
+            background: #111; 
+            color: #fff; 
+            padding: 18px; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: 0.3s; 
+            margin-top: auto; /* 強制推至底部固定 */
+            flex-shrink: 0;
+        }
         .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
 
         /* 載入中畫面 */
@@ -47,6 +80,8 @@
         @media (max-width: 768px) {
             .product-detail-container { grid-template-columns: 1fr; gap: 30px; margin-top: 100px; }
             .product-gallery { height: 400px; }
+            .product-info-wrapper { height: auto; } /* 手機版取消固定高度以適應內容 */
+            .detail-description { max-height: 250px; }
         }
     </style>
 </head>
@@ -63,7 +98,6 @@
     </main>
 
     <script>
-        // ⚠️ 貼上你的 Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
             authDomain: "tester-ec75c.firebaseapp.com",
@@ -76,7 +110,6 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // 🌟 核心：解析網址參數，找出商品 ID
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('id');
         let currentProduct = null;
@@ -87,7 +120,6 @@
                 return;
             }
 
-            // 根據 ID 向 Firebase 索取特定單一商品[cite: 10]
             db.collection("products").doc(productId).get().then((doc) => {
                 if (doc.exists) {
                     currentProduct = { id: doc.id, ...doc.data() };
@@ -99,7 +131,6 @@
                 console.log("讀取錯誤:", error);
             });
 
-            // 初始化上方購物車數字
             let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
         });
@@ -134,7 +165,7 @@
             }
             localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
             
-            // 🌟 加入購物車後直接跳轉回首頁，確保首頁載入時購物車數量與內容完全同步
+            document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
             window.location.href = 'index.html';
         }
     </script>
