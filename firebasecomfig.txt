@@ -1,0 +1,12 @@
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
+    authDomain: "tester-ec75c.firebaseapp.com",
+    projectId: "tester-ec75c",
+    storageBucket: "tester-ec75c.firebasestorage.app",
+    messagingSenderId: "761357583297",
+    appId: "1:761357583297:web:5d7bc8f4afc16a38cce540",
+    measurementId: "G-PGXJMR5LMT"
+};
