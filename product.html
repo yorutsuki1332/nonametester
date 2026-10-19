@@ -45,14 +45,14 @@
 <body>
     <nav>
         <a href="index.html" class="logo">LIGHTNING</a>
-        <div class="cart-icon-wrapper" onclick="alert('請返回首頁查看購物車！')">
+        <div class="cart-icon-wrapper" onclick="window.location.href='index.html'">
             🛒 <div class="cart-count" id="cartCount">0</div>
         </div>
     </nav>
 
     <main class="product-detail-container" id="mainContainer">
         <div id="loadingMsg">正在從雲端載入商品資料...</div>
-        </main>
+    </main>
 
     <script>
         // ⚠️ 貼上你的 Firebase Config
@@ -79,7 +79,7 @@
                 return;
             }
 
-            // 根據 ID 向 Firebase 索取特定單一商品
+            // 根據 ID 向 Firebase 索取特定單一商品[cite: 10]
             db.collection("products").doc(productId).get().then((doc) => {
                 if (doc.exists) {
                     currentProduct = { id: doc.id, ...doc.data() };
@@ -98,7 +98,6 @@
 
         function renderProductDetail() {
             const container = document.getElementById('mainContainer');
-            // 如果沒有填寫描述，給予預設文字
             const descText = currentProduct.description || "這件商品尚未提供詳細描述，但它絕對值得擁有！";
 
             container.innerHTML = `
@@ -108,7 +107,7 @@
                 <div class="product-info-wrapper">
                     <div class="breadcrumbs">首頁 / ${currentProduct.category} / ${currentProduct.name}</div>
                     <h1 class="detail-name">${currentProduct.name}</h1>
-                    <div class="detail-price">HKD$ ${currentProduct.price.toLocaleString()}</div>
+                    <div class="detail-price">HKD ${currentProduct.price.toLocaleString()}</div>
                     
                     <div class="detail-description">${descText}</div>
                     
@@ -127,9 +126,8 @@
             }
             localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
             
-            // 更新網頁右上角數字
-            document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
-            alert(`已將「${currentProduct.name}」加入購物車！請回首頁結帳。`);
+            // 🌟 加入購物車後直接跳轉回首頁，確保首頁載入時購物車數量與內容完全同步
+            window.location.href = 'index.html';
         }
     </script>
 </body>
