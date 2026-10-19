@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIGHTNING | 日常選品與飾品</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* 原有樣式保持不變 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Noto Sans TC', sans-serif; }
+        :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --text-muted: #888888; --border-color: #f0f0f0; --cta-color: #111111; --radius-lg: 16px; --radius-md: 10px; --transition: all 0.4s ease; }
+        body { background-color: var(--bg-white); color: var(--text-main); overflow-x: hidden; line-height: 1.6; }
+        nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); }
+        .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-main); }
+        .cart-icon-wrapper { cursor: pointer; position: relative; padding: 5px; }
+        .cart-icon-svg { width: 22px; height: 22px; fill: none; stroke: var(--text-main); stroke-width: 1.5; }
+        .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); color: var(--text-main); font-size: 11px; font-weight: 600; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .hero-container { padding: 100px 4% 0; max-width: 1400px; margin: 0 auto; }
+        .hero { height: 40vh; background-color: var(--baby-yellow); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
+        .hero h1 { font-size: 36px; font-weight: 600; letter-spacing: 4px; margin-bottom: 15px; }
+        .hero p { font-size: 14px; color: #555; letter-spacing: 2px; }
+        .container { max-width: 1200px; margin: 60px auto; padding: 0 4%; }
+        .section-title { font-size: 20px; font-weight: 600; letter-spacing: 2px; margin-bottom: 40px; text-align: center; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 50px 30px; }
+        .product-card { background-color: var(--bg-white); transition: var(--transition); display: flex; flex-direction: column; border-radius: var(--radius-md); position: relative; }
+        .product-card:hover { transform: translateY(-8px); }
+        .product-tag { position: absolute; top: 15px; left: 15px; background-color: #111; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; z-index: 10; border-radius: 4px; }
+        .product-tag.hot { background-color: #ff6b6b; }
+        .product-image-placeholder { width: 100%; height: 340px; background-color: #f9f9f8; border-radius: var(--radius-md); display: flex; justify-content: center; align-items: center; margin-bottom: 15px; font-size: 13px; color: var(--text-muted); }
+        .product-info { display: flex; flex-direction: column; flex-grow: 1; padding: 0 5px; }
+        .product-name { font-size: 15px; font-weight: 500; margin-bottom: 10px; color: var(--text-main); }
+        .product-price { font-size: 15px; font-weight: 600; margin-bottom: 15px; }
+        .add-to-cart-btn { width: 100%; background: transparent; border: 1px solid #e5e5e5; border-radius: var(--radius-md); padding: 12px; font-size: 13px; cursor: pointer; transition: var(--transition); }
+        .add-to-cart-btn:hover { background-color: var(--baby-yellow); border-color: var(--baby-yellow); }
+        
+        /* 購物車樣式 */
+        .cart-drawer { position: fixed; top: 0; right: 0; width: 400px; max-width: 100%; height: 100%; background-color: var(--bg-white); box-shadow: -5px 0 30px rgba(0,0,0,0.05); z-index: 2000; transform: translateX(100%); transition: var(--transition); display: flex; flex-direction: column; }
+        .cart-drawer.open { transform: translateX(0); }
+        .cart-header { padding: 30px 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .close-btn { background: none; border: none; font-size: 26px; cursor: pointer; color: var(--text-muted); }
+        .cart-items-container { flex-grow: 1; overflow-y: auto; padding: 25px; }
+        .cart-item { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; }
+        .cart-item-thumb { width: 60px; height: 70px; background-color: #f9f9f8; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 11px; }
+        .cart-item-details { flex-grow: 1; }
+        .cart-item-name { font-size: 13px; font-weight: 500; margin-bottom: 5px; }
+        .cart-item-price { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+        .cart-item-qty-control { display: flex; align-items: center; gap: 12px; }
+        .qty-btn { background: #f5f5f5; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; }
+        .remove-item { background: none; border: none; color: #b0b0b0; font-size: 12px; cursor: pointer; margin-left: auto; }
+        .cart-footer { padding: 25px; border-top: 1px solid var(--border-color); }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+        .summary-row.total { font-size: 16px; font-weight: 600; margin-bottom: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); }
+        .checkout-btn { width: 100%; background-color: var(--cta-color); color: #ffffff; border: none; border-radius: var(--radius-md); padding: 16px; cursor: pointer; font-size: 14px; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
+        .overlay.open { opacity: 1; visibility: visible; }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(150%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 4000; transition: var(--transition); }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* 🌟 新增：結帳付款模態框 (Checkout Modal) 樣式 */
+        .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
+        .payment-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+        .payment-header { padding: 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+        .payment-header h2 { font-size: 18px; font-weight: 600; }
+        .payment-body { padding: 25px; max-height: 70vh; overflow-y: auto; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555; }
+        .form-input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: 0.3s; }
+        .form-input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .card-element { padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .card-icon { font-size: 24px; }
+        .pay-btn { width: 100%; background: var(--baby-yellow); color: #111; padding: 16px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .pay-btn:hover { background: #f0e9aa; transform: translateY(-2px); }
+
+        footer { background-color: #fafafa; color: var(--text-muted); text-align: center; padding: 40px 20px; font-size: 12px; margin-top: 100px; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">LIGHTNING</div>
+        <div class="nav-icons">
+            <div class="cart-icon-wrapper" onclick="toggleCart(true)">
+                <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+                <div class="cart-count" id="cartCount">0</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-container">
+        <header class="hero">
+            <h1>日常的美好，源於細節</h1>
+            <p>輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
+        </header>
+    </div>
+
+    <main class="container">
+        <h2 class="section-title">全站商品 / ALL ITEMS</h2>
+        <div class="product-grid" id="productGrid">
+            <p style="text-align: center; color: #888; grid-column: 1/-1;">正在載入商品資料...</p>
+        </div>
+    </main>
+
+    <div class="overlay" id="cartOverlay" onclick="closeAllModals()"></div>
+    
+    <div class="cart-drawer" id="cartDrawer">
+        <div class="cart-header">
+            <h2>購物車清單 (<span id="cartHeaderCount">0</span>)</h2>
+            <button class="close-btn" onclick="toggleCart(false)">&times;</button>
+        </div>
+        <div class="cart-items-container" id="cartItemsContainer"></div>
+        <div class="cart-footer">
+            <div class="summary-row"><span>商品小計</span><span id="cartSubtotal">NT$ 0</span></div>
+            <div class="summary-row total"><span>訂單總計</span><span id="cartTotal">NT$ 0</span></div>
+            <button class="checkout-btn" onclick="openPaymentModal()">前往結帳 Checkout</button>
+        </div>
+    </div>
+
+    <div class="payment-modal" id="paymentModal">
+        <div class="payment-header">
+            <h2>安全結帳</h2>
+            <button class="close-btn" onclick="closePaymentModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label>收件人姓名</label>
+                    <input type="text" class="form-input" placeholder="請輸入真實姓名" required>
+                </div>
+                <div class="form-group">
+                    <label>電子郵件 (接收訂單通知)</label>
+                    <input type="email" class="form-input" placeholder="example@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label>收件地址</label>
+                    <input type="text" class="form-input" placeholder="請輸入完整收件地址" required>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px dashed #eee; margin: 25px 0;">
+                
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">信用卡資訊 (模擬)</label>
+                <div class="card-element">
+                    <div class="card-icon">💳</div>
+                    <div style="flex-grow: 1;">
+                        <input type="text" class="form-input" placeholder="0000 0000 0000 0000" style="border:none; padding:0; background:transparent; margin-bottom: 5px;" required>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" class="form-input" placeholder="MM/YY" style="border:none; padding:0; background:transparent; width: 60px;" required>
+                            <input type="text" class="form-input" placeholder="CVC" style="border:none; padding:0; background:transparent; width: 50px;" required>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="pay-btn">確認付款 <span id="payBtnAmount">NT$ 0</span></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toastMessage">已成功加入購物車！</div>
+    <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p></footer>
+
+    <script>
+        // ⚠️ 【重要】請填入你的 Firebase 憑證
+        const firebaseConfig = {
+            apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
+            authDomain: "tester-ec75c.firebaseapp.com",
+            projectId: "tester-ec75c",
+            storageBucket: "tester-ec75c.firebasestorage.app",
+            messagingSenderId: "761357583297",
+            appId: "1:761357583297:web:5d7bc8f4afc16a38cce540",
+            measurementId: "G-PGXJMR5LMT"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let products = [];
+        let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
+        let currentTotal = 0; // 記錄目前總金額
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchProductsFromCloud();
+            updateCartUI();
+        });
+
+        function fetchProductsFromCloud() {
+            db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
+                products = [];
+                querySnapshot.forEach((doc) => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                renderProducts();
+            });
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('productGrid');
+            if (products.length === 0) {
+                grid.innerHTML = `<p style="text-align: center; color: #999; grid-column: 1/-1; padding: 40px 0;">目前商店架上空空如也，請至管理後台新增商品！</p>`;
+                return;
+            }
+            grid.innerHTML = products.map(p => `
+                <div class="product-card">
+                    ${p.tag ? `<div class="product-tag">${p.tag}</div>` : ''}
+                    <a href="product.html?id=${p.id}" style="text-decoration:none; color:inherit; display:block; flex-grow:1;">
+                        <div class="product-image-placeholder"><span>${p.category}</span></div>
+                        <div class="product-info">
+                            <h3 class="product-name">${p.name}</h3>
+                            <div class="product-price">NT$ ${p.price.toLocaleString()}</div>
+                        </div>
+                    </a>
+                    <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">加入購物車</button>
+                </div>
+            `).join('');
+        }
+
+        /* --- 購物車與 UI 控制 --- */
+        function toggleCart(open) {
+            document.getElementById('cartDrawer').classList.toggle('open', open);
+            document.getElementById('cartOverlay').classList.toggle('open', open);
+        }
+
+        function closeAllModals() {
+            toggleCart(false);
+            closePaymentModal();
+        }
+
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existingItem = cart.find(item => item.id === productId);
+            if (existingItem) existingItem.quantity += 1;
+            else cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
+            saveCart(); updateCartUI(); showToast(`已將「${product.name}」放入購物車`);
+        }
+
+        function updateQuantity(productId, change) {
+            const item = cart.find(item => item.id === productId);
+            if (!item) return;
+            item.quantity += change;
+            if (item.quantity <= 0) removeFromCart(productId);
+            else { saveCart(); updateCartUI(); }
+        }
+
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.id !== productId);
+            saveCart(); updateCartUI();
+        }
+
+        function updateCartUI() {
+            const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cartCount').innerText = totalCount;
+            document.getElementById('cartHeaderCount').innerText = totalCount;
+            
+            currentTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('cartSubtotal').innerText = `NT$ ${currentTotal.toLocaleString()}`;
+            document.getElementById('cartTotal').innerText = `NT$ ${currentTotal.toLocaleString()}`;
+            
+            const container = document.getElementById('cartItemsContainer');
+            if (cart.length === 0) {
+                container.innerHTML = `<p style="text-align: center; color: #aaa; margin-top: 50px;">購物車目前是空的喔</p>`; 
+                return;
+            }
+            container.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-thumb">ITEM</div>
+                    <div class="cart-item-details">
+                        <div class="cart-item-name">${item.name}</div>
+                        <div class="cart-item-price">NT$ ${item.price.toLocaleString()}</div>
+                        <div class="cart-item-qty-control">
+                            <button class="qty-btn" onclick="updateQuantity('${item.id}', -1)">-</button>
+                            <span class="qty-val">${item.quantity}</span>
+                            <button class="qty-btn" onclick="updateQuantity('${item.id}', 1)">+</button>
+                            <button class="remove-item" onclick="removeFromCart('${item.id}')">移除</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function saveCart() { localStorage.setItem('lightning_life_cart', JSON.stringify(cart)); }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toastMessage'); 
+            toast.innerText = message;
+            toast.classList.add('show'); 
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        /* --- 🌟 結帳與付款邏輯 --- */
+        function openPaymentModal() {
+            if (cart.length === 0) return alert('購物車是空的，無法結帳喔！');
+            
+            // 關閉購物車，開啟付款表單
+            document.getElementById('cartDrawer').classList.remove('open');
+            document.getElementById('paymentModal').classList.add('open');
+            
+            // 更新付款按鈕上的金額
+            document.getElementById('payBtnAmount').innerText = `NT$ ${currentTotal.toLocaleString()}`;
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').classList.remove('open');
+            document.getElementById('cartOverlay').classList.remove('open');
+        }
+
+        // 處理付款表單送出 (模擬成功)
+        document.getElementById('paymentForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // 阻止網頁重新整理
+            
+            // 在真實環境中，這裡會將信用卡資訊加密送給 Stripe API，並將訂單資訊寫入 Firebase
+            
+            // 模擬付款處理中...
+            const btn = document.querySelector('.pay-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "付款處理中...";
+            btn.style.opacity = "0.7";
+            
+            setTimeout(() => {
+                alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已經成立。\n（這是一個模擬結帳流程）');
+                
+                // 付款成功後清空購物車與表單
+                cart = [];
+                saveCart();
+                updateCartUI();
+                this.reset();
+                
+                // 恢復按鈕與關閉視窗
+                btn.innerHTML = originalText;
+                btn.style.opacity = "1";
+                closeAllModals();
+            }, 1500); // 模擬 1.5 秒的連線延遲
+        });
+    </script>
+</body>
+</html>
