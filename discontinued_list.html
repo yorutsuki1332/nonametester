@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIGHTNING ADMIN | 現時上架貨品</title>
+    <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Noto Sans TC', 'Helvetica Neue', sans-serif;
+        }
+
+        :root {
+            --bg-main: #f9f9f8;
+            --bg-white: #ffffff;
+            --baby-yellow: #FEF9C3;
+            --text-main: #333333;
+            --text-muted: #888888;
+            --border-color: #e5e5e5;
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 側邊導覽列 */
+        aside {
+            width: 260px;
+            background-color: var(--bg-white);
+            border-right: 1px solid var(--border-color);
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 50px;
+            color: var(--text-main);
+            padding-left: 10px;
+        }
+
+        .logo span {
+            color: var(--text-muted);
+            font-size: 12px;
+            display: block;
+            margin-top: 5px;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-menu li a {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+        }
+
+        .nav-menu li a:hover, .nav-menu li a.active {
+            background-color: var(--baby-yellow);
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* 主內容區塊 */
+        main {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 40px 5%;
+            max-width: 1200px;
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* 商品列表卡片 */
+        .products-card {
+            background-color: var(--bg-white);
+            border-radius: var(--radius-lg);
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+        }
+
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        .product-table th {
+            padding: 15px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .product-table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .product-table tr:hover {
+            background-color: #fafafa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #eee;
+        }
+
+        .badge.new { background: #111; color: #fff; }
+        .badge.hot { background: #ff6b6b; color: #fff; }
+
+        .btn-edit {
+            background-color: #111;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: var(--transition);
+            margin-right: 5px;
+        }
+
+        .btn-edit:hover {
+            background-color: #333;
+        }
+
+        .btn-danger {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        .btn-danger:hover {
+            background-color: #fa5252;
+        }
+
+        /* 彈跳視窗 (Modal) 與遮罩 */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
+        .overlay.open { opacity: 1; visibility: visible; }
+
+        .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
+        .payment-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+        .payment-header { padding: 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+        .payment-header h2 { font-size: 18px; font-weight: 600; }
+        .close-btn { background: none; border: none; font-size: 26px; cursor: pointer; color: var(--text-muted); }
+        .payment-body { padding: 25px; max-height: 70vh; overflow-y: auto; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555; }
+        .form-input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: 0.3s; background: #fff; }
+        .form-input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+        
+        .pay-btn { width: 100%; background: var(--baby-yellow); color: #111; padding: 16px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .pay-btn:hover { background: #f0e9aa; transform: translateY(-2px); }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(200%);
+            background-color: var(--text-main);
+            color: #ffffff;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 3000;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            aside { width: 100%; height: auto; position: relative; padding: 20px; flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+            .logo { margin-bottom: 0; }
+            .nav-menu { display: none; }
+            main { margin-left: 0; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="logo">LIGHTNING<span>SELLER CENTER</span></div>
+        <ul class="nav-menu">
+            <li><a href="admin.html">📍 上架新商品</a></li>
+            <li><a href="products_list.html">📦 現時上架貨品</a></li>
+            <li><a href="discontinued_list.html" class="active">📥 已下架貨品</a></li>
+            <li><a href="orders_list.html">📝 訂單管理</a></li>
+        </ul>
+    </aside>
+    <main>
+        <div class="page-header">
+            <h1>已下架貨品</h1>
+            <p>管理目前所有在雲端資料庫中已下架的商品清單，可直接進行重新上架或永久刪除。</p>
+        </div>
+        <div class="products-card">
+            <table class="product-table">
+                <thead>
+                    <tr>
+                        <th>商品名稱</th>
+                        <th>分類</th>
+                        <th>標籤</th>
+                        <th>售價 (HKD)</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="adminProductTableBody">
+                    <tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">正在載入商品資料...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- 🌟 修改商品彈跳視窗 (Modal) -->
+    <div class="overlay" id="modalOverlay" onclick="closeEditModal()"></div>
+    <div class="payment-modal" id="editModal">
+        <div class="payment-header">
+            <h2>修改商品資料</h2>
+            <button class="close-btn" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <form id="editProductForm">
+                <input type="hidden" id="editProductId">
+                <div class="form-group">
+                    <label>商品名稱</label>
+                    <input type="text" id="editName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>商品分類</label>
+                    <select id="editCategory" class="form-input" required>
+                        <option value="ACCESSORY">精緻飾品 (ACCESSORY)</option>
+                        <option value="DAILY WEAR">日常衣著 (DAILY WEAR)</option>
+                        <option value="BAGS">包款配件 (BAGS)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>行銷標籤</label>
+                    <select id="editTag" class="form-input">
+                        <option value="">無標籤</option>
+                        <option value="NEW">全新商品 (NEW)</option>
+                        <option value="HOT">熱賣單品 (HOT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>商品售價 (HKD)</label>
+                    <input type="number" id="editPrice" class="form-input" step="0.1" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>商品詳細描述</label>
+                    <textarea id="editDescription" class="form-input" rows="4" style="resize: vertical;" required></textarea>
+                </div>
+                <button type="submit" class="pay-btn">儲存修改</button>
+                <button type="remove" class="btn-danger" onclick="deleteProduct('${p.id}')">下架</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toastMessage">✅ 操作成功！</div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
+            authDomain: "tester-ec75c.firebaseapp.com",
+            projectId: "tester-ec75c",
+            storageBucket: "tester-ec75c.firebasestorage.app",
+            messagingSenderId: "761357583297",
+            appId: "1:761357583297:web:5d7bc8f4afc16a38cce540",
+            measurementId: "G-PGXJMR5LMT"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let productsMap = {}; // 儲存商品資料對應表
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAdminProducts();
+        });
+
+        function fetchAdminProducts() {
+            db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
+                const tbody = document.getElementById('adminProductTableBody');
+                productsMap = {};
+                let productsList = [];
+                
+                querySnapshot.forEach((doc) => {
+                    const productData = { id: doc.id, ...doc.data() };
+                    productsMap[doc.id] = productData;
+                    productsList.push(productData);
+                });
+
+                if (productsList.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">目前尚無任何上架商品</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = productsList.map(p => `
+                    <tr>
+                        <td style="font-weight: 500;">${p.name}</td>
+                        <td>${p.category}</td>
+                        <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
+                        <td>HKD ${Number(p.price).toFixed(1)}</td>
+                        <td>
+                            <button class="btn-edit" onclick="openEditModal('${p.id}')">修改</button>
+                        </td>
+                    </tr>
+                `).join('');
+            });
+        }
+
+        // 🌟 開啟修改 Modal 並代入該商品資料
+        function openEditModal(productId) {
+            const product = productsMap[productId];
+            if (!product) return;
+
+            document.getElementById('editProductId').value = product.id;
+            document.getElementById('editName').value = product.name || '';
+            document.getElementById('editCategory').value = product.category || 'ACCESSORY';
+            document.getElementById('editTag').value = product.tag || '';
+            document.getElementById('editPrice').value = product.price || 0;
+            document.getElementById('editDescription').value = product.description || '';
+
+            document.getElementById('editModal').classList.add('open');
+            document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('open');
+            document.getElementById('modalOverlay').classList.remove('open');
+        }
+
+        // 🌟 處理修改表單送出
+        document.getElementById('editProductForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const productId = document.getElementById('editProductId').value;
+            
+            const updatedData = {
+                name: document.getElementById('editName').value,
+                category: document.getElementById('editCategory').value,
+                tag: document.getElementById('editTag').value,
+                price: parseFloat(document.getElementById('editPrice').value),
+                description: document.getElementById('editDescription').value
+            };
+
+            db.collection("products").doc(productId).update(updatedData).then(() => {
+                showToast('✅ 商品資料已成功更新！');
+                closeEditModal();
+            }).catch((error) => {
+                alert('更新失敗： ' + error.message);
+            });
+        });
+
+        document.getElementById('editProductForm').addEventListener('remove', function(e) {
+            e.preventDefault();
+            const productId = document.getElementById('editProductId').value;
+            deleteProduct(productId);
+        });
+
+        function deleteProduct(productId) {
+            if (confirm('確定要下架此商品嗎？')) {
+                db.collection("products").doc(productId).delete().then(() => {
+                    showToast('🗑️ 已成功下架商品！');
+                }).catch((error) => {
+                    alert('下架失敗： ' + error.message);
+                });
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toastMessage');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
