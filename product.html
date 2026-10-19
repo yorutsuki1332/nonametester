@@ -146,7 +146,7 @@
                 <div class="product-info-wrapper">
                     <div class="breadcrumbs">首頁 / ${currentProduct.category} / ${currentProduct.name}</div>
                     <h1 class="detail-name">${currentProduct.name}</h1>
-                    <div class="detail-price">HKD ${currentProduct.price.toFixed(1)}</div>
+                    <div class="detail-price">HKD ${Number(currentProduct.price).toFixed(1)}</div>
                     
                     <div class="detail-description">${descText}</div>
                     
@@ -161,7 +161,7 @@
             if (item) {
                 item.quantity++;
             } else {
-                cart.push({ id: currentProduct.id, name: currentProduct.name, price: currentProduct.price, quantity: 1 });
+                cart.push({ id: currentProduct.id, name: currentProduct.name, price: Number(currentProduct.price), quantity: 1 });
             }
             localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
             

@@ -375,7 +375,7 @@
                         <div class="product-image-placeholder"><span>${p.category}</span></div>
                         <div class="product-info">
                             <h3 class="product-name">${p.name}</h3>
-                            <div class="product-price">HKD ${p.price.toFixed(1)}</div>
+                            <div class="product-price">HKD ${Number(p.price).toFixed(1)}</div>
                         </div>
                     </a>
                     <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">加入購物車</button>
@@ -399,7 +399,7 @@
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) existingItem.quantity += 1;
-            else cart.push({ id: product.id, name: product.name, price: product.price, quantity: 1 });
+            else cart.push({ id: product.id, name: product.name, price: Number(product.price), quantity: 1 });
             saveCart(); updateCartUI(); showToast(`已將「${product.name}」放入購物車`);
         }
 
@@ -424,8 +424,8 @@
             document.getElementById('cartHeaderCount').innerText = totalCount;
             
             currentTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            document.getElementById('cartSubtotal').innerText = `HKD ${currentTotal.toLocaleString()}`;
-            document.getElementById('cartTotal').innerText = `HKD ${currentTotal.toLocaleString()}`;
+            document.getElementById('cartSubtotal').innerText = `HKD ${Number(currentTotal).toFixed(1)}`;
+            document.getElementById('cartTotal').innerText = `HKD ${Number(currentTotal).toFixed(1)}`;
             
             const container = document.getElementById('cartItemsContainer');
             if (cart.length === 0) {
@@ -437,7 +437,7 @@
                     <div class="cart-item-thumb">ITEM</div>
                     <div class="cart-item-details">
                         <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-price">HKD ${item.price.toLocaleString()}</div>
+                        <div class="cart-item-price">HKD ${Number(item.price).toFixed(1)}</div>
                         <div class="cart-item-qty-control">
                             <button class="qty-btn" onclick="updateQuantity('${item.id}', -1)">-</button>
                             <span class="qty-val">${item.quantity}</span>
