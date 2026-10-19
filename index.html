@@ -375,7 +375,7 @@
                         <div class="product-image-placeholder"><span>${p.category}</span></div>
                         <div class="product-info">
                             <h3 class="product-name">${p.name}</h3>
-                            <div class="product-price">HKD ${p.price.toLocaleString()}</div>
+                            <div class="product-price">HKD ${p.price.toFixed(1)}</div>
                         </div>
                     </a>
                     <button class="add-to-cart-btn" onclick="addToCart('${p.id}')">加入購物車</button>

@@ -313,7 +313,7 @@
                         <label for="salePrice">商品售價 <span>*</span></label>
                         <div class="price-input-wrapper">
                             <span class="price-prefix">HKD </span>
-                            <input type="number" id="salePrice" class="form-control" placeholder="0" min="0" step="0.1" required>
+                            <input type="number" id="salePrice" class="form-control" placeholder="0" min="0" required>
                         </div>
                     </div>
                 </div>
@@ -353,7 +353,7 @@
             const newProduct = {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 name: document.getElementById('productName').value,
-                price: parseInt(document.getElementById('salePrice').value),
+                price: parseFloat(document.getElementById('salePrice').value),
                 category: document.getElementById('productCategory').value,
                 tag: document.getElementById('productTag').value,
                 description: document.getElementById('productDesc').value // 新增描述欄位
