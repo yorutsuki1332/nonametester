@@ -479,23 +479,44 @@
             e.target.value = value;
         });
 
-        document.getElementById('paymentForm').addEventListener('submit', function(e) {
+        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const btn = document.querySelector('.pay-btn');
             const originalText = btn.innerHTML;
             btn.innerHTML = "付款處理中...";
             btn.style.opacity = "0.7";
             
-            setTimeout(() => {
-                alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已經成立。');
-                cart = [];
-                saveCart();
-                updateCartUI();
-                this.reset();
+            // 取得表單輸入的收件資訊
+            const inputs = this.querySelectorAll('.form-input');
+            const orderData = {
+                name: inputs[0].value.trim(),
+                email: inputs[1].value.trim(),
+                address: inputs[2].value.trim(),
+                items: cart,
+                total: currentTotal,
+                status: 'pending', // 預設狀態為處理中
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                // 將訂單寫入 Firestore 的 orders 集合
+                await db.collection("orders").add(orderData);
+
+                setTimeout(() => {
+                    alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已成功建立並送至後台。');
+                    cart = [];
+                    saveCart();
+                    updateCartUI();
+                    this.reset();
+                    btn.innerHTML = originalText;
+                    btn.style.opacity = "1";
+                    closeAllModals();
+                }, 1500);
+            } catch (error) {
+                alert('訂單建立失敗： ' + error.message);
                 btn.innerHTML = originalText;
                 btn.style.opacity = "1";
-                closeAllModals();
-            }, 1500);
+            }
         });
     </script>
 </body>

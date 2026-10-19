@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIGHTNING ADMIN | 現時上架貨品</title>
+    <title>LIGHTNING ADMIN | 訂單管理</title>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
     <style>
@@ -112,7 +112,7 @@
             font-size: 14px;
         }
 
-        /* 商品列表卡片 */
+        /* 列表卡片 */
         .products-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
@@ -154,8 +154,9 @@
             background: #eee;
         }
 
-        .badge.new { background: #111; color: #fff; }
-        .badge.hot { background: #ff6b6b; color: #fff; }
+        .badge.pending { background: #FEF9C3; color: #333; }
+        .badge.completed { background: #8bfc9a; color: #333; }
+        .badge.cancelled { background: #ff8585; color: #fff; }
 
         .btn-edit {
             background-color: #111;
@@ -171,6 +172,21 @@
 
         .btn-edit:hover {
             background-color: #333;
+        }
+
+        .btn-confirm {
+            background-color: #2b8a3e;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        .btn-confirm:hover {
+            background-color: #2b8a3e;
         }
 
         .btn-danger {
@@ -248,67 +264,89 @@
     <main>
         <div class="page-header">
             <h1>訂單管理</h1>
-            <p>管理目前所有在雲端資料庫中的訂單，可直接進行修改或刪除。</p>
+            <p>管理目前所有在雲端資料庫中的訂單紀錄。請點擊「檢視詳情」查看與管理。</p>
         </div>
         <div class="products-card">
             <table class="product-table">
                 <thead>
                     <tr>
-                        <th>訂單名稱</th>
-                        <th>分類</th>
-                        <th>標籤</th>
-                        <th>售價 (HKD)</th>
+                        <th>訂單 ID</th>
+                        <th>收件人</th>
+                        <th>電子郵件</th>
+                        <th>總金額 (HKD)</th>
+                        <th>狀態</th>
                         <th>操作</th>
                     </tr>
                 </thead>
-                <tbody id="adminProductTableBody">
-                    <tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">正在載入商品資料...</td></tr>
+                <tbody id="ordersTableBody">
+                    <tr><td colspan="6" style="text-align: center; color: #888; padding: 30px;">正在載入訂單資料...</td></tr>
                 </tbody>
             </table>
         </div>
     </main>
 
-    <!-- 🌟 修改商品彈跳視窗 (Modal) -->
-    <div class="overlay" id="modalOverlay" onclick="closeEditModal()"></div>
-    <div class="payment-modal" id="editModal">
+    <!-- 🌟 訂單詳情與操作 Modal -->
+    <div class="overlay" id="modalOverlay" onclick="closeOrderModal()"></div>
+    <div class="payment-modal" id="orderModal">
         <div class="payment-header">
-            <h2>修改商品資料</h2>
-            <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            <h2 id="modalTitle">訂單詳細資訊</h2>
+            <button class="close-btn" onclick="closeOrderModal()">&times;</button>
         </div>
         <div class="payment-body">
-            <form id="editProductForm">
-                <input type="hidden" id="editProductId">
-                <div class="form-group">
-                    <label>商品名稱</label>
-                    <input type="text" id="editName" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label>商品分類</label>
-                    <select id="editCategory" class="form-input" required>
-                        <option value="ACCESSORY">精緻飾品 (ACCESSORY)</option>
-                        <option value="DAILY WEAR">日常衣著 (DAILY WEAR)</option>
-                        <option value="BAGS">包款配件 (BAGS)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>行銷標籤</label>
-                    <select id="editTag" class="form-input">
-                        <option value="">無標籤</option>
-                        <option value="NEW">全新商品 (NEW)</option>
-                        <option value="HOT">熱賣單品 (HOT)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>商品售價 (HKD)</label>
-                    <input type="number" id="editPrice" class="form-input" step="0.1" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label>商品詳細描述</label>
-                    <textarea id="editDescription" class="form-input" rows="4" style="resize: vertical;" required></textarea>
-                </div>
-                <button type="submit" class="pay-btn">儲存修改</button>
-                <button type="remove" class="btn-danger" onclick="deleteProduct('${p.id}')">下架</button>
-            </form>
+            <input type="hidden" id="modalOrderId">
+            <div class="form-group">
+                <label>收件人姓名</label>
+                <input type="text" id="modalName" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label>電子郵件</label>
+                <input type="text" id="modalEmail" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label>收件地址</label>
+                <input type="text" id="modalAddress" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label>訂單總金額 (HKD)</label>
+                <input type="text" id="modalTotal" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label>購買商品明細</label>
+                <div id="modalItems" style="background: #f9f9f9; padding: 12px; border-radius: 8px; font-size: 13px; max-height: 150px; overflow-y: auto; border: 1px solid #ddd;"></div>
+            </div>
+            
+            <button type="button" class="btn" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openOrderConfirmModal()">完成此訂單</button>
+            <button type="button" class="btn-danger" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openDeleteConfirmModal()">刪除此訂單</button>
+        </div>
+    </div>
+
+    <!-- 🌟 完成訂單確認 Modal -->
+    <div class="overlay" id="orderConfirmOverlay" onclick="closeOrderConfirmModal()"></div>
+    <div class="payment-modal" id="orderConfirmModal" style="z-index: 3000;">
+        <div class="payment-header">
+            <h2>確認完成訂單</h2>
+            <button class="close-btn" onclick="closeOrderConfirmModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <input type="hidden" id="orderConfirmOrderId">
+            <p id="orderConfirmText" style="font-size: 14px; color: #555; margin-bottom: 25px; line-height: 1.6;">確定要將此筆訂單標記為「已完成 (completed)」嗎？</p>
+            <button type="button" class="pay-btn" style="background-color: #82f599; color: #333;" onclick="executeCompleteOrder()">確認完成</button>
+            <button type="button" class="pay-btn" style="background-color: #f5f5f5; color: #333; margin-top: 10px;" onclick="closeOrderConfirmModal()">取消</button>
+        </div>
+    </div>
+
+    <!-- 🌟 取消/刪除確認彈跳視窗 (Modal) - 狀態轉為 cancelled -->
+    <div class="overlay" id="deleteConfirmOverlay" onclick="closeDeleteConfirmModal()"></div>
+    <div class="payment-modal" id="deleteConfirmModal" style="z-index: 3000;">
+        <div class="payment-header">
+            <h2>確認刪除訂單</h2>
+            <button class="close-btn" onclick="closeDeleteConfirmModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <input type="hidden" id="deleteConfirmOrderId">
+            <p id="deleteConfirmText" style="font-size: 14px; color: #555; margin-bottom: 25px; line-height: 1.6;">確定要將此筆訂單標記為「已取消 (cancelled)」嗎？</p>
+            <button type="button" class="pay-btn" style="background-color: #ff6b6b; color: #fff;" onclick="executeDeleteOrder()">確認刪除</button>
+            <button type="button" class="pay-btn" style="background-color: #f5f5f5; color: #333; margin-top: 10px;" onclick="closeDeleteConfirmModal()">取消</button>
         </div>
     </div>
 
@@ -327,99 +365,137 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        let productsMap = {}; // 儲存商品資料對應表
+        let ordersMap = {};
 
         document.addEventListener('DOMContentLoaded', () => {
-            fetchAdminProducts();
+            fetchOrders();
         });
 
-        function fetchAdminProducts() {
-            db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
-                const tbody = document.getElementById('adminProductTableBody');
-                productsMap = {};
-                let productsList = [];
+        function fetchOrders() {
+            db.collection("orders").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
+                const tbody = document.getElementById('ordersTableBody');
+                ordersMap = {};
+                let list = [];
                 
                 querySnapshot.forEach((doc) => {
-                    const productData = { id: doc.id, ...doc.data() };
-                    productsMap[doc.id] = productData;
-                    productsList.push(productData);
+                    const data = { id: doc.id, ...doc.data() };
+                    ordersMap[doc.id] = data;
+                    list.push(data);
                 });
 
-                if (productsList.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">目前尚無任何上架商品</td></tr>`;
+                if (list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 30px;">目前尚無任何訂單紀錄</td></tr>`;
                     return;
                 }
 
-                tbody.innerHTML = productsList.map(p => `
+                tbody.innerHTML = list.map(o => `
                     <tr>
-                        <td style="font-weight: 500;">${p.name}</td>
-                        <td>${p.category}</td>
-                        <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
-                        <td>HKD ${Number(p.price).toFixed(1)}</td>
+                        <td style="font-family: monospace; font-size: 12px;">${o.id}</td>
+                        <td style="font-weight: 500;">${o.name || '未提供'}</td>
+                        <td>${o.email || '未提供'}</td>
+                        <td>HKD ${Number(o.total || 0).toFixed(1)}</td>
+                        <td><span class="badge ${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}">${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}</span></td>
                         <td>
-                            <button class="btn-edit" onclick="openEditModal('${p.id}')">修改</button>
+                            <button class="btn-edit" onclick="openOrderModal('${o.id}')">檢視詳情</button>
                         </td>
                     </tr>
                 `).join('');
             });
         }
 
-        // 🌟 開啟修改 Modal 並代入該商品資料
-        function openEditModal(productId) {
-            const product = productsMap[productId];
-            if (!product) return;
+        function openOrderModal(orderId) {
+            const order = ordersMap[orderId];
+            if (!order) return;
 
-            document.getElementById('editProductId').value = product.id;
-            document.getElementById('editName').value = product.name || '';
-            document.getElementById('editCategory').value = product.category || 'ACCESSORY';
-            document.getElementById('editTag').value = product.tag || '';
-            document.getElementById('editPrice').value = product.price || 0;
-            document.getElementById('editDescription').value = product.description || '';
+            document.getElementById('modalOrderId').value = order.id;
+            document.getElementById('modalName').value = order.name || '';
+            document.getElementById('modalEmail').value = order.email || '';
+            document.getElementById('modalAddress').value = order.address || '';
+            document.getElementById('modalTotal').value = `HKD ${Number(order.total || 0).toFixed(1)}`;
+            
+            const itemsContainer = document.getElementById('modalItems');
+            if (order.items && order.items.length > 0) {
+                itemsContainer.innerHTML = order.items.map(item => `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                        <span>${item.name} × ${item.quantity}</span>
+                        <span>HKD ${Number(item.price * item.quantity).toFixed(1)}</span>
+                    </div>
+                `).join('');
+            } else {
+                itemsContainer.innerHTML = '<span style="color: #888;">無商品明細</span>';
+            }
 
-            document.getElementById('editModal').classList.add('open');
+            document.getElementById('orderModal').classList.add('open');
             document.getElementById('modalOverlay').classList.add('open');
         }
 
-        function closeEditModal() {
-            document.getElementById('editModal').classList.remove('open');
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('open');
             document.getElementById('modalOverlay').classList.remove('open');
         }
 
-        // 🌟 處理修改表單送出
-        document.getElementById('editProductForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const productId = document.getElementById('editProductId').value;
-            
-            const updatedData = {
-                name: document.getElementById('editName').value,
-                category: document.getElementById('editCategory').value,
-                tag: document.getElementById('editTag').value,
-                price: parseFloat(document.getElementById('editPrice').value),
-                description: document.getElementById('editDescription').value
-            };
+        // 🌟 開啟完成訂單確認 Modal
+        function openOrderConfirmModal() {
+            const orderId = document.getElementById('modalOrderId').value;
+            const order = ordersMap[orderId];
+            if (!order) return;
 
-            db.collection("products").doc(productId).update(updatedData).then(() => {
-                showToast('✅ 商品資料已成功更新！');
-                closeEditModal();
-            }).catch((error) => {
-                alert('更新失敗： ' + error.message);
-            });
-        });
+            document.getElementById('orderConfirmOrderId').value = orderId;
+            document.getElementById('orderConfirmText').innerText = `確定要將收件人「${order.name || '未提供'}」的這筆訂單標記為「已完成」嗎？`;
 
-        document.getElementById('editProductForm').addEventListener('remove', function(e) {
-            e.preventDefault();
-            const productId = document.getElementById('editProductId').value;
-            deleteProduct(productId);
-        });
+            closeOrderModal();
+            document.getElementById('orderConfirmModal').classList.add('open');
+            document.getElementById('orderConfirmOverlay').classList.add('open');
+        }
 
-        function deleteProduct(productId) {
-            if (confirm('確定要下架此商品嗎？')) {
-                db.collection("products").doc(productId).delete().then(() => {
-                    showToast('🗑️ 已成功下架商品！');
-                }).catch((error) => {
-                    alert('下架失敗： ' + error.message);
-                });
-            }
+        function closeOrderConfirmModal() {
+            document.getElementById('orderConfirmModal').classList.remove('open');
+            document.getElementById('orderConfirmOverlay').classList.remove('open');
+        }
+
+        // 🌟 執行更新狀態為 completed
+        function executeCompleteOrder() {
+            const orderId = document.getElementById('orderConfirmOrderId').value;
+            if (!orderId) return;
+
+            db.collection("orders").doc(orderId).update({
+                status: 'completed'
+            }).then(() => {
+                closeOrderConfirmModal();
+                showToast('✅ 訂單已成功標記為完成！');
+            }).catch(err => alert('更新失敗：' + err.message));
+        }
+
+        // 🌟 開啟刪除（改為 cancelled 狀態）確認 Modal
+        function openDeleteConfirmModal() {
+            const orderId = document.getElementById('modalOrderId').value;
+            const order = ordersMap[orderId];
+            if (!order) return;
+
+            document.getElementById('deleteConfirmOrderId').value = orderId;
+            document.getElementById('deleteConfirmText').innerText = `確定要將收件人「${order.name || '未提供'}」的這筆訂單標記為「已取消」嗎？`;
+
+            closeOrderModal();
+            document.getElementById('deleteConfirmModal').classList.add('open');
+            document.getElementById('deleteConfirmOverlay').classList.add('open');
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('deleteConfirmModal').classList.remove('open');
+            document.getElementById('deleteConfirmOverlay').classList.remove('open');
+        }
+
+        // 🌟 執行更新狀態為 cancelled（替代原本的刪除）
+        function executeDeleteOrder() {
+            const orderId = document.getElementById('deleteConfirmOrderId').value;
+            if (!orderId) return;
+
+            db.collection("orders").doc(orderId).update({
+                status: 'cancelled'
+            }).then(() => {
+                closeDeleteConfirmModal();
+                showToast('⚠️ 訂單已更改為取消狀態！');
+            }).catch(err => alert('操作失敗：' + err.message));
         }
 
         function showToast(message) {

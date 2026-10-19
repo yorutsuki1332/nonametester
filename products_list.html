@@ -247,8 +247,8 @@
     </aside>
     <main>
         <div class="page-header">
-            <h1>現時上架貨品</h1>
-            <p>管理目前所有在雲端資料庫中的商品清單，可直接進行修改或下架。</p>
+            <h1>現時上架貨品[cite: 13]</h1>
+            <p>管理目前所有在雲端資料庫中的商品清單，可直接進行修改或下架[cite: 13]。</p>
         </div>
         <div class="products-card">
             <table class="product-table">
@@ -307,8 +307,23 @@
                     <textarea id="editDescription" class="form-input" rows="4" style="resize: vertical;" required></textarea>
                 </div>
                 <button type="submit" class="pay-btn">儲存修改</button>
-                <button type="remove" class="btn-danger" onclick="deleteProduct('${p.id}')">下架</button>
+                <button type="button" class="btn-danger" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openDiscontinueModalFromEdit()">下架商品</button>
             </form>
+        </div>
+    </div>
+
+    <!-- 🌟 下架確認彈跳視窗 (Modal) -->
+    <div class="overlay" id="discontinueOverlay" onclick="closeDiscontinueModal()"></div>
+    <div class="payment-modal" id="discontinueModal">
+        <div class="payment-header">
+            <h2>確認下架商品</h2>
+            <button class="close-btn" onclick="closeDiscontinueModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <input type="hidden" id="discontinueProductId">
+            <p id="discontinueModalText" style="font-size: 14px; color: #555; margin-bottom: 25px; line-height: 1.6;">確定要將此商品下架嗎？下架後將移至已下架頁面。</p>
+            <button type="button" class="pay-btn" style="background-color: #ff6b6b; color: #fff;" onclick="confirmDiscontinue()">確認下架</button>
+            <button type="button" class="pay-btn" style="background-color: #f5f5f5; color: #333; margin-top: 10px;" onclick="closeDiscontinueModal()">取消</button>
         </div>
     </div>
 
@@ -327,7 +342,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        let productsMap = {}; // 儲存商品資料對應表
+        let productsMap = {};
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchAdminProducts();
@@ -364,7 +379,6 @@
             });
         }
 
-        // 🌟 開啟修改 Modal 並代入該商品資料
         function openEditModal(productId) {
             const product = productsMap[productId];
             if (!product) return;
@@ -385,7 +399,6 @@
             document.getElementById('modalOverlay').classList.remove('open');
         }
 
-        // 🌟 處理修改表單送出
         document.getElementById('editProductForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const productId = document.getElementById('editProductId').value;
@@ -406,20 +419,52 @@
             });
         });
 
-        document.getElementById('editProductForm').addEventListener('remove', function(e) {
-            e.preventDefault();
+        // 🌟 從修改視窗點擊下架按鈕
+        function openDiscontinueModalFromEdit() {
             const productId = document.getElementById('editProductId').value;
-            deleteProduct(productId);
-        });
+            closeEditModal();
+            openDiscontinueModal(productId);
+        }
 
-        function deleteProduct(productId) {
-            if (confirm('確定要下架此商品嗎？')) {
-                db.collection("products").doc(productId).delete().then(() => {
-                    showToast('🗑️ 已成功下架商品！');
-                }).catch((error) => {
-                    alert('下架失敗： ' + error.message);
-                });
-            }
+        // 🌟 開啟下架確認彈跳視窗
+        function openDiscontinueModal(productId) {
+            const product = productsMap[productId];
+            if (!product) return;
+
+            document.getElementById('discontinueProductId').value = product.id;
+            document.getElementById('discontinueModalText').innerText = `確定要將「${product.name}」下架嗎？下架後將移至已下架頁面。`;
+            
+            document.getElementById('discontinueModal').classList.add('open');
+            document.getElementById('discontinueOverlay').classList.add('open');
+        }
+
+        function closeDiscontinueModal() {
+            document.getElementById('discontinueModal').classList.remove('open');
+            document.getElementById('discontinueOverlay').classList.remove('open');
+        }
+
+        // 🌟 確認執行下架動作並轉移至已下架集合
+        function confirmDiscontinue() {
+            const productId = document.getElementById('discontinueProductId').value;
+            const product = productsMap[productId];
+            if (!product) return;
+
+            db.collection("discontinued_products").add({
+                name: product.name,
+                category: product.category,
+                tag: product.tag || "",
+                price: product.price,
+                description: product.description,
+                createdAt: product.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+                discontinuedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                return db.collection("products").doc(productId).delete();
+            }).then(() => {
+                closeDiscontinueModal();
+                showToast('📥 商品已成功下架並移至已下架頁面！');
+            }).catch((error) => {
+                alert('下架失敗： ' + error.message);
+            });
         }
 
         function showToast(message) {
