@@ -7,6 +7,8 @@
     
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
+    <!-- 🌟 新增：Firebase Auth 驗證 SDK -->
+    <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js"></script>
 
     <style>
         /* 原有樣式保持不變 */
@@ -15,9 +17,15 @@
         body { background-color: var(--bg-white); color: var(--text-main); overflow-x: hidden; line-height: 1.6; }
         nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); }
         .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-main); }
-        .cart-icon-wrapper { cursor: pointer; position: relative; padding: 5px; }
+        
+        .nav-right-group { display: flex; align-items: center; gap: 20px; }
+        .user-auth-btn { font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-main); padding: 6px 12px; border-radius: 6px; background: #fafafa; border: 1px solid var(--border-color); transition: var(--transition); }
+        .user-auth-btn:hover { background: var(--baby-yellow); }
+
+        .cart-icon-wrapper { cursor: pointer; position: relative; padding: 5px; display: flex; align-items: center; }
         .cart-icon-svg { width: 22px; height: 22px; fill: none; stroke: var(--text-main); stroke-width: 1.5; }
         .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); color: var(--text-main); font-size: 11px; font-weight: 600; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        
         .hero-container { padding: 100px 4% 0; max-width: 1400px; margin: 0 auto; }
         .hero { height: 40vh; background-color: var(--baby-yellow); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
         .hero h1 { font-size: 36px; font-weight: 600; letter-spacing: 4px; margin-bottom: 15px; }
@@ -54,12 +62,13 @@
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
         .summary-row.total { font-size: 16px; font-weight: 600; margin-bottom: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); }
         .checkout-btn { width: 100%; background-color: var(--cta-color); color: #ffffff; border: none; border-radius: var(--radius-md); padding: 16px; cursor: pointer; font-size: 14px; }
+        
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
         .overlay.open { opacity: 1; visibility: visible; }
-        .toast { position: fixed; bottom: 0px; left: 50%; transform: translateX(-50%) translateY(150%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 4000; transition: var(--transition); }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(150%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 4000; transition: var(--transition); }
         .toast.show { transform: translateX(-50%) translateY(0); }
 
-        /* 🌟 新增：結帳付款模態框 (Checkout Modal) 樣式 */
+        /* 模態框共用樣式 */
         .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
         .payment-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
         .payment-header { padding: 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
@@ -69,8 +78,6 @@
         .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555; }
         .form-input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: 0.3s; }
         .form-input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
-        .form-row { display: flex; gap: 15px; }
-        .form-row .form-group { flex: 1; }
         .card-element { padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
         .card-icon { font-size: 24px; }
         .pay-btn { width: 100%; background: var(--baby-yellow); color: #111; padding: 16px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: 0.3s; margin-top: 10px; }
@@ -83,13 +90,46 @@
 
     <nav>
         <div class="logo">LIGHTNING</div>
-        <div class="nav-icons">
+        <div class="nav-right-group">
+            <!-- 🌟 會員登入狀態 / 按鈕 -->
+            <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 註冊</div>
+            
             <div class="cart-icon-wrapper" onclick="toggleCart(true)">
                 <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
                 <div class="cart-count" id="cartCount">0</div>
             </div>
         </div>
     </nav>
+
+    <!-- 🌟 會員登入/註冊 Modal -->
+    <div class="payment-modal" id="authModal">
+        <div class="payment-header">
+            <h2 id="authModalTitle">會員登入</h2>
+            <button class="close-btn" onclick="closeAuthModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <form id="authForm">
+                <div class="form-group">
+                    <label>帳戶 ID</label>
+                    <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required>
+                </div>
+                <!-- 註冊時才顯示的 Email 欄位 -->
+                <div class="form-group" id="emailGroup" style="display: none;">
+                    <label>電子郵件 (接收訂單通知)</label>
+                    <input type="email" id="authEmail" class="form-input" placeholder="example@email.com">
+                </div>
+                <div class="form-group">
+                    <label>密碼 (至少 6 位數)</label>
+                    <input type="password" id="authPassword" class="form-input" placeholder="請輸入密碼" required minlength="6">
+                </div>
+                <button type="submit" class="pay-btn" id="authSubmitBtn">登入系統</button>
+            </form>
+            <div style="text-align: center; margin-top: 15px; font-size: 13px;">
+                <span id="authSwitchText" style="color: #888;">還沒有帳號？</span>
+                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: #111; font-weight: 600; text-decoration: underline;" id="authSwitchBtn">點此註冊</a>
+            </div>
+        </div>
+    </div>
 
     <div class="hero-container">
         <header class="hero">
@@ -163,7 +203,7 @@
     <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p></footer>
 
     <script>
-        // ⚠️ 【重要】請填入你的 Firebase 憑證
+        // ⚠️ Firebase 憑證設定
         const firebaseConfig = {
             apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
             authDomain: "tester-ec75c.firebaseapp.com",
@@ -176,16 +216,142 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth(); // 🌟 初始化 Auth
 
         let products = [];
         let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
-        let currentTotal = 0; // 記錄目前總金額
+        let currentTotal = 0;
+        let isRegisterMode = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchProductsFromCloud();
             updateCartUI();
         });
 
+        /* --- 🌟 會員驗證相關邏輯 --- */
+        function openAuthModal() {
+            document.getElementById('authModal').classList.add('open');
+            document.getElementById('cartOverlay').classList.add('open');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.remove('open');
+            document.getElementById('cartOverlay').classList.remove('open');
+        }
+
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            const title = document.getElementById('authModalTitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const switchText = document.getElementById('authSwitchText');
+            const switchBtn = document.getElementById('authSwitchBtn');
+            const emailGroup = document.getElementById('emailGroup');
+            const emailInput = document.getElementById('authEmail');
+
+            if (isRegisterMode) {
+                title.innerText = "註冊新會員";
+                submitBtn.innerText = "立即註冊";
+                switchText.innerText = "已經有帳號了？";
+                switchBtn.innerText = "點此登入";
+                emailGroup.style.display = "block";
+                emailInput.required = true;
+            } else {
+                title.innerText = "會員登入";
+                submitBtn.innerText = "登入系統";
+                switchText.innerText = "還沒有帳號？";
+                switchBtn.innerText = "點此註冊";
+                emailGroup.style.display = "none";
+                emailInput.required = false;
+            }
+        }
+
+        // 處理登入/註冊送出
+        document.getElementById('authForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const accountId = document.getElementById('authAccountId').value.trim();
+            const password = document.getElementById('authPassword').value;
+
+            if (isRegisterMode) {
+                const email = document.getElementById('authEmail').value.trim();
+                try {
+                    // 1. 檢查帳戶 ID 是否已被使用
+                    const docRef = db.collection("users").doc(accountId);
+                    const docSnap = await docRef.get();
+                    if (docSnap.exists) {
+                        alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
+                        return;
+                    }
+
+                    // 2. 建立 Firebase 帳號
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    
+                    // 3. 寫入 users 對應集合
+                    await docRef.set({
+                        accountId: accountId,
+                        email: email,
+                        uid: userCredential.user.uid,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    showToast('註冊成功並已自動登入！');
+                    closeAuthModal();
+                    this.reset();
+                } catch (error) {
+                    alert('註冊失敗： ' + error.message);
+                }
+            } else {
+                try {
+                    // 1. 透過帳戶 ID 查詢對應的 Email
+                    const docRef = db.collection("users").doc(accountId);
+                    const docSnap = await docRef.get();
+
+                    if (!docSnap.exists) {
+                        alert('找不到此帳戶 ID，請確認是否輸入正確。');
+                        return;
+                    }
+
+                    const email = docSnap.data().email;
+
+                    // 2. 進行登入
+                    await auth.signInWithEmailAndPassword(email, password);
+                    
+                    showToast('登入成功！');
+                    closeAuthModal();
+                    this.reset();
+                } catch (error) {
+                    alert('登入失敗，請檢查密碼是否正確： ' + error.message);
+                }
+            }
+        });
+
+        // 監聽登入狀態改變
+        auth.onAuthStateChanged(async (user) => {
+            const userSection = document.getElementById('userAuthSection');
+            if (user) {
+                try {
+                    const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
+                    if (!querySnapshot.empty) {
+                        const accountId = querySnapshot.docs[0].id;
+                        userSection.innerHTML = `👤 ID: ${accountId} <span style="color:#888; font-size:11px;" onclick="logout(event)">(登出)</span>`;
+                        userSection.onclick = null; // 已登入狀態點擊不開啟彈窗
+                        return;
+                    }
+                } catch (e) {}
+                userSection.innerHTML = `👤 會員 <span style="color:#888; font-size:11px;" onclick="logout(event)">(登出)</span>`;
+            } else {
+                userSection.innerHTML = `會員登入 / 註冊`;
+                userSection.onclick = openAuthModal;
+            }
+        });
+
+        function logout(e) {
+            e.stopPropagation();
+            auth.signOut().then(() => {
+                showToast('已成功登出');
+            });
+        }
+
+        /* --- 商品與購物車原有邏輯 --- */
         function fetchProductsFromCloud() {
             db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
                 products = [];
@@ -217,7 +383,6 @@
             `).join('');
         }
 
-        /* --- 購物車與 UI 控制 --- */
         function toggleCart(open) {
             document.getElementById('cartDrawer').classList.toggle('open', open);
             document.getElementById('cartOverlay').classList.toggle('open', open);
@@ -226,6 +391,7 @@
         function closeAllModals() {
             toggleCart(false);
             closePaymentModal();
+            closeAuthModal();
         }
 
         function addToCart(productId) {
@@ -289,15 +455,10 @@
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
 
-        /* --- 🌟 結帳與付款邏輯 --- */
         function openPaymentModal() {
             if (cart.length === 0) return alert('購物車是空的，無法結帳喔！');
-            
-            // 關閉購物車，開啟付款表單
             document.getElementById('cartDrawer').classList.remove('open');
             document.getElementById('paymentModal').classList.add('open');
-            
-            // 更新付款按鈕上的金額
             document.getElementById('payBtnAmount').innerText = `HKD ${currentTotal.toLocaleString()}`;
         }
 
@@ -306,48 +467,32 @@
             document.getElementById('cartOverlay').classList.remove('open');
         }
 
-        // 💳 信用卡到期日自動格式化 (MM/YY)
         const expiryInput = document.getElementById('cardExpiry');
-
         expiryInput.addEventListener('input', function (e) {
-            // 1. 先把使用者輸入的所有「非數字」字元刪除 (防止他們打英文字母)
             let value = e.target.value.replace(/\D/g, '');
-            
-            // 2. 如果輸入的數字超過 2 個，就在中間自動插入 '/'
             if (value.length > 2) {
                 value = value.substring(0, 2) + '/' + value.substring(2, 4);
             }
-            
-            // 3. 把處理好的格式重新塞回輸入框裡顯示
             e.target.value = value;
         });
 
-        // 處理付款表單送出 (模擬成功)
         document.getElementById('paymentForm').addEventListener('submit', function(e) {
-            e.preventDefault(); // 阻止網頁重新整理
-            
-            // 在真實環境中，這裡會將信用卡資訊加密送給 Stripe API，並將訂單資訊寫入 Firebase
-            
-            // 模擬付款處理中...
+            e.preventDefault();
             const btn = document.querySelector('.pay-btn');
             const originalText = btn.innerHTML;
             btn.innerHTML = "付款處理中...";
             btn.style.opacity = "0.7";
             
             setTimeout(() => {
-                alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已經成立。\n（這是一個模擬結帳流程）');
-                
-                // 付款成功後清空購物車與表單
+                alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已經成立。');
                 cart = [];
                 saveCart();
                 updateCartUI();
                 this.reset();
-                
-                // 恢復按鈕與關閉視窗
                 btn.innerHTML = originalText;
                 btn.style.opacity = "1";
                 closeAllModals();
-            }, 1500); // 模擬 1.5 秒的連線延遲
+            }, 1500);
         });
     </script>
 </body>
