@@ -27,6 +27,7 @@
             --transition: all 0.3s ease;
         }
 
+        /* 預設桌機版型 */
         body {
             background-color: var(--bg-main);
             color: var(--text-main);
@@ -34,7 +35,6 @@
             min-height: 100vh;
         }
 
-        /* 側邊導覽列 */
         aside {
             width: 260px;
             background-color: var(--bg-white);
@@ -45,6 +45,48 @@
             position: fixed;
             height: 100vh;
             z-index: 100;
+        }
+
+        main {
+            margin-left: 260px;
+            flex-grow: 1;
+            padding: 40px 5%;
+            max-width: 1200px;
+        }
+
+        /* 📱 手機與平板響應式斷點 (768px 以下) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 20px;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+            }
+            .logo {
+                margin-bottom: 0;
+                font-size: 16px;
+            }
+            .nav-menu {
+                display: flex;
+                flex-direction: row;
+                gap: 5px;
+            }
+            .nav-menu li a {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+            main {
+                margin-left: 0;
+                padding: 20px;
+            }
         }
 
         .logo {
@@ -256,14 +298,6 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            aside { width: 100%; height: auto; position: relative; padding: 20px; flex-direction: row; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
-            .logo { margin-bottom: 0; }
-            .nav-menu { display: none; }
-            main { margin-left: 0; padding: 20px; }
-            .form-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>

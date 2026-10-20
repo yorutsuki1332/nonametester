@@ -70,7 +70,7 @@
         .toast.show { transform: translateX(-50%) translateY(0); }
 
         /* 模態框共用樣式 */
-        .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
+        .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; max-height: 85vh; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
         .payment-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
         .payment-header { padding: 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
         .payment-header h2 { font-size: 18px; font-weight: 600; }
