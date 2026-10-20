@@ -42,19 +42,16 @@
         .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 10px; }
         .nav-menu li a { display: flex; align-items: center; padding: 12px 15px; text-decoration: none; color: var(--text-muted); font-size: 14px; font-weight: 500; border-radius: var(--radius-md); transition: var(--transition); }
         .nav-menu li a:hover, .nav-menu li a.active { background-color: var(--baby-yellow); color: var(--text-main); font-weight: 600; }
-        main { margin-left: 260px; flex-grow: 1; padding: 40px 5%; max-width: 1200px; }
         .page-header { margin-bottom: 30px; }
         .page-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
         .page-header p { color: var(--text-muted); font-size: 14px; }
         .products-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
-            padding: 20px;
+            padding: 25px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             width: 100%;
-            overflow-x: auto;
             border: 1px solid var(--border-color);
-            -webkit-overflow-scrolling: touch;
         }
         .product-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
         .product-table th { padding: 15px; border-bottom: 2px solid var(--border-color); color: var(--text-muted); font-weight: 600; }
@@ -127,6 +124,53 @@
                 margin-left: 0;
                 width: 100%;
                 padding: 20px 15px;
+            }
+            /* 隱藏桌機版表格頭 */
+            .product-table thead { display: none; }
+            .products-card { padding: 15px; background: transparent; box-shadow: none; border: none; }
+            
+            /* 將每一列轉為獨立卡片 */
+            .product-table, .product-table tbody, .product-table tr, .product-table td {
+                display: block;
+                width: 100%;
+            }
+            .product-table tr {
+                background-color: var(--bg-white);
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+                margin-bottom: 15px;
+                padding: 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            }
+            .product-table td {
+                padding: 6px 0;
+                border: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 14px;
+            }
+            /* 模擬表格標籤提示 */
+            .product-table td:nth-child(1):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(2):before { content: "商品分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(3):before { content: "售價"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            
+            /* 操作按鈕移至下方並佔滿橫向空間 */
+            .product-table td:nth-child(4) {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border-color);
+            }
+            .product-table td:nth-child(4):before { display: none; }
+            .btn-restore, .btn-danger {
+                width: 100%;
+                margin-right: 0;
+                padding: 10px;
+                text-align: center;
+                font-size: 14px;
             }
         }
     </style>
