@@ -37,39 +37,7 @@
         }
 
         /* 📱 手機與平板響應式斷點 (768px 以下) */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            aside {
-                width: 100%;
-                height: auto;
-                position: relative;
-                padding: 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid var(--border-color);
-                border-right: none;
-            }
-            .logo {
-                margin-bottom: 0;
-                font-size: 16px;
-            }
-            .nav-menu {
-                display: flex;
-                flex-direction: row;
-                gap: 5px;
-            }
-            .nav-menu li a {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-            main {
-                margin-left: 0;
-                padding: 20px;
-            }
-        }
+        
         .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; margin-bottom: 50px; color: var(--text-main); padding-left: 10px; }
         .logo span { color: var(--text-muted); font-size: 12px; display: block; margin-top: 5px; letter-spacing: 1px; font-weight: 500; }
         .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 10px; }
@@ -106,6 +74,43 @@
         .pay-btn:hover { background: #f0e9aa; transform: translateY(-2px); }
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(200%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 3000; transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .toast.show { transform: translateX(-50%) translateY(0); }
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 15px 20px;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+            }
+            .logo {
+                margin-bottom: 0;
+                font-size: 15px;
+                padding-left: 0;
+            }
+            .logo span {
+                display: none;
+            }
+            .nav-menu {
+                flex-direction: row;
+                gap: 4px;
+            }
+            .nav-menu li a {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px 15px;
+            }
+        }
     </style>
 </head>
 <body>
