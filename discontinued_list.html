@@ -82,28 +82,38 @@
                 width: 100%;
                 height: auto;
                 position: relative;
-                padding: 15px 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
+                padding: 15px;
+                flex-direction: column;
+                align-items: stretch;
                 border-bottom: 1px solid var(--border-color);
                 border-right: none;
             }
             .logo {
-                margin-bottom: 0;
-                font-size: 15px;
+                margin-bottom: 12px;
+                font-size: 16px;
+                text-align: center;
                 padding-left: 0;
             }
             .logo span {
-                display: none;
+                display: inline-block;
+                margin-left: 5px;
+                font-size: 11px;
             }
             .nav-menu {
                 flex-direction: row;
-                gap: 4px;
+                justify-content: space-around;
+                gap: 5px;
+                overflow-x: auto;
+                padding-bottom: 4px;
             }
             .nav-menu li a {
-                padding: 6px 10px;
+                padding: 8px 10px;
                 font-size: 12px;
+                white-space: nowrap;
+                background-color: #f5f5f5;
+            }
+            .nav-menu li a.active {
+                background-color: var(--baby-yellow);
             }
             main {
                 margin-left: 0;
