@@ -47,48 +47,6 @@
             z-index: 100;
         }
 
-        main {
-            margin-left: 260px;
-            flex-grow: 1;
-            padding: 40px 5%;
-            max-width: 1200px;
-        }
-
-        /* 📱 手機與平板響應式斷點 (768px 以下) */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            aside {
-                width: 100%;
-                height: auto;
-                position: relative;
-                padding: 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid var(--border-color);
-                border-right: none;
-            }
-            .logo {
-                margin-bottom: 0;
-                font-size: 16px;
-            }
-            .nav-menu {
-                display: flex;
-                flex-direction: row;
-                gap: 5px;
-            }
-            .nav-menu li a {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-            main {
-                margin-left: 0;
-                padding: 20px;
-            }
-        }
-
         .logo {
             font-size: 20px;
             font-weight: 700;
@@ -124,6 +82,7 @@
             font-weight: 500;
             border-radius: var(--radius-md);
             transition: var(--transition);
+            white-space: nowrap;
         }
 
         .nav-menu li a:hover, .nav-menu li a.active {
@@ -138,6 +97,7 @@
             flex-grow: 1;
             padding: 40px 5%;
             max-width: 1200px;
+            width: calc(100% - 260px);
         }
 
         .page-header {
@@ -211,6 +171,13 @@
             background-color: var(--bg-white);
             transition: var(--transition);
             outline: none;
+            width: 100%;
+        }
+
+        /* 🌟 固定 description 欄位大小，禁止縮放與調整 */
+        textarea.form-control {
+            resize: none;
+            height: 120px;
         }
 
         .form-control:focus {
@@ -298,6 +265,71 @@
             transform: translateX(-50%) translateY(0);
         }
 
+        /* 📱 手機與平板響應式斷點 (768px 以下) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 15px;
+                flex-direction: column;
+                align-items: stretch;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+            }
+            .logo {
+                margin-bottom: 12px;
+                font-size: 16px;
+                text-align: center;
+                padding-left: 0;
+            }
+            .logo span {
+                display: inline-block;
+                margin-left: 5px;
+                font-size: 11px;
+            }
+            .nav-menu {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 5px;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+            .nav-menu li a {
+                padding: 8px 10px;
+                font-size: 12px;
+                white-space: nowrap;
+                background: #f5f5f5;
+            }
+            .nav-menu li a.active {
+                background-color: var(--baby-yellow);
+            }
+            main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px 15px;
+            }
+            .form-card {
+                padding: 20px;
+            }
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .form-actions {
+                flex-direction: column-reverse;
+                gap: 10px;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+                padding: 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -374,7 +406,6 @@
     <div class="toast" id="toastMessage">✅ 商品上架成功！雲端資料庫已同步。</div>
 
     <script>
-        // ⚠️ 貼上你的 Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
             authDomain: "tester-ec75c.firebaseapp.com",
@@ -395,7 +426,7 @@
                 price: parseFloat(document.getElementById('salePrice').value),
                 category: document.getElementById('productCategory').value,
                 tag: document.getElementById('productTag').value,
-                description: document.getElementById('productDesc').value // 新增描述欄位
+                description: document.getElementById('productDesc').value
             };
 
             db.collection("products").add(newProduct).then(() => {

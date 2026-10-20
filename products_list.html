@@ -46,48 +46,6 @@
             z-index: 100;
         }
 
-        main {
-            margin-left: 260px;
-            flex-grow: 1;
-            padding: 40px 5%;
-            max-width: 1200px;
-        }
-
-        /* 📱 手機與平板響應式斷點 (768px 以下) */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            aside {
-                width: 100%;
-                height: auto;
-                position: relative;
-                padding: 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid var(--border-color);
-                border-right: none;
-            }
-            .logo {
-                margin-bottom: 0;
-                font-size: 16px;
-            }
-            .nav-menu {
-                display: flex;
-                flex-direction: row;
-                gap: 5px;
-            }
-            .nav-menu li a {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-            main {
-                margin-left: 0;
-                padding: 20px;
-            }
-        }
-
         .logo {
             font-size: 20px;
             font-weight: 700;
@@ -123,6 +81,7 @@
             font-weight: 500;
             border-radius: var(--radius-md);
             transition: var(--transition);
+            white-space: nowrap;
         }
 
         .nav-menu li a:hover, .nav-menu li a.active {
@@ -137,6 +96,7 @@
             flex-grow: 1;
             padding: 40px 5%;
             max-width: 1200px;
+            width: calc(100% - 260px);
         }
 
         .page-header {
@@ -158,9 +118,10 @@
         .products-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
-            padding: 30px;
+            padding: 25px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             border: 1px solid var(--border-color);
+            width: 100%;
         }
 
         .product-table {
@@ -208,7 +169,6 @@
             cursor: pointer;
             font-size: 13px;
             transition: var(--transition);
-            margin-right: 5px;
         }
 
         .btn-edit:hover {
@@ -266,6 +226,102 @@
 
         .toast.show {
             transform: translateX(-50%) translateY(0);
+        }
+
+        /* 📱 手機與平板響應式斷點 (768px 以下) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 15px;
+                flex-direction: column;
+                align-items: stretch;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+            }
+            .logo {
+                margin-bottom: 12px;
+                font-size: 16px;
+                text-align: center;
+                padding-left: 0;
+            }
+            .logo span {
+                display: inline-block;
+                margin-left: 5px;
+                font-size: 11px;
+            }
+            .nav-menu {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 5px;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+            .nav-menu li a {
+                padding: 8px 10px;
+                font-size: 12px;
+                white-space: nowrap;
+                background: #f5f5f5;
+            }
+            .nav-menu li a.active {
+                background-color: var(--baby-yellow);
+            }
+            main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px 15px;
+            }
+
+            /* 手機版將表格轉為卡片式排列 */
+            .product-table thead { display: none; }
+            .products-card { padding: 15px; background: transparent; box-shadow: none; border: none; }
+            
+            .product-table, .product-table tbody, .product-table tr, .product-table td {
+                display: block;
+                width: 100%;
+            }
+            .product-table tr {
+                background-color: var(--bg-white);
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+                margin-bottom: 15px;
+                padding: 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            }
+            .product-table td {
+                padding: 6px 0;
+                border: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 14px;
+            }
+            .product-table td:nth-child(1):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(2):before { content: "分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(3):before { content: "標籤"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(4):before { content: "售價 (HKD)"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            
+            /* 操作按鈕移至下方並佔滿橫向空間 */
+            .product-table td:nth-child(5) {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border-color);
+            }
+            .product-table td:nth-child(5):before { display: none; }
+            .btn-edit {
+                width: 100%;
+                margin-right: 0;
+                padding: 10px;
+                text-align: center;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
@@ -453,14 +509,12 @@
             });
         });
 
-        // 🌟 從修改視窗點擊下架按鈕
         function openDiscontinueModalFromEdit() {
             const productId = document.getElementById('editProductId').value;
             closeEditModal();
             openDiscontinueModal(productId);
         }
 
-        // 🌟 開啟下架確認彈跳視窗
         function openDiscontinueModal(productId) {
             const product = productsMap[productId];
             if (!product) return;
@@ -477,7 +531,6 @@
             document.getElementById('discontinueOverlay').classList.remove('open');
         }
 
-        // 🌟 確認執行下架動作並轉移至已下架集合
         function confirmDiscontinue() {
             const productId = document.getElementById('discontinueProductId').value;
             const product = productsMap[productId];

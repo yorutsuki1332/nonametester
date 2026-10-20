@@ -46,48 +46,6 @@
             z-index: 100;
         }
 
-        main {
-            margin-left: 260px;
-            flex-grow: 1;
-            padding: 40px 5%;
-            max-width: 1200px;
-        }
-
-        /* 📱 手機與平板響應式斷點 (768px 以下) */
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            aside {
-                width: 100%;
-                height: auto;
-                position: relative;
-                padding: 20px;
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid var(--border-color);
-                border-right: none;
-            }
-            .logo {
-                margin-bottom: 0;
-                font-size: 16px;
-            }
-            .nav-menu {
-                display: flex;
-                flex-direction: row;
-                gap: 5px;
-            }
-            .nav-menu li a {
-                padding: 8px 10px;
-                font-size: 12px;
-            }
-            main {
-                margin-left: 0;
-                padding: 20px;
-            }
-        }
-
         .logo {
             font-size: 20px;
             font-weight: 700;
@@ -123,6 +81,7 @@
             font-weight: 500;
             border-radius: var(--radius-md);
             transition: var(--transition);
+            white-space: nowrap;
         }
 
         .nav-menu li a:hover, .nav-menu li a.active {
@@ -137,6 +96,7 @@
             flex-grow: 1;
             padding: 40px 5%;
             max-width: 1200px;
+            width: calc(100% - 260px);
         }
 
         .page-header {
@@ -158,9 +118,10 @@
         .products-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
-            padding: 30px;
+            padding: 25px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03);
             border: 1px solid var(--border-color);
+            width: 100%;
         }
 
         .product-table {
@@ -209,26 +170,10 @@
             cursor: pointer;
             font-size: 13px;
             transition: var(--transition);
-            margin-right: 5px;
         }
 
         .btn-edit:hover {
             background-color: #333;
-        }
-
-        .btn-confirm {
-            background-color: #2b8a3e;
-            color: white;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: var(--transition);
-        }
-
-        .btn-confirm:hover {
-            background-color: #2b8a3e;
         }
 
         .btn-danger {
@@ -282,6 +227,103 @@
 
         .toast.show {
             transform: translateX(-50%) translateY(0);
+        }
+
+        /* 📱 手機與平板響應式斷點 (768px 以下) */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 15px;
+                flex-direction: column;
+                align-items: stretch;
+                border-bottom: 1px solid var(--border-color);
+                border-right: none;
+            }
+            .logo {
+                margin-bottom: 12px;
+                font-size: 16px;
+                text-align: center;
+                padding-left: 0;
+            }
+            .logo span {
+                display: inline-block;
+                margin-left: 5px;
+                font-size: 11px;
+            }
+            .nav-menu {
+                flex-direction: row;
+                justify-content: space-between;
+                gap: 5px;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+            .nav-menu li a {
+                padding: 8px 10px;
+                font-size: 12px;
+                white-space: nowrap;
+                background: #f5f5f5;
+            }
+            .nav-menu li a.active {
+                background-color: var(--baby-yellow);
+            }
+            main {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px 15px;
+            }
+
+            /* 手機版將表格轉為卡片式排列 */
+            .product-table thead { display: none; }
+            .products-card { padding: 15px; background: transparent; box-shadow: none; border: none; }
+            
+            .product-table, .product-table tbody, .product-table tr, .product-table td {
+                display: block;
+                width: 100%;
+            }
+            .product-table tr {
+                background-color: var(--bg-white);
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+                margin-bottom: 15px;
+                padding: 15px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            }
+            .product-table td {
+                padding: 6px 0;
+                border: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 14px;
+            }
+            .product-table td:nth-child(1):before { content: "訂單 ID"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(2):before { content: "收件人"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(3):before { content: "電子郵件"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(4):before { content: "總金額"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(5):before { content: "狀態"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            
+            /* 操作按鈕移至下方並佔滿橫向空間 */
+            .product-table td:nth-child(6) {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border-color);
+            }
+            .product-table td:nth-child(6):before { display: none; }
+            .btn-edit {
+                width: 100%;
+                margin-right: 0;
+                padding: 10px;
+                text-align: center;
+                font-size: 14px;
+            }
         }
     </style>
 </head>
@@ -349,7 +391,7 @@
                 <div id="modalItems" style="background: #f9f9f9; padding: 12px; border-radius: 8px; font-size: 13px; max-height: 150px; overflow-y: auto; border: 1px solid #ddd;"></div>
             </div>
             
-            <button type="button" class="btn" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openOrderConfirmModal()">完成此訂單</button>
+            <button type="button" class="pay-btn" style="background-color: #2b8a3e; color: #fff;" onclick="openOrderConfirmModal()">完成此訂單</button>
             <button type="button" class="btn-danger" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openDeleteConfirmModal()">刪除此訂單</button>
         </div>
     </div>
@@ -364,7 +406,7 @@
         <div class="payment-body">
             <input type="hidden" id="orderConfirmOrderId">
             <p id="orderConfirmText" style="font-size: 14px; color: #555; margin-bottom: 25px; line-height: 1.6;">確定要將此筆訂單標記為「已完成 (completed)」嗎？</p>
-            <button type="button" class="pay-btn" style="background-color: #82f599; color: #333;" onclick="executeCompleteOrder()">確認完成</button>
+            <button type="button" class="pay-btn" style="background-color: #2b8a3e; color: #fff;" onclick="executeCompleteOrder()">確認完成</button>
             <button type="button" class="pay-btn" style="background-color: #f5f5f5; color: #333; margin-top: 10px;" onclick="closeOrderConfirmModal()">取消</button>
         </div>
     </div>
@@ -468,7 +510,6 @@
             document.getElementById('modalOverlay').classList.remove('open');
         }
 
-        // 🌟 開啟完成訂單確認 Modal
         function openOrderConfirmModal() {
             const orderId = document.getElementById('modalOrderId').value;
             const order = ordersMap[orderId];
@@ -487,7 +528,6 @@
             document.getElementById('orderConfirmOverlay').classList.remove('open');
         }
 
-        // 🌟 執行更新狀態為 completed
         function executeCompleteOrder() {
             const orderId = document.getElementById('orderConfirmOrderId').value;
             if (!orderId) return;
@@ -500,7 +540,6 @@
             }).catch(err => alert('更新失敗：' + err.message));
         }
 
-        // 🌟 開啟刪除（改為 cancelled 狀態）確認 Modal
         function openDeleteConfirmModal() {
             const orderId = document.getElementById('modalOrderId').value;
             const order = ordersMap[orderId];
@@ -519,7 +558,6 @@
             document.getElementById('deleteConfirmOverlay').classList.remove('open');
         }
 
-        // 🌟 執行更新狀態為 cancelled（替代原本的刪除）
         function executeDeleteOrder() {
             const orderId = document.getElementById('deleteConfirmOrderId').value;
             if (!orderId) return;
