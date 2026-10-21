@@ -9,48 +9,80 @@
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --border-color: #f0f0f0; --radius-lg: 16px; }
+        :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --border-color: #f0f0f0; --radius-lg: 16px; --transition: all 0.3s ease; }
         body { background-color: var(--bg-white); color: var(--text-main); line-height: 1.6; }
         
-        /* 導覽列 */
-        nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background: rgba(255, 255, 255, 0.95); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); gap: 20px; }
+        /* 導覽列：彈性響應式排版 */
+        nav { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            min-height: 75px; 
+            background: rgba(255, 255, 255, 0.98); 
+            backdrop-filter: blur(8px);
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px 5%; 
+            z-index: 1000; 
+            border-bottom: 1px solid var(--border-color); 
+            gap: 15px; 
+            flex-wrap: wrap;
+        }
         .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-decoration: none; color: #333; flex-shrink: 0; }
         
-        /* 🌟 導覽列搜尋框樣式 */
-        .nav-search-container { flex-grow: 1; max-width: 400px; margin: 0 20px; }
-        .nav-search-input { width: 100%; padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 13px; outline: none; background: #fafafa; transition: all 0.3s ease; }
+        /* 導覽列搜尋框樣式 */
+        .nav-search-container { flex-grow: 1; max-width: 400px; min-width: 200px; }
+        .nav-search-input { width: 100%; padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 13px; outline: none; background: #fafafa; transition: var(--transition); }
         .nav-search-input:focus { border-color: #111; background: #fff; }
 
         .nav-right-group { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
-        .cart-icon-wrapper { cursor: pointer; position: relative; font-size: 20px; }
-        .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); font-size: 11px; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;}
         
-        /* 商品詳情雙欄排版 */
-        .product-detail-container { max-width: 1100px; margin: 120px auto 60px; padding: 0 4%; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; }
+        /* 返回首頁按鈕樣式 */
+        .back-home-btn { 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-size: 13px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            color: var(--text-main); 
+            padding: 8px 14px; 
+            border-radius: 20px; 
+            background: #fafafa; 
+            border: 1px solid var(--border-color); 
+            text-decoration: none; 
+            transition: var(--transition); 
+            white-space: nowrap;
+        }
+        .back-home-btn:hover { background: var(--baby-yellow); border-color: #e5e5e5; }
+
+        /* 商品詳情響應式雙欄排版 */
+        .product-detail-container { max-width: 1100px; margin: 100px auto 60px; padding: 0 5%; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
         
-        .product-gallery { background-color: #f9f9f8; border-radius: var(--radius-lg); height: 600px; display: flex; justify-content: center; align-items: center; font-size: 20px; color: #aaa; }
+        .product-gallery { background-color: #f9f9f8; border-radius: var(--radius-lg); height: 500px; display: flex; justify-content: center; align-items: center; font-size: 18px; color: #aaa; width: 100%; }
         
         /* 右側資訊區塊 */
         .product-info-wrapper { 
             padding: 10px 0; 
             display: flex;
             flex-direction: column;
-            height: 600px;
         }
-        .breadcrumbs { font-size: 13px; color: #888; margin-bottom: 15px; flex-shrink: 0; }
-        .detail-name { font-size: 32px; font-weight: 600; margin-bottom: 15px; line-height: 1.3; flex-shrink: 0; }
-        .detail-price { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 20px; flex-shrink: 0; }
+        .breadcrumbs { font-size: 13px; color: #888; margin-bottom: 12px; }
+        .detail-name { font-size: 28px; font-weight: 600; margin-bottom: 12px; line-height: 1.3; }
+        .detail-price { font-size: 22px; font-weight: 600; color: #111; margin-bottom: 15px; }
         
         /* 商品描述 */
         .detail-description { 
-            font-size: 15px; 
+            font-size: 14px; 
             color: #555; 
             margin-bottom: 20px; 
             white-space: pre-wrap; 
             line-height: 1.8;
+            max-height: 250px;
             overflow-y: auto;
-            flex-grow: 1;
-            padding-right: 10px;
+            padding-right: 8px;
             overflow-wrap: break-word;
             word-break: break-word;
         }
@@ -63,27 +95,29 @@
             width: 100%; 
             background: #111; 
             color: #fff; 
-            padding: 18px; 
+            padding: 16px; 
             border: none; 
             border-radius: 12px; 
-            font-size: 16px; 
+            font-size: 15px; 
             font-weight: 600; 
             cursor: pointer; 
-            transition: 0.3s; 
-            margin-top: auto;
-            flex-shrink: 0;
+            transition: var(--transition); 
+            margin-top: 20px;
         }
         .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
 
         #loadingMsg { text-align: center; padding: 150px; font-size: 18px; color: #888; grid-column: 1/-1;}
 
+        /* 📱 手機響應式斷點 */
         @media (max-width: 768px) {
-            nav { padding: 0 4%; }
-            .nav-search-container { display: none; } /* 手機版隱藏導覽列搜尋，保持簡潔 */
-            .product-detail-container { grid-template-columns: 1fr; gap: 30px; margin-top: 100px; }
-            .product-gallery { height: 400px; }
+            nav { padding: 10px 4%; }
+            .nav-search-container { order: 3; width: 100%; max-width: 100%; margin-top: 5px; }
+            .product-detail-container { grid-template-columns: 1fr; gap: 30px; margin-top: 140px; padding: 0 4%; }
             .product-info-wrapper { height: auto; }
-            .detail-description { max-height: 250px; }
+            .product-gallery { height: 300px; }
+            .detail-name { font-size: 24px; }
+            .detail-price { font-size: 20px; }
+            .detail-description { max-height: none; }
         }
     </style>
 </head>
@@ -91,15 +125,15 @@
     <nav>
         <a href="index.html" class="logo">LIGHTNING</a>
         
-        <!-- 🌟 導覽列即時搜尋框（支援輸入關鍵字後自動跳轉回首頁並帶入搜尋結果） -->
+        <!-- 導覽列即時搜尋框 -->
         <div class="nav-search-container">
             <input type="text" id="navSearchInput" class="nav-search-input" placeholder="🔍 搜尋商品名稱或分類..." onkeypress="handleNavSearch(event)">
         </div>
 
         <div class="nav-right-group">
-            <div class="cart-icon-wrapper" onclick="window.location.href='index.html'">
-                🛒 <div class="cart-count" id="cartCount">0</div>
-            </div>
+            <a href="index.html" class="back-home-btn">
+                <span>←</span> 返回首頁
+            </a>
         </div>
     </nav>
 
@@ -140,12 +174,8 @@
             }).catch((error) => {
                 console.log("讀取錯誤:", error);
             });
-
-            let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
-            document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
         });
 
-        /* 🌟 支援在商品詳情頁輸入關鍵字後按 Enter，自動跳轉回首頁並篩選 */
         function handleNavSearch(e) {
             if (e.key === 'Enter') {
                 const keyword = e.target.value.trim();
@@ -184,8 +214,6 @@
                 cart.push({ id: currentProduct.id, name: currentProduct.name, price: Number(currentProduct.price), quantity: 1 });
             }
             localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
-            
-            document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
             window.location.href = 'index.html';
         }
     </script>
