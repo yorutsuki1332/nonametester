@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIGHTNING | 日常選品與飾品</title>
+    <title>LIGHTNING | 日常選品與飾品[cite: 10]</title>
     
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
@@ -29,7 +29,6 @@
         .hero h1 { font-size: 36px; font-weight: 600; letter-spacing: 4px; margin-bottom: 15px; }
         .hero p { font-size: 14px; color: #555; letter-spacing: 2px; }
 
-        /* 🌟 搜尋列外層樣式 */
         .search-container { max-width: 600px; margin: 30px auto 0; padding: 0 4%; }
         .search-input { width: 100%; padding: 14px 20px; border: 1px solid var(--border-color); border-radius: 30px; font-size: 14px; outline: none; background: #fafafa; transition: var(--transition); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
         .search-input:focus { border-color: #111; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -48,7 +47,6 @@
         .add-to-cart-btn { width: 100%; background: transparent; border: 1px solid #e5e5e5; border-radius: var(--radius-md); padding: 12px; font-size: 13px; cursor: pointer; transition: var(--transition); }
         .add-to-cart-btn:hover { background-color: var(--baby-yellow); border-color: var(--baby-yellow); }
         
-        /* 購物車樣式 */
         .cart-drawer { position: fixed; top: 0; right: 0; width: 400px; max-width: 100%; height: 100%; background-color: var(--bg-white); box-shadow: -5px 0 30px rgba(0,0,0,0.05); z-index: 2000; transform: translateX(100%); transition: var(--transition); display: flex; flex-direction: column; }
         .cart-drawer.open { transform: translateX(0); }
         .cart-header { padding: 30px 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
@@ -92,61 +90,60 @@
 <body>
 
     <nav>
-        <div class="logo">LIGHTNING</div>
+        <div class="logo">LIGHTNING[cite: 10]</div>
         <div class="nav-right-group">
-            <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 註冊</div>
+            <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 注册[cite: 10]</div>
             
             <div class="cart-icon-wrapper" onclick="toggleCart(true)">
                 <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                <div class="cart-count" id="cartCount">0</div>
+                <div class="cart-count" id="cartCount">0[cite: 10]</div>
             </div>
         </div>
     </nav>
 
-    <!-- 會員登入/註冊 Modal -->
+    <!-- 會員登入/註冊 Modal[cite: 10] -->
     <div class="payment-modal" id="authModal">
         <div class="payment-header">
-            <h2 id="authModalTitle">會員登入</h2>
+            <h2 id="authModalTitle">會員登入[cite: 10]</h2>
             <button class="close-btn" onclick="closeAuthModal()">&times;</button>
         </div>
         <div class="payment-body">
             <form id="authForm">
                 <div class="form-group">
-                    <label>帳戶 ID</label>
-                    <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required>
+                    <label>帳戶 ID[cite: 10]</label>
+                    <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required[cite: 10]>
                 </div>
                 <div class="form-group" id="emailGroup" style="display: none;">
-                    <label>電子郵件 (接收訂單通知)</label>
-                    <input type="email" id="authEmail" class="form-input" placeholder="example@email.com">
+                    <label>電子郵件 (接收訂單通知)[cite: 10]</label>
+                    <input type="email" id="authEmail" class="form-input" placeholder="example@email.com"[cite: 10]>
                 </div>
                 <div class="form-group">
-                    <label>密碼 (至少 6 位數)</label>
-                    <input type="password" id="authPassword" class="form-input" placeholder="請輸入密碼" required minlength="6">
+                    <label>密碼 (至少 6 位數)[cite: 10]</label>
+                    <input type="password" id="authPassword" class="form-input" placeholder="請輸入密碼" required minlength="6"[cite: 10]>
                 </div>
-                <button type="submit" class="pay-btn" id="authSubmitBtn">登入系統</button>
+                <button type="submit" class="pay-btn" id="authSubmitBtn">登入系統[cite: 10]</button>
             </form>
             <div style="text-align: center; margin-top: 15px; font-size: 13px;">
-                <span id="authSwitchText" style="color: #888;">還沒有帳號？</span>
-                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: #111; font-weight: 600; text-decoration: underline;" id="authSwitchBtn">點此註冊</a>
+                <span id="authSwitchText" style="color: #888;">還沒有帳號？[cite: 10]</span>
+                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: #111; font-weight: 600; text-decoration: underline;" id="authSwitchBtn">點此註冊[cite: 10]</a>
             </div>
         </div>
     </div>
 
     <div class="hero-container">
         <header class="hero">
-            <h1>日常的美好，源於細節</h1>
-            <p>輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
+            <h1>日常的美好，源於細節[cite: 10]</h1>
+            <p>輕巧點綴你的每一天，展現毫不費力的生活美學。[cite: 10]</p>
         </header>
-        <!-- 🌟 新增：即時搜尋輸入框 -->
         <div class="search-container">
             <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋商品名稱或分類..." oninput="handleSearch()">
         </div>
     </div>
 
     <main class="container">
-        <h2 class="section-title">全站商品 / ALL ITEMS</h2>
+        <h2 class="section-title">全站商品 / ALL ITEMS[cite: 10]</h2>
         <div class="product-grid" id="productGrid">
-            <p style="text-align: center; color: #888; grid-column: 1/-1;">正在載入商品資料...</p>
+            <p style="text-align: center; color: #888; grid-column: 1/-1;">正在載入商品資料...[cite: 10]</p>
         </div>
     </main>
 
@@ -154,58 +151,58 @@
     
     <div class="cart-drawer" id="cartDrawer">
         <div class="cart-header">
-            <h2>購物車清單 (<span id="cartHeaderCount">0</span>)</h2>
+            <h2>購物車清單 (<span id="cartHeaderCount">0</span>)[cite: 10]</h2>
             <button class="close-btn" onclick="toggleCart(false)">&times;</button>
         </div>
         <div class="cart-items-container" id="cartItemsContainer"></div>
         <div class="cart-footer">
-            <div class="summary-row"><span>商品小計</span><span id="cartSubtotal">NT$ 0</span></div>
-            <div class="summary-row total"><span>訂單總計</span><span id="cartTotal">NT$ 0</span></div>
-            <button class="checkout-btn" onclick="openPaymentModal()">前往結帳 Checkout</button>
+            <div class="summary-row"><span>商品小計</span><span id="cartSubtotal">NT$ 0</span>[cite: 10]</div>
+            <div class="summary-row total"><span>訂單總計</span><span id="cartTotal">NT$ 0</span>[cite: 10]</div>
+            <button class="checkout-btn" onclick="openPaymentModal()">前往結帳 Checkout[cite: 10]</button>
         </div>
     </div>
 
     <div class="payment-modal" id="paymentModal">
         <div class="payment-header">
-            <h2>安全結帳</h2>
+            <h2>安全結帳[cite: 10]</h2>
             <button class="close-btn" onclick="closePaymentModal()">&times;</button>
         </div>
         <div class="payment-body">
             <form id="paymentForm">
                 <div class="form-group">
-                    <label>收件人姓名</label>
-                    <input type="text" class="form-input" placeholder="請輸入真實姓名" required>
+                    <label>收件人姓名[cite: 10]</label>
+                    <input type="text" class="form-input" placeholder="請輸入真實姓名" required[cite: 10]>
                 </div>
                 <div class="form-group">
-                    <label>電子郵件 (接收訂單通知)</label>
-                    <input type="email" class="form-input" placeholder="example@email.com" required>
+                    <label>電子郵件 (接收訂單通知)[cite: 10]</label>
+                    <input type="email" class="form-input" placeholder="example@email.com" required[cite: 10]>
                 </div>
                 <div class="form-group">
-                    <label>收件地址</label>
-                    <input type="text" class="form-input" placeholder="請輸入完整收件地址" required>
+                    <label>收件地址[cite: 10]</label>
+                    <input type="text" class="form-input" placeholder="請輸入完整收件地址" required[cite: 10]>
                 </div>
                 
                 <hr style="border: 0; border-top: 1px dashed #eee; margin: 25px 0;">
                 
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">信用卡資訊 (模擬)</label>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">信用卡資訊 (模擬)[cite: 10]</label>
                 <div class="card-element">
-                    <div class="card-icon">💳</div>
+                    <div class="card-icon">💳[cite: 10]</div>
                     <div style="flex-grow: 1;">
-                        <input type="text" class="form-input" placeholder="0000 0000 0000 0000" style="border:none; padding:0; background:transparent; margin-bottom: 5px;" required>
+                        <input type="text" class="form-input" placeholder="0000 0000 0000 0000" style="border:none; padding:0; background:transparent; margin-bottom: 5px;" required[cite: 10]>
                         <div style="display: flex; gap: 10px;">
-                            <input type="text" id="cardExpiry" class="form-input" placeholder="MM/YY" style="border:none; padding:0; background:transparent; width: 60px;" required maxlength="5">
-                            <input type="text" id="cardCVC" class="form-input" placeholder="CVC" maxlength="4" style="border:none; padding:0; background:transparent; width: 50px;" required>
+                            <input type="text" id="cardExpiry" class="form-input" placeholder="MM/YY" style="border:none; padding:0; background:transparent; width: 60px;" required maxlength="5"[cite: 10]>
+                            <input type="text" id="cardCVC" class="form-input" placeholder="CVC" maxlength="4" style="border:none; padding:0; background:transparent; width: 50px;" required[cite: 10]>
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="pay-btn">確認付款 <span id="payBtnAmount">HKD 0</span></button>
+                <button type="submit" class="pay-btn">確認付款 <span id="payBtnAmount">HKD 0</span>[cite: 10]</button>
             </form>
         </div>
     </div>
 
-    <div class="toast" id="toastMessage">已成功加入購物車！</div>
-    <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p></footer>
+    <div class="toast" id="toastMessage">已成功加入購物車！[cite: 10]</div>
+    <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.[cite: 10]</p></footer>
 
     <script>
         const firebaseConfig = {
@@ -237,7 +234,6 @@
             updateCartUI();
         });
 
-        /* --- 🌟 搜尋功能核心邏輯 --- */
         function handleSearch() {
             const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!keyword) {
@@ -254,7 +250,6 @@
             renderProducts(filteredProducts);
         }
 
-        /* --- 會員驗證相關邏輯 --- */
         function openAuthModal() {
             document.getElementById('authModal').classList.add('open');
             document.getElementById('cartOverlay').classList.add('open');
@@ -368,14 +363,12 @@
             });
         }
 
-        /* --- 商品與購物車邏輯 --- */
         function fetchProductsFromCloud() {
             db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
                 products = [];
                 querySnapshot.forEach((doc) => {
                     products.push({ id: doc.id, ...doc.data() });
                 });
-                // 每次資料更新時，維持當前搜尋過濾狀態
                 handleSearch();
             });
         }
@@ -505,20 +498,44 @@
             btn.style.opacity = "0.7";
             
             const inputs = this.querySelectorAll('.form-input');
-            const orderData = {
-                name: inputs[0].value.trim(),
-                email: inputs[1].value.trim(),
-                address: inputs[2].value.trim(),
-                items: cart,
-                total: currentTotal,
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
 
             try {
-                await db.collection("orders").add(orderData);
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const prefix = `${year}${month}`;
+
+                const querySnapshot = await db.collection("orders").get();
+                let maxIndex = 0;
+
+                querySnapshot.forEach((doc) => {
+                    const orderId = doc.id;
+                    if (orderId && orderId.startsWith(prefix)) {
+                        const suffix = parseInt(orderId.slice(6), 10);
+                        if (!isNaN(suffix) && suffix > maxIndex) {
+                            maxIndex = suffix;
+                        }
+                    }
+                });
+
+                const nextIndex = maxIndex + 1;
+                const paddedIndex = String(nextIndex).padStart(3, '0');
+                const customOrderId = `${prefix}${paddedIndex}`;
+
+                const orderData = {
+                    name: inputs[0].value.trim(),
+                    email: inputs[1].value.trim(),
+                    address: inputs[2].value.trim(),
+                    items: cart,
+                    total: currentTotal,
+                    status: 'pending',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection("orders").doc(customOrderId).set(orderData);
+
                 setTimeout(() => {
-                    alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已成功建立並送至後台。');
+                    alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}`);
                     cart = [];
                     saveCart();
                     updateCartUI();
@@ -527,6 +544,7 @@
                     btn.style.opacity = "1";
                     closeAllModals();
                 }, 1500);
+
             } catch (error) {
                 alert('訂單建立失敗： ' + error.message);
                 btn.innerHTML = originalText;
