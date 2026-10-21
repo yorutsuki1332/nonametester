@@ -90,9 +90,47 @@
         .detail-description::-webkit-scrollbar { width: 6px; }
         .detail-description::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 3px; }
 
+        /* 🌟 數量調節區塊樣式 */
+        .quantity-action-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fafafa;
+        }
+        .qty-btn {
+            background: none;
+            border: none;
+            padding: 12px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #333;
+            transition: var(--transition);
+        }
+        .qty-btn:hover {
+            background: #eee;
+        }
+        .qty-input {
+            width: 50px;
+            text-align: center;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            font-weight: 600;
+            outline: none;
+        }
+
         /* 加入購物車按鈕 */
         .add-to-cart-huge { 
-            width: 100%; 
+            flex-grow: 1;
             background: #111; 
             color: #fff; 
             padding: 16px; 
@@ -102,7 +140,6 @@
             font-weight: 600; 
             cursor: pointer; 
             transition: var(--transition); 
-            margin-top: 20px;
         }
         .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
 
@@ -118,6 +155,13 @@
             .detail-name { font-size: 24px; }
             .detail-price { font-size: 20px; }
             .detail-description { max-height: none; }
+            .quantity-action-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .quantity-selector {
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -200,18 +244,39 @@
                     
                     <div class="detail-description">${descText}</div>
                     
-                    <button class="add-to-cart-huge" onclick="addToCart()">加入購物車</button>
+                    <!-- 🌟 數量調節與加入購物車按鈕區塊 -->
+                    <div class="quantity-action-container">
+                        <div class="quantity-selector">
+                            <button class="add-to-cart-huge" onclick="addToCart()">加入購物車</button>
+                            <div style="width: 10px;"></div>
+                            <button type="button" class="qty-btn" onclick="updateQty(-1)">-</button>
+                            <input type="number" id="productQuantity" class="qty-input" value="1" min="1" readonly>
+                            <button type="button" class="qty-btn" onclick="updateQty(1)">+</button>
+                        </div>
+                    </div>
                 </div>
             `;
         }
 
+        /* 🌟 數量增減控制函式 */
+        function updateQty(change) {
+            const qtyInput = document.getElementById('productQuantity');
+            let currentQty = parseInt(qtyInput.value) || 1;
+            currentQty += change;
+            if (currentQty < 1) currentQty = 1;
+            qtyInput.value = currentQty;
+        }
+
         function addToCart() {
+            const qtyInput = document.getElementById('productQuantity');
+            const quantityToAdd = parseInt(qtyInput.value) || 1;
+
             let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             const item = cart.find(x => x.id === currentProduct.id);
             if (item) {
-                item.quantity++;
+                item.quantity += quantityToAdd;
             } else {
-                cart.push({ id: currentProduct.id, name: currentProduct.name, price: Number(currentProduct.price), quantity: 1 });
+                cart.push({ id: currentProduct.id, name: currentProduct.name, price: Number(currentProduct.price), quantity: quantityToAdd });
             }
             localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
             window.location.href = 'index.html';
