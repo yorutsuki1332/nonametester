@@ -7,7 +7,6 @@
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
     <style>
-        /* 共用變數與重設：延續 LIGHTNING 的純白日常留白風格 */
         * {
             margin: 0;
             padding: 0;
@@ -27,7 +26,6 @@
             --transition: all 0.3s ease;
         }
 
-        /* 預設桌機版型 */
         body {
             background-color: var(--bg-main);
             color: var(--text-main);
@@ -91,7 +89,6 @@
             font-weight: 600;
         }
 
-        /* 主內容區塊 */
         main {
             margin-left: 260px;
             flex-grow: 1;
@@ -115,7 +112,6 @@
             font-size: 14px;
         }
 
-        /* 表單卡片區塊 */
         .form-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
@@ -133,7 +129,6 @@
             color: var(--text-main);
         }
 
-        /* 網格排版 */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -174,7 +169,14 @@
             width: 100%;
         }
 
-        /* 🌟 固定 description 欄位大小，禁止縮放與調整 */
+        .sku-preview {
+            background-color: #f4f4f2;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #111;
+            cursor: not-allowed;
+        }
+
         textarea.form-control {
             resize: none;
             height: 120px;
@@ -203,7 +205,6 @@
             width: 100%;
         }
 
-        /* 操作按鈕 */
         .form-actions {
             display: flex;
             justify-content: flex-end;
@@ -245,7 +246,6 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        /* 提示通知 (Toast) */
         .toast {
             position: fixed;
             bottom: 30px;
@@ -265,7 +265,6 @@
             transform: translateX(-50%) translateY(0);
         }
 
-        /* 📱 手機與平板響應式斷點 (768px 以下) */
         @media (max-width: 768px) {
             body {
                 flex-direction: column;
@@ -336,15 +335,15 @@
     <aside>
         <div class="logo">LIGHTNING<span>SELLER CENTER</span></div>
         <ul class="nav-menu">
-            <li><a href="admin.html" class="active">📍 上架新商品</a></li>
-            <li><a href="products_list.html">📦 現時上架貨品</a></li>
-            <li><a href="discontinued_list.html">📥 已下架貨品</a></li>
-            <li><a href="orders_list.html">📝 訂單管理</a></li>
+            <li><a href="admin.html" class="active">📍 上架新商品[cite: 13]</a></li>
+            <li><a href="products_list.html">📦 現時上架貨品[cite: 13]</a></li>
+            <li><a href="discontinued_list.html">📥 已下架貨品[cite: 13]</a></li>
+            <li><a href="orders_list.html">📝 訂單管理[cite: 13]</a></li>
         </ul>
     </aside>
     <main>
         <div class="page-header">
-            <h1>上架新商品</h1><p>新增了「商品描述」區塊，讓買家點進頁面能看到詳情。</p>
+            <h1>上架新商品[cite: 13]</h1><p>填寫下方欄位，年份與序號將自動從雲端計算，商品編號 (SKU) 自動組成。</p>
         </div>
         <div class="form-card">
             <form id="addProductForm">
@@ -355,10 +354,36 @@
                         <input type="text" id="productName" class="form-control" placeholder="例如：極簡純銀細緻鎖骨鍊" required>
                     </div>
                     <div class="form-group">
-                        <label for="productSKU">商品編號 (SKU) <span>*</span></label>
-                        <input type="text" id="productSKU" class="form-control" placeholder="例如：LT-2026-001" required>
+                        <label for="productSKU">商品編號 (SKU)</label>
+                        <input type="text" id="productSKU" class="form-control sku-preview" readonly placeholder="請填寫下方選項自動生成">
                     </div>
                 </div>
+
+                <h2 class="form-section-title">商品編號設定</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="skuRegion">貨源地區 <span>*</span></label>
+                        <select id="skuRegion" class="form-control" required onchange="updateSkuPreview()">
+                            <option value="" disabled selected>請選擇貨源地區</option>
+                            <option value="HK">香港 (HK)</option>
+                            <option value="TW">台灣 (TW)</option>
+                            <option value="CN">中國 (CN)</option>
+                            <option value="KR">韓國 (KR)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="skuGender">建議性別 <span>*</span></label>
+                        <select id="skuGender" class="form-control" required onchange="updateSkuPreview()">
+                            <option value="" disabled selected>請選擇建議性別</option>
+                            <option value="M">男裝 (M)</option>
+                            <option value="F">女裝 (F)</option>
+                            <option value="K">童裝 (K)</option>
+                            <option value="N">中性 (N)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h2 class="form-section-title">商品分類與行銷標籤</h2>
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="productCategory">商品分類 <span>*</span></label>
@@ -396,7 +421,7 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-outline" onclick="document.getElementById('addProductForm').reset()">清空</button>
+                    <button type="button" class="btn btn-outline" onclick="initAutoSku()">重新載入序號</button>
                     <button type="submit" class="btn btn-primary">確認上架商品</button>
                 </div>
             </form>
@@ -418,11 +443,70 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        let currentYear = new Date().getFullYear();
+        let nextIndex = 1;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initAutoSku();
+        });
+
+        function initAutoSku() {
+            currentYear = new Date().getFullYear();
+            db.collection("products").get().then((querySnapshot) => {
+                let maxIndex = 0;
+                const yearStr = String(currentYear);
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const sku = data.sku || '';
+                    if (sku.includes(yearStr)) {
+                        const regex = new RegExp(yearStr + '(\\d{3})');
+                        const match = sku.match(regex);
+                        if (match && match[1]) {
+                            const idx = parseInt(match[1], 10);
+                            if (idx > maxIndex) {
+                                maxIndex = idx;
+                            }
+                        }
+                    }
+                });
+
+                nextIndex = maxIndex + 1;
+                updateSkuPreview();
+            }).catch((error) => {
+                console.log("讀取資料庫失敗:", error);
+                nextIndex = 1;
+                updateSkuPreview();
+            });
+        }
+
+        function updateSkuPreview() {
+            const region = document.getElementById('skuRegion').value;
+            const gender = document.getElementById('skuGender').value;
+            const skuInput = document.getElementById('productSKU');
+
+            if (!region || !gender) {
+                skuInput.value = '';
+                return;
+            }
+
+            const paddedIndex = String(nextIndex).padStart(3, '0');
+            skuInput.value = `${region}${currentYear}${paddedIndex}${gender}`;
+        }
+
         document.getElementById('addProductForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            const skuValue = document.getElementById('productSKU').value;
+
+            if (!skuValue) {
+                alert('請完整選擇貨源地區與建議性別！');
+                return;
+            }
+
             const newProduct = {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 name: document.getElementById('productName').value,
+                sku: skuValue,
                 price: parseFloat(document.getElementById('salePrice').value),
                 category: document.getElementById('productCategory').value,
                 tag: document.getElementById('productTag').value,
@@ -433,7 +517,9 @@
                 const toast = document.getElementById('toastMessage');
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
+                
                 this.reset();
+                initAutoSku();
             });
         });
     </script>
