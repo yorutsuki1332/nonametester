@@ -343,7 +343,7 @@
     </aside>
     <main>
         <div class="page-header">
-            <h1>上架新商品[cite: 13]</h1><p>填寫下方欄位，年份與序號將自動從雲端計算，商品編號 (SKU) 將作為 Firebase 文件名稱。</p>
+            <h1>上架新商品</h1><p>填寫下方欄位，系統將自動以 SKU 作為 Firestore 文件名稱儲存。</p>
         </div>
         <div class="form-card">
             <form id="addProductForm">
@@ -457,8 +457,9 @@
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    const sku = data.sku || doc.id; // 兼容以 SKU 作為 ID 的文件
-                    if (sku.includes(yearStr)) {
+                    // 優先讀取欄位中的 sku，若無則讀取文件 ID
+                    const sku = data.sku || doc.id; 
+                    if (sku && sku.includes(yearStr)) {
                         const regex = new RegExp(yearStr + '(\\d{3})');
                         const match = sku.match(regex);
                         if (match && match[1]) {
@@ -512,7 +513,7 @@
                 description: document.getElementById('productDesc').value
             };
 
-            // 🌟 使用 skuValue 作為 Firestore 的文件 ID (doc ID) 儲存
+            // 使用 skuValue 作為 Firestore 的文件 ID (doc ID) 儲存
             db.collection("products").doc(skuValue).set(newProduct).then(() => {
                 const toast = document.getElementById('toastMessage');
                 toast.classList.add('show');
