@@ -100,7 +100,7 @@
         }
 
         .page-header {
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .page-header h1 {
@@ -112,6 +112,29 @@
         .page-header p {
             color: var(--text-muted);
             font-size: 14px;
+        }
+
+        /* 🌟 搜尋輸入框樣式 */
+        .search-box-wrapper {
+            margin-bottom: 25px;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 18px;
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            font-size: 14px;
+            outline: none;
+            background: var(--bg-white);
+            transition: var(--transition);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+
+        .search-input:focus {
+            border-color: #111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
 
         /* 列表卡片 */
@@ -277,6 +300,10 @@
                 padding: 20px 15px;
             }
 
+            .search-input {
+                max-width: 100%;
+            }
+
             /* 手機版將表格轉為卡片式排列 */
             .product-table thead { display: none; }
             .products-card { padding: 15px; background: transparent; box-shadow: none; border: none; }
@@ -342,6 +369,11 @@
             <h1>訂單管理</h1>
             <p>管理目前所有在雲端資料庫中的訂單紀錄。請點擊「檢視詳情」查看與管理。</p>
         </div>
+
+        <div class="search-box-wrapper">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋訂單 ID、收件人或信箱..." oninput="handleSearch()">
+        </div>
+
         <div class="products-card">
             <table class="product-table">
                 <thead>
@@ -442,6 +474,7 @@
         const db = firebase.firestore();
 
         let ordersMap = {};
+        let allOrdersList = []; // 🌟 用於搜尋功能的全域訂單列表
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchOrders();
@@ -449,34 +482,54 @@
 
         function fetchOrders() {
             db.collection("orders").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
-                const tbody = document.getElementById('ordersTableBody');
                 ordersMap = {};
-                let list = [];
+                allOrdersList = [];
                 
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
                     ordersMap[doc.id] = data;
-                    list.push(data);
+                    allOrdersList.push(data);
                 });
 
-                if (list.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 30px;">目前尚無任何訂單紀錄</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = list.map(o => `
-                    <tr>
-                        <td style="font-family: monospace; font-size: 12px;">${o.id}</td>
-                        <td style="font-weight: 500;">${o.name || '未提供'}</td>
-                        <td>${o.email || '未提供'}</td>
-                        <td>HKD ${Number(o.total || 0).toFixed(1)}</td>
-                        <td><span class="badge ${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}">${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}</span></td>
-                        <td>
-                            <button class="btn-edit" onclick="openOrderModal('${o.id}')">檢視詳情</button>
-                        </td>
-                    </tr>
-                `).join('');
+                // 🌟 資料載入後呼叫搜尋過濾函式，動態渲染表格
+                handleSearch();
             });
+        }
+
+        /* --- 🌟 訂單搜尋過濾核心邏輯 --- */
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            const tbody = document.getElementById('ordersTableBody');
+
+            const filteredList = allOrdersList.filter(o => {
+                const idMatch = o.id && o.id.toLowerCase().includes(keyword);
+                const nameMatch = o.name && o.name.toLowerCase().includes(keyword);
+                const emailMatch = o.email && o.email.toLowerCase().includes(keyword);
+                return idMatch || nameMatch || emailMatch;
+            });
+
+            if (allOrdersList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 30px;">目前尚無任何訂單紀錄</td></tr>`;
+                return;
+            }
+
+            if (filteredList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 30px;">沒有找到符合條件的訂單</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredList.map(o => `
+                <tr>
+                    <td style="font-family: monospace; font-size: 12px;">${o.id}</td>
+                    <td style="font-weight: 500;">${o.name || '未提供'}</td>
+                    <td>${o.email || '未提供'}</td>
+                    <td>HKD ${Number(o.total || 0).toFixed(1)}</td>
+                    <td><span class="badge ${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}">${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}</span></td>
+                    <td>
+                        <button class="btn-edit" onclick="openOrderModal('${o.id}')">檢視詳情</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         function openOrderModal(orderId) {

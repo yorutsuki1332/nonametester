@@ -100,7 +100,7 @@
         }
 
         .page-header {
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .page-header h1 {
@@ -112,6 +112,27 @@
         .page-header p {
             color: var(--text-muted);
             font-size: 14px;
+        }
+
+        /* 🌟 搜尋輸入框樣式 */
+        .search-box-wrapper {
+            margin-bottom: 25px;
+        }
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 18px;
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            font-size: 14px;
+            outline: none;
+            background: var(--bg-white);
+            transition: var(--transition);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .search-input:focus {
+            border-color: #111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
 
         /* 商品列表卡片 */
@@ -275,6 +296,9 @@
                 width: 100%;
                 padding: 20px 15px;
             }
+            .search-input {
+                max-width: 100%;
+            }
 
             /* 手機版將表格轉為卡片式排列 */
             .product-table thead { display: none; }
@@ -340,6 +364,12 @@
             <h1>現時上架貨品</h1>
             <p>管理目前所有在雲端資料庫中的商品清單，可直接進行修改或下架。</p>
         </div>
+
+        <!-- 🌟 新增：商品列表搜尋框 -->
+        <div class="search-box-wrapper">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋商品名稱或分類..." oninput="handleSearch()">
+        </div>
+
         <div class="products-card">
             <table class="product-table">
                 <thead>
@@ -433,6 +463,7 @@
         const db = firebase.firestore();
 
         let productsMap = {};
+        let allProductsList = []; // 🌟 儲存完整商品清單供搜尋過濾
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchAdminProducts();
@@ -440,33 +471,52 @@
 
         function fetchAdminProducts() {
             db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
-                const tbody = document.getElementById('adminProductTableBody');
                 productsMap = {};
-                let productsList = [];
+                allProductsList = [];
                 
                 querySnapshot.forEach((doc) => {
                     const productData = { id: doc.id, ...doc.data() };
                     productsMap[doc.id] = productData;
-                    productsList.push(productData);
+                    allProductsList.push(productData);
                 });
 
-                if (productsList.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">目前尚無任何上架商品</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = productsList.map(p => `
-                    <tr>
-                        <td style="font-weight: 500;">${p.name}</td>
-                        <td>${p.category}</td>
-                        <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
-                        <td>HKD ${Number(p.price).toFixed(1)}</td>
-                        <td>
-                            <button class="btn-edit" onclick="openEditModal('${p.id}')">修改</button>
-                        </td>
-                    </tr>
-                `).join('');
+                // 載入後套用當前的搜尋過濾
+                handleSearch();
             });
+        }
+
+        /* --- 🌟 搜尋過濾核心邏輯 --- */
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            const tbody = document.getElementById('adminProductTableBody');
+
+            const filteredList = allProductsList.filter(p => {
+                const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
+                const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
+                return nameMatch || categoryMatch;
+            });
+
+            if (allProductsList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">目前尚無任何上架商品</td></tr>`;
+                return;
+            }
+
+            if (filteredList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">沒有找到符合條件的商品</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredList.map(p => `
+                <tr>
+                    <td style="font-weight: 500;">${p.name}</td>
+                    <td>${p.category}</td>
+                    <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
+                    <td>HKD ${Number(p.price).toFixed(1)}</td>
+                    <td>
+                        <button class="btn-edit" onclick="openEditModal('${p.id}')">修改</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         function openEditModal(productId) {

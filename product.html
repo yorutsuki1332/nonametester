@@ -13,9 +13,16 @@
         body { background-color: var(--bg-white); color: var(--text-main); line-height: 1.6; }
         
         /* 導覽列 */
-        nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background: rgba(255, 255, 255, 0.95); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); }
-        .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-decoration: none; color: #333; }
-        .cart-icon-wrapper { cursor: pointer; position: relative; }
+        nav { position: fixed; top: 0; left: 0; width: 100%; height: 75px; background: rgba(255, 255, 255, 0.95); display: flex; justify-content: space-between; align-items: center; padding: 0 6%; z-index: 1000; border-bottom: 1px solid var(--border-color); gap: 20px; }
+        .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-decoration: none; color: #333; flex-shrink: 0; }
+        
+        /* 🌟 導覽列搜尋框樣式 */
+        .nav-search-container { flex-grow: 1; max-width: 400px; margin: 0 20px; }
+        .nav-search-input { width: 100%; padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 13px; outline: none; background: #fafafa; transition: all 0.3s ease; }
+        .nav-search-input:focus { border-color: #111; background: #fff; }
+
+        .nav-right-group { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+        .cart-icon-wrapper { cursor: pointer; position: relative; font-size: 20px; }
         .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); font-size: 11px; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold;}
         
         /* 商品詳情雙欄排版 */
@@ -23,41 +30,35 @@
         
         .product-gallery { background-color: #f9f9f8; border-radius: var(--radius-lg); height: 600px; display: flex; justify-content: center; align-items: center; font-size: 20px; color: #aaa; }
         
-        /* 🌟 右側資訊區塊：使用 Flex 佈局固定高度與按鈕位置 */
+        /* 右側資訊區塊 */
         .product-info-wrapper { 
             padding: 10px 0; 
             display: flex;
             flex-direction: column;
-            height: 600px; /* 與左側 gallery 高度切齊 */
+            height: 600px;
         }
         .breadcrumbs { font-size: 13px; color: #888; margin-bottom: 15px; flex-shrink: 0; }
         .detail-name { font-size: 32px; font-weight: 600; margin-bottom: 15px; line-height: 1.3; flex-shrink: 0; }
         .detail-price { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 20px; flex-shrink: 0; }
         
-        /* 🌟 商品描述：支援內部滾動 (Scrolling) 與防止破版 */
+        /* 商品描述 */
         .detail-description { 
             font-size: 15px; 
             color: #555; 
             margin-bottom: 20px; 
             white-space: pre-wrap; 
             line-height: 1.8;
-            overflow-y: auto; /* 超過高度時出現內部捲軸 */
-            flex-grow: 1; /* 自動佔滿中間剩餘空間 */
+            overflow-y: auto;
+            flex-grow: 1;
             padding-right: 10px;
             overflow-wrap: break-word;
             word-break: break-word;
         }
         
-        /* 自定義捲軸樣式 (選填，讓外觀更簡約) */
-        .detail-description::-webkit-scrollbar {
-            width: 6px;
-        }
-        .detail-description::-webkit-scrollbar-thumb {
-            background-color: #ddd;
-            border-radius: 3px;
-        }
+        .detail-description::-webkit-scrollbar { width: 6px; }
+        .detail-description::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 3px; }
 
-        /* 🌟 加入購物車按鈕：固定在底部 */
+        /* 加入購物車按鈕 */
         .add-to-cart-huge { 
             width: 100%; 
             background: #111; 
@@ -69,18 +70,19 @@
             font-weight: 600; 
             cursor: pointer; 
             transition: 0.3s; 
-            margin-top: auto; /* 強制推至底部固定 */
+            margin-top: auto;
             flex-shrink: 0;
         }
         .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
 
-        /* 載入中畫面 */
         #loadingMsg { text-align: center; padding: 150px; font-size: 18px; color: #888; grid-column: 1/-1;}
 
         @media (max-width: 768px) {
+            nav { padding: 0 4%; }
+            .nav-search-container { display: none; } /* 手機版隱藏導覽列搜尋，保持簡潔 */
             .product-detail-container { grid-template-columns: 1fr; gap: 30px; margin-top: 100px; }
             .product-gallery { height: 400px; }
-            .product-info-wrapper { height: auto; } /* 手機版取消固定高度以適應內容 */
+            .product-info-wrapper { height: auto; }
             .detail-description { max-height: 250px; }
         }
     </style>
@@ -88,8 +90,16 @@
 <body>
     <nav>
         <a href="index.html" class="logo">LIGHTNING</a>
-        <div class="cart-icon-wrapper" onclick="window.location.href='index.html'">
-            🛒 <div class="cart-count" id="cartCount">0</div>
+        
+        <!-- 🌟 導覽列即時搜尋框（支援輸入關鍵字後自動跳轉回首頁並帶入搜尋結果） -->
+        <div class="nav-search-container">
+            <input type="text" id="navSearchInput" class="nav-search-input" placeholder="🔍 搜尋商品名稱或分類..." onkeypress="handleNavSearch(event)">
+        </div>
+
+        <div class="nav-right-group">
+            <div class="cart-icon-wrapper" onclick="window.location.href='index.html'">
+                🛒 <div class="cart-count" id="cartCount">0</div>
+            </div>
         </div>
     </nav>
 
@@ -134,6 +144,16 @@
             let cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.quantity, 0);
         });
+
+        /* 🌟 支援在商品詳情頁輸入關鍵字後按 Enter，自動跳轉回首頁並篩選 */
+        function handleNavSearch(e) {
+            if (e.key === 'Enter') {
+                const keyword = e.target.value.trim();
+                if (keyword) {
+                    window.location.href = `index.html?search=${encodeURIComponent(keyword)}`;
+                }
+            }
+        }
 
         function renderProductDetail() {
             const container = document.getElementById('mainContainer');

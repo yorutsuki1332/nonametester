@@ -45,6 +45,28 @@
         .page-header { margin-bottom: 30px; }
         .page-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
         .page-header p { color: var(--text-muted); font-size: 14px; }
+        
+        /* 🌟 搜尋輸入框樣式 */
+        .search-box-wrapper {
+            margin-bottom: 25px;
+        }
+        .search-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 18px;
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            font-size: 14px;
+            outline: none;
+            background: var(--bg-white);
+            transition: var(--transition);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .search-input:focus {
+            border-color: #111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
         .products-card {
             background-color: var(--bg-white);
             border-radius: var(--radius-lg);
@@ -125,6 +147,9 @@
                 width: 100%;
                 padding: 20px 15px;
             }
+            .search-input {
+                max-width: 100%;
+            }
             /* 隱藏桌機版表格頭 */
             .product-table thead { display: none; }
             .products-card { padding: 15px; background: transparent; box-shadow: none; border: none; }
@@ -190,6 +215,11 @@
             <h1>已下架貨品</h1>
             <p>管理目前所有已下架的商品，可選擇重新上架或永久刪除。</p>
         </div>
+
+        <div class="search-box-wrapper">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋商品名稱或分類..." oninput="handleSearch()">
+        </div>
+
         <div class="products-card">
             <table class="product-table">
                 <thead>
@@ -237,6 +267,7 @@
         const db = firebase.firestore();
 
         let discontinuedMap = {};
+        let allDiscontinuedList = []; // 🌟 用於搜尋過濾的全域陣列
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchDiscontinuedProducts();
@@ -244,40 +275,58 @@
 
         function fetchDiscontinuedProducts() {
             db.collection("discontinued_products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
-                const tbody = document.getElementById('discontinuedTableBody');
                 discontinuedMap = {};
-                let list = [];
+                allDiscontinuedList = [];
                 
                 querySnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
                     discontinuedMap[doc.id] = data;
-                    list.push(data);
+                    allDiscontinuedList.push(data);
                 });
 
-                if (list.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 30px;">目前沒有已下架的商品</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = list.map(p => `
-                    <tr>
-                        <td style="font-weight: 500;">${p.name}</td>
-                        <td>${p.category}</td>
-                        <td>HKD ${Number(p.price).toFixed(1)}</td>
-                        <td>
-                            <button class="btn-restore" onclick="restoreProduct('${p.id}')">重新上架</button>
-                            <button class="btn-danger" onclick="openDeleteModal('${p.id}')">永久刪除</button>
-                        </td>
-                    </tr>
-                `).join('');
+                // 🌟 資料載入後呼叫搜尋過濾，動態渲染表格
+                handleSearch();
             });
+        }
+
+        /* --- 🌟 已下架商品搜尋過濾核心邏輯 --- */
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            const tbody = document.getElementById('discontinuedTableBody');
+
+            const filteredList = allDiscontinuedList.filter(p => {
+                const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
+                const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
+                return nameMatch || categoryMatch;
+            });
+
+            if (allDiscontinuedList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 30px;">目前沒有已下架的商品</td></tr>`;
+                return;
+            }
+
+            if (filteredList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #888; padding: 30px;">沒有找到符合條件的已下架商品</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filteredList.map(p => `
+                <tr>
+                    <td style="font-weight: 500;">${p.name}</td>
+                    <td>${p.category}</td>
+                    <td>HKD ${Number(p.price).toFixed(1)}</td>
+                    <td>
+                        <button class="btn-restore" onclick="restoreProduct('${p.id}')">重新上架</button>
+                        <button class="btn-danger" onclick="openDeleteModal('${p.id}')">永久刪除</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         function restoreProduct(id) {
             const product = discontinuedMap[id];
             if (!product) return;
             
-            // 移回 products 集合
             db.collection("products").add({
                 name: product.name,
                 category: product.category,
@@ -286,7 +335,6 @@
                 description: product.description,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }).then(() => {
-                // 從 discontinued_products 刪除
                 return db.collection("discontinued_products").doc(id).delete();
             }).then(() => {
                 showToast('✅ 商品已重新上架！');

@@ -7,11 +7,9 @@
     
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
-    <!-- 🌟 新增：Firebase Auth 驗證 SDK -->
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js"></script>
 
     <style>
-        /* 原有樣式保持不變 */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Noto Sans TC', sans-serif; }
         :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --text-muted: #888888; --border-color: #f0f0f0; --cta-color: #111111; --radius-lg: 16px; --radius-md: 10px; --transition: all 0.4s ease; }
         body { background-color: var(--bg-white); color: var(--text-main); overflow-x: hidden; line-height: 1.6; }
@@ -27,10 +25,16 @@
         .cart-count { position: absolute; top: -4px; right: -6px; background-color: var(--baby-yellow); color: var(--text-main); font-size: 11px; font-weight: 600; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
         
         .hero-container { padding: 100px 4% 0; max-width: 1400px; margin: 0 auto; }
-        .hero { height: 40vh; background-color: var(--baby-yellow); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
+        .hero { height: 35vh; background-color: var(--baby-yellow); border-radius: var(--radius-lg); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px; }
         .hero h1 { font-size: 36px; font-weight: 600; letter-spacing: 4px; margin-bottom: 15px; }
         .hero p { font-size: 14px; color: #555; letter-spacing: 2px; }
-        .container { max-width: 1200px; margin: 60px auto; padding: 0 4%; }
+
+        /* 🌟 搜尋列外層樣式 */
+        .search-container { max-width: 600px; margin: 30px auto 0; padding: 0 4%; }
+        .search-input { width: 100%; padding: 14px 20px; border: 1px solid var(--border-color); border-radius: 30px; font-size: 14px; outline: none; background: #fafafa; transition: var(--transition); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        .search-input:focus { border-color: #111; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 4%; }
         .section-title { font-size: 20px; font-weight: 600; letter-spacing: 2px; margin-bottom: 40px; text-align: center; }
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 50px 30px; }
         .product-card { background-color: var(--bg-white); transition: var(--transition); display: flex; flex-direction: column; border-radius: var(--radius-md); position: relative; }
@@ -65,10 +69,9 @@
         
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
         .overlay.open { opacity: 1; visibility: visible; }
-        .toast { position: fixed; bottom: 0px; left: 50%; transform: translateX(-50%) translateY(150%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 4000; transition: var(--transition); }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150%); background-color: var(--text-main); color: #ffffff; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 4000; transition: var(--transition); }
         .toast.show { transform: translateX(-50%) translateY(0); }
 
-        /* 模態框共用樣式 */
         .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; max-height: 85vh; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
         .payment-modal.open { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
         .payment-header { padding: 25px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
@@ -91,7 +94,6 @@
     <nav>
         <div class="logo">LIGHTNING</div>
         <div class="nav-right-group">
-            <!-- 🌟 會員登入狀態 / 按鈕 -->
             <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 註冊</div>
             
             <div class="cart-icon-wrapper" onclick="toggleCart(true)">
@@ -101,7 +103,7 @@
         </div>
     </nav>
 
-    <!-- 🌟 會員登入/註冊 Modal -->
+    <!-- 會員登入/註冊 Modal -->
     <div class="payment-modal" id="authModal">
         <div class="payment-header">
             <h2 id="authModalTitle">會員登入</h2>
@@ -113,7 +115,6 @@
                     <label>帳戶 ID</label>
                     <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required>
                 </div>
-                <!-- 註冊時才顯示的 Email 欄位 -->
                 <div class="form-group" id="emailGroup" style="display: none;">
                     <label>電子郵件 (接收訂單通知)</label>
                     <input type="email" id="authEmail" class="form-input" placeholder="example@email.com">
@@ -136,6 +137,10 @@
             <h1>日常的美好，源於細節</h1>
             <p>輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
         </header>
+        <!-- 🌟 新增：即時搜尋輸入框 -->
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋商品名稱或分類..." oninput="handleSearch()">
+        </div>
     </div>
 
     <main class="container">
@@ -203,7 +208,6 @@
     <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p></footer>
 
     <script>
-        // ⚠️ Firebase 憑證設定
         const firebaseConfig = {
             apiKey: "AIzaSyBky8OW6DkZ1nmcH_uqARRCBKuYmkavMzI",
             authDomain: "tester-ec75c.firebaseapp.com",
@@ -228,13 +232,29 @@
             updateCartUI();
         });
 
-        // 🌟 核心修正：當使用者從其他頁面（如 product.html）返回主頁時，自動重新同步 localStorage 的購物車資料
         window.addEventListener('pageshow', (event) => {
             cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             updateCartUI();
         });
 
-        /* --- 🌟 會員驗證相關邏輯 --- */
+        /* --- 🌟 搜尋功能核心邏輯 --- */
+        function handleSearch() {
+            const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!keyword) {
+                renderProducts(products);
+                return;
+            }
+            
+            const filteredProducts = products.filter(p => {
+                const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
+                const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
+                return nameMatch || categoryMatch;
+            });
+            
+            renderProducts(filteredProducts);
+        }
+
+        /* --- 會員驗證相關邏輯 --- */
         function openAuthModal() {
             document.getElementById('authModal').classList.add('open');
             document.getElementById('cartOverlay').classList.add('open');
@@ -271,7 +291,6 @@
             }
         }
 
-        // 處理登入/註冊送出
         document.getElementById('authForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const accountId = document.getElementById('authAccountId').value.trim();
@@ -288,7 +307,6 @@
                     }
 
                     const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                    
                     await docRef.set({
                         accountId: accountId,
                         email: email,
@@ -324,7 +342,6 @@
             }
         });
 
-        // 監聽登入狀態改變
         auth.onAuthStateChanged(async (user) => {
             const userSection = document.getElementById('userAuthSection');
             if (user) {
@@ -351,26 +368,27 @@
             });
         }
 
-        /* --- 商品與購物車原有邏輯 --- */
+        /* --- 商品與購物車邏輯 --- */
         function fetchProductsFromCloud() {
             db.collection("products").orderBy("createdAt", "desc").onSnapshot((querySnapshot) => {
                 products = [];
                 querySnapshot.forEach((doc) => {
                     products.push({ id: doc.id, ...doc.data() });
                 });
-                renderProducts();
+                // 每次資料更新時，維持當前搜尋過濾狀態
+                handleSearch();
             });
         }
 
-        function renderProducts() {
+        function renderProducts(listToRender) {
             const grid = document.getElementById('productGrid');
-            if (products.length === 0) {
-                grid.innerHTML = `<p style="text-align: center; color: #999; grid-column: 1/-1; padding: 40px 0;">目前商店架上空空如也，請至管理後台新增商品！</p>`;
+            if (listToRender.length === 0) {
+                grid.innerHTML = `<p style="text-align: center; color: #999; grid-column: 1/-1; padding: 40px 0;">沒有找到符合條件的商品。</p>`;
                 return;
             }
-            grid.innerHTML = products.map(p => `
+            grid.innerHTML = listToRender.map(p => `
                 <div class="product-card">
-                    ${p.tag ? `<div class="product-tag">${p.tag}</div>` : ''}
+                    ${p.tag ? `<div class="product-tag ${p.tag.toLowerCase()}">${p.tag}</div>` : ''}
                     <a href="product.html?id=${p.id}" style="text-decoration:none; color:inherit; display:block; flex-grow:1;">
                         <div class="product-image-placeholder"><span>${p.category}</span></div>
                         <div class="product-info">
@@ -395,7 +413,7 @@
         }
 
         function addToCart(productId) {
-            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) existingItem.quantity += 1;
@@ -404,7 +422,7 @@
         }
 
         function updateQuantity(productId, change) {
-            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             const item = cart.find(item => item.id === productId);
             if (!item) return;
             item.quantity += change;
@@ -413,7 +431,7 @@
         }
 
         function removeFromCart(productId) {
-            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || []; // 🌟 操作前強制同步
+            cart = JSON.parse(localStorage.getItem('lightning_life_cart')) || [];
             cart = cart.filter(item => item.id !== productId);
             saveCart(); updateCartUI();
         }
@@ -486,7 +504,6 @@
             btn.innerHTML = "付款處理中...";
             btn.style.opacity = "0.7";
             
-            // 取得表單輸入的收件資訊
             const inputs = this.querySelectorAll('.form-input');
             const orderData = {
                 name: inputs[0].value.trim(),
@@ -494,14 +511,12 @@
                 address: inputs[2].value.trim(),
                 items: cart,
                 total: currentTotal,
-                status: 'pending', // 預設狀態為處理中
+                status: 'pending',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
             try {
-                // 將訂單寫入 Firestore 的 orders 集合
                 await db.collection("orders").add(orderData);
-
                 setTimeout(() => {
                     alert('🎉 付款成功！\n\n感謝您的購買，您的訂單已成功建立並送至後台。');
                     cart = [];
