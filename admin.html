@@ -343,7 +343,7 @@
     </aside>
     <main>
         <div class="page-header">
-            <h1>上架新商品</h1><p>填寫下方欄位，年份與序號將自動從雲端計算，商品編號 (SKU) 自動組成。</p>
+            <h1>上架新商品[cite: 13]</h1><p>填寫下方欄位，年份與序號將自動從雲端計算，商品編號 (SKU) 將作為 Firebase 文件名稱。</p>
         </div>
         <div class="form-card">
             <form id="addProductForm">
@@ -354,12 +354,12 @@
                         <input type="text" id="productName" class="form-control" placeholder="例如：極簡純銀細緻鎖骨鍊" required>
                     </div>
                     <div class="form-group">
-                        <label for="productSKU">商品編號 (SKU)</label>
+                        <label for="productSKU">自動組成商品編號 (SKU)</label>
                         <input type="text" id="productSKU" class="form-control sku-preview" readonly placeholder="請填寫下方選項自動生成">
                     </div>
                 </div>
 
-                <h2 class="form-section-title">商品編號設定</h2>
+                <h2 class="form-section-title">商品編號規則設定</h2>
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="skuRegion">貨源地區 <span>*</span></label>
@@ -383,7 +383,6 @@
                     </div>
                 </div>
 
-                <h2 class="form-section-title">商品分類與行銷標籤</h2>
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="productCategory">商品分類 <span>*</span></label>
@@ -458,7 +457,7 @@
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    const sku = data.sku || '';
+                    const sku = data.sku || doc.id; // 兼容以 SKU 作為 ID 的文件
                     if (sku.includes(yearStr)) {
                         const regex = new RegExp(yearStr + '(\\d{3})');
                         const match = sku.match(regex);
@@ -513,13 +512,16 @@
                 description: document.getElementById('productDesc').value
             };
 
-            db.collection("products").add(newProduct).then(() => {
+            // 🌟 使用 skuValue 作為 Firestore 的文件 ID (doc ID) 儲存
+            db.collection("products").doc(skuValue).set(newProduct).then(() => {
                 const toast = document.getElementById('toastMessage');
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
                 
                 this.reset();
                 initAutoSku();
+            }).catch((error) => {
+                alert('上架失敗： ' + error.message);
             });
         });
     </script>
