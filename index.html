@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIGHTNING | 日常選品與飾品[cite: 10]</title>
+    <title>LIGHTNING | 日常選品與飾品</title>
     
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
@@ -90,50 +90,50 @@
 <body>
 
     <nav>
-        <div class="logo">LIGHTNING[cite: 10]</div>
+        <div class="logo">LIGHTNING</div>
         <div class="nav-right-group">
-            <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 注册[cite: 10]</div>
+            <div id="userAuthSection" class="user-auth-btn" onclick="openAuthModal()">會員登入 / 注册</div>
             
             <div class="cart-icon-wrapper" onclick="toggleCart(true)">
                 <svg class="cart-icon-svg" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                <div class="cart-count" id="cartCount">0[cite: 10]</div>
+                <div class="cart-count" id="cartCount">0</div>
             </div>
         </div>
     </nav>
 
-    <!-- 會員登入/註冊 Modal[cite: 10] -->
+    <!-- 會員登入/註冊 Modal -->
     <div class="payment-modal" id="authModal">
         <div class="payment-header">
-            <h2 id="authModalTitle">會員登入[cite: 10]</h2>
+            <h2 id="authModalTitle">會員登入</h2>
             <button class="close-btn" onclick="closeAuthModal()">&times;</button>
         </div>
         <div class="payment-body">
             <form id="authForm">
                 <div class="form-group">
-                    <label>帳戶 ID[cite: 10]</label>
-                    <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required[cite: 10]>
+                    <label>帳戶 ID</label>
+                    <input type="text" id="authAccountId" class="form-input" placeholder="例如：john123" required>
                 </div>
                 <div class="form-group" id="emailGroup" style="display: none;">
-                    <label>電子郵件 (接收訂單通知)[cite: 10]</label>
-                    <input type="email" id="authEmail" class="form-input" placeholder="example@email.com"[cite: 10]>
+                    <label>電子郵件 (接收訂單通知)</label>
+                    <input type="email" id="authEmail" class="form-input" placeholder="example@email.com">
                 </div>
                 <div class="form-group">
-                    <label>密碼 (至少 6 位數)[cite: 10]</label>
-                    <input type="password" id="authPassword" class="form-input" placeholder="請輸入密碼" required minlength="6"[cite: 10]>
+                    <label>密碼 (至少 6 位數)</label>
+                    <input type="password" id="authPassword" class="form-input" placeholder="請輸入密碼" required minlength="6">
                 </div>
-                <button type="submit" class="pay-btn" id="authSubmitBtn">登入系統[cite: 10]</button>
+                <button type="submit" class="pay-btn" id="authSubmitBtn">登入系統</button>
             </form>
             <div style="text-align: center; margin-top: 15px; font-size: 13px;">
-                <span id="authSwitchText" style="color: #888;">還沒有帳號？[cite: 10]</span>
-                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: #111; font-weight: 600; text-decoration: underline;" id="authSwitchBtn">點此註冊[cite: 10]</a>
+                <span id="authSwitchText" style="color: #888;">還沒有帳號？</span>
+                <a href="javascript:void(0);" onclick="toggleAuthMode()" style="color: #111; font-weight: 600; text-decoration: underline;" id="authSwitchBtn">點此註冊</a>
             </div>
         </div>
     </div>
 
     <div class="hero-container">
         <header class="hero">
-            <h1>日常的美好，源於細節[cite: 10]</h1>
-            <p>輕巧點綴你的每一天，展現毫不費力的生活美學。[cite: 10]</p>
+            <h1>日常的美好，源於細節</h1>
+            <p>輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
         </header>
         <div class="search-container">
             <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜尋商品名稱或分類..." oninput="handleSearch()">
@@ -141,9 +141,9 @@
     </div>
 
     <main class="container">
-        <h2 class="section-title">全站商品 / ALL ITEMS[cite: 10]</h2>
+        <h2 class="section-title">全站商品 / ALL ITEMS</h2>
         <div class="product-grid" id="productGrid">
-            <p style="text-align: center; color: #888; grid-column: 1/-1;">正在載入商品資料...[cite: 10]</p>
+            <p style="text-align: center; color: #888; grid-column: 1/-1;">正在載入商品資料...</p>
         </div>
     </main>
 
@@ -151,58 +151,58 @@
     
     <div class="cart-drawer" id="cartDrawer">
         <div class="cart-header">
-            <h2>購物車清單 (<span id="cartHeaderCount">0</span>)[cite: 10]</h2>
+            <h2>購物車清單 (<span id="cartHeaderCount">0</span>)</h2>
             <button class="close-btn" onclick="toggleCart(false)">&times;</button>
         </div>
         <div class="cart-items-container" id="cartItemsContainer"></div>
         <div class="cart-footer">
-            <div class="summary-row"><span>商品小計</span><span id="cartSubtotal">NT$ 0</span>[cite: 10]</div>
-            <div class="summary-row total"><span>訂單總計</span><span id="cartTotal">NT$ 0</span>[cite: 10]</div>
-            <button class="checkout-btn" onclick="openPaymentModal()">前往結帳 Checkout[cite: 10]</button>
+            <div class="summary-row"><span>商品小計</span><span id="cartSubtotal">NT$ 0</span></div>
+            <div class="summary-row total"><span>訂單總計</span><span id="cartTotal">NT$ 0</span></div>
+            <button class="checkout-btn" onclick="openPaymentModal()">前往結帳 Checkout</button>
         </div>
     </div>
 
     <div class="payment-modal" id="paymentModal">
         <div class="payment-header">
-            <h2>安全結帳[cite: 10]</h2>
+            <h2>安全結帳</h2>
             <button class="close-btn" onclick="closePaymentModal()">&times;</button>
         </div>
         <div class="payment-body">
             <form id="paymentForm">
                 <div class="form-group">
-                    <label>收件人姓名[cite: 10]</label>
-                    <input type="text" class="form-input" placeholder="請輸入真實姓名" required[cite: 10]>
+                    <label>收件人姓名</label>
+                    <input type="text" class="form-input" placeholder="請輸入真實姓名" required>
                 </div>
                 <div class="form-group">
-                    <label>電子郵件 (接收訂單通知)[cite: 10]</label>
-                    <input type="email" class="form-input" placeholder="example@email.com" required[cite: 10]>
+                    <label>電子郵件 (接收訂單通知)</label>
+                    <input type="email" class="form-input" placeholder="example@email.com" required>
                 </div>
                 <div class="form-group">
-                    <label>收件地址[cite: 10]</label>
-                    <input type="text" class="form-input" placeholder="請輸入完整收件地址" required[cite: 10]>
+                    <label>收件地址</label>
+                    <input type="text" class="form-input" placeholder="請輸入完整收件地址" required>
                 </div>
                 
                 <hr style="border: 0; border-top: 1px dashed #eee; margin: 25px 0;">
                 
-                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">信用卡資訊 (模擬)[cite: 10]</label>
+                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">信用卡資訊 (模擬)</label>
                 <div class="card-element">
-                    <div class="card-icon">💳[cite: 10]</div>
+                    <div class="card-icon">💳</div>
                     <div style="flex-grow: 1;">
-                        <input type="text" class="form-input" placeholder="0000 0000 0000 0000" style="border:none; padding:0; background:transparent; margin-bottom: 5px;" required[cite: 10]>
+                        <input type="text" class="form-input" placeholder="0000 0000 0000 0000" style="border:none; padding:0; background:transparent; margin-bottom: 5px;" required>
                         <div style="display: flex; gap: 10px;">
-                            <input type="text" id="cardExpiry" class="form-input" placeholder="MM/YY" style="border:none; padding:0; background:transparent; width: 60px;" required maxlength="5"[cite: 10]>
-                            <input type="text" id="cardCVC" class="form-input" placeholder="CVC" maxlength="4" style="border:none; padding:0; background:transparent; width: 50px;" required[cite: 10]>
+                            <input type="text" id="cardExpiry" class="form-input" placeholder="MM/YY" style="border:none; padding:0; background:transparent; width: 60px;" required maxlength="5">
+                            <input type="text" id="cardCVC" class="form-input" placeholder="CVC" maxlength="4" style="border:none; padding:0; background:transparent; width: 50px;" required>
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="pay-btn">確認付款 <span id="payBtnAmount">HKD 0</span>[cite: 10]</button>
+                <button type="submit" class="pay-btn">確認付款 <span id="payBtnAmount">HKD 0</span></button>
             </form>
         </div>
     </div>
 
-    <div class="toast" id="toastMessage">已成功加入購物車！[cite: 10]</div>
-    <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.[cite: 10]</p></footer>
+    <div class="toast" id="toastMessage">已成功加入購物車！</div>
+    <footer><p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p></footer>
 
     <script>
         const firebaseConfig = {
