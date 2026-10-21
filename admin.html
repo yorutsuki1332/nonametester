@@ -457,7 +457,6 @@
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    // 優先讀取欄位中的 sku，若無則讀取文件 ID
                     const sku = data.sku || doc.id; 
                     if (sku && sku.includes(yearStr)) {
                         const regex = new RegExp(yearStr + '(\\d{3})');
