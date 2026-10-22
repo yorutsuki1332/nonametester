@@ -224,6 +224,7 @@
             <table class="product-table">
                 <thead>
                     <tr>
+                        <th>商品編號</th>
                         <th>商品名稱</th>
                         <th>分類</th>
                         <th>售價 (HKD)</th>
@@ -231,7 +232,7 @@
                     </tr>
                 </thead>
                 <tbody id="discontinuedTableBody">
-                    <tr><td colspan="4" style="text-align: center; color: #888; padding: 30px;">正在載入已下架商品...</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #888; padding: 30px;">正在載入已下架商品...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -295,9 +296,10 @@
             const tbody = document.getElementById('discontinuedTableBody');
 
             const filteredList = allDiscontinuedList.filter(p => {
+                const skuMatch = p.id && p.id.toLowerCase().includes(keyword);
                 const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
                 const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
-                return nameMatch || categoryMatch;
+                return skuMatch || nameMatch || categoryMatch;
             });
 
             if (allDiscontinuedList.length === 0) {
@@ -312,6 +314,7 @@
 
             tbody.innerHTML = filteredList.map(p => `
                 <tr>
+                    <td style="font-weight:500;">${p.id}</td>
                     <td style="font-weight: 500;">${p.name}</td>
                     <td>${p.category}</td>
                     <td>HKD ${Number(p.price).toFixed(1)}</td>

@@ -374,6 +374,7 @@
             <table class="product-table">
                 <thead>
                     <tr>
+                        <th>商品編號</th>
                         <th>商品名稱</th>
                         <th>分類</th>
                         <th>標籤</th>
@@ -491,9 +492,10 @@
             const tbody = document.getElementById('adminProductTableBody');
 
             const filteredList = allProductsList.filter(p => {
+                const skuMatch = p.id && p.id.toLowerCase().includes(keyword);
                 const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
                 const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
-                return nameMatch || categoryMatch;
+                return skuMatch || nameMatch || categoryMatch;
             });
 
             if (allProductsList.length === 0) {
@@ -508,6 +510,7 @@
 
             tbody.innerHTML = filteredList.map(p => `
                 <tr>
+                    <td style="font-weight: 500;">${p.id}</td>
                     <td style="font-weight: 500;">${p.name}</td>
                     <td>${p.category}</td>
                     <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
@@ -582,12 +585,15 @@
         }
 
         function confirmDiscontinue() {
+            function confirmDiscontinue() {
             const productId = document.getElementById('discontinueProductId').value;
             const product = productsMap[productId];
             if (!product) return;
 
-            db.collection("discontinued_products").add({
+            // 🌟 使用原本的 SKU (即 productId) 作為 discontinued_products 的文件 ID
+            db.collection("discontinued_products").doc(productId).set({
                 name: product.name,
+                sku: product.sku || productId,
                 category: product.category,
                 tag: product.tag || "",
                 price: product.price,
