@@ -330,8 +330,9 @@
             const product = discontinuedMap[id];
             if (!product) return;
             
-            db.collection("products").add({
+            db.collection("products").doc(id).set({
                 name: product.name,
+                sku: product.sku || id,
                 category: product.category,
                 tag: product.tag || "",
                 price: product.price,

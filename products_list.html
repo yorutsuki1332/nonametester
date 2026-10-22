@@ -585,7 +585,6 @@
         }
 
         function confirmDiscontinue() {
-            function confirmDiscontinue() {
             const productId = document.getElementById('discontinueProductId').value;
             const product = productsMap[productId];
             if (!product) return;
@@ -609,6 +608,7 @@
                 alert('下架失敗： ' + error.message);
             });
         }
+        
 
         function showToast(message) {
             const toast = document.getElementById('toastMessage');
