@@ -83,6 +83,8 @@
         .btn-restore:hover { background-color: #333; }
         .btn-danger { background-color: #ff6b6b; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: var(--transition); }
         .btn-danger:hover { background-color: #fa5252; }
+        .btn-edit { background-color: #ffffff; color: black; border: 1px solid #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: var(--transition); margin-right: 5px; }
+        .btn-edit:hover { background-color: #f0f0f0; }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
         .overlay.open { opacity: 1; visibility: visible; }
         .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; max-height: 85vh; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
@@ -191,7 +193,7 @@
                 border-top: 1px solid var(--border-color);
             }
             .product-table td:nth-child(5):before { display: none; }
-            .btn-restore, .btn-danger {
+            .btn-restore, .btn-danger, .btn-edit {
                 width: 100%;
                 margin-right: 0;
                 padding: 10px;
@@ -238,6 +240,50 @@
             </table>
         </div>
     </main>
+
+    <!-- 🌟 修改商品彈跳視窗 (Modal) -->
+    <div class="overlay" id="modalOverlay" onclick="closeEditModal()"></div>
+    <div class="payment-modal" id="editModal">
+        <div class="payment-header">
+            <h2>修改商品資料</h2>
+            <button class="close-btn" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="payment-body">
+            <form id="editProductForm">
+                <input type="hidden" id="editProductId">
+                <div class="form-group">
+                    <label>商品名稱</label>
+                    <input type="text" id="editName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>商品分類</label>
+                    <select id="editCategory" class="form-input" required>
+                        <option value="ACCESSORY">精緻飾品 (ACCESSORY)</option>
+                        <option value="DAILY WEAR">日常衣著 (DAILY WEAR)</option>
+                        <option value="BAGS">包款配件 (BAGS)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>行銷標籤</label>
+                    <select id="editTag" class="form-input">
+                        <option value="">無標籤</option>
+                        <option value="NEW">全新商品 (NEW)</option>
+                        <option value="HOT">熱賣單品 (HOT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>商品售價 (HKD)</label>
+                    <input type="number" id="editPrice" class="form-input" step="0.1" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>商品詳細描述</label>
+                    <textarea id="editDescription" class="form-input" rows="4" style="resize: vertical;" required></textarea>
+                </div>
+                <button type="submit" class="pay-btn">儲存修改</button>
+                <button type="button" class="btn-danger" style="width: 100%; margin-top: 10px; padding: 16px; border-radius: 8px; font-size: 15px; font-weight: 600;" onclick="openDiscontinueModalFromEdit()">下架商品</button>
+            </form>
+        </div>
+    </div>
 
     <div class="overlay" id="modalOverlay" onclick="closeDeleteModal()"></div>
     <div class="payment-modal" id="deleteConfirmModal" style="z-index: 3000;">
@@ -320,12 +366,53 @@
                     <td>${p.category}</td>
                     <td>HKD ${Number(p.price).toFixed(1)}</td>
                     <td>
+                        <button class="btn-edit" onclick="openEditModal('${p.id}')">資料修改</button>
                         <button class="btn-restore" onclick="restoreProduct('${p.id}')">重新上架</button>
                         <button class="btn-danger" onclick="openDeleteModal('${p.id}')">永久刪除</button>
                     </td>
                 </tr>
             `).join('');
         }
+
+        function openEditModal(productId) {
+            const product = discontinuedMap[productId];
+            if (!product) return;
+
+            document.getElementById('editProductId').value = product.id;
+            document.getElementById('editName').value = product.name || '';
+            document.getElementById('editCategory').value = product.category || 'ACCESSORY';
+            document.getElementById('editTag').value = product.tag || '';
+            document.getElementById('editPrice').value = product.price || 0;
+            document.getElementById('editDescription').value = product.description || '';
+
+            document.getElementById('editModal').classList.add('open');
+            document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('open');
+            document.getElementById('modalOverlay').classList.remove('open');
+        }
+
+        document.getElementById('editProductForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const productId = document.getElementById('editProductId').value;
+            
+            const updatedData = {
+                name: document.getElementById('editName').value,
+                category: document.getElementById('editCategory').value,
+                tag: document.getElementById('editTag').value,
+                price: parseFloat(document.getElementById('editPrice').value),
+                description: document.getElementById('editDescription').value
+            };
+
+            db.collection("discontinued_products").doc(productId).update(updatedData).then(() => {
+                showToast('✅ 商品資料已成功更新！');
+                closeEditModal();
+            }).catch((error) => {
+                alert('更新失敗： ' + error.message);
+            });
+        });
 
         function restoreProduct(id) {
             const product = discontinuedMap[id];

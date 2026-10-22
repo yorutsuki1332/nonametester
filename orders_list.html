@@ -546,7 +546,7 @@
             if (order.items && order.items.length > 0) {
                 itemsContainer.innerHTML = order.items.map(item => `
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
-                        <span>${item.name} × ${item.quantity}</span>
+                        <span><span style="font-weight: 600; padding-right: 5px;">[${item.id}]</span>${item.name} × ${item.quantity}</span>
                         <span>HKD ${Number(item.price * item.quantity).toFixed(1)}</span>
                     </div>
                 `).join('');
