@@ -317,20 +317,21 @@
                 box-shadow: 0 2px 10px rgba(0,0,0,0.02);
             }
             .product-table td {
-                padding: 6px 0;
+                padding: 10px 0;
                 border: none;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 font-size: 14px;
             }
-            .product-table td:nth-child(1):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-            .product-table td:nth-child(2):before { content: "分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-            .product-table td:nth-child(3):before { content: "標籤"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-            .product-table td:nth-child(4):before { content: "售價 (HKD)"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(1):before { content: "商品編號"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(2):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(3):before { content: "分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(4):before { content: "標籤"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(5):before { content: "售價 (HKD)"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
             
             /* 操作按鈕移至下方並佔滿橫向空間 */
-            .product-table td:nth-child(5) {
+            .product-table td:nth-child(6) {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
@@ -338,7 +339,7 @@
                 padding-top: 12px;
                 border-top: 1px solid var(--border-color);
             }
-            .product-table td:nth-child(5):before { display: none; }
+            .product-table td:nth-child(6):before { display: none; }
             .btn-edit {
                 width: 100%;
                 margin-right: 0;

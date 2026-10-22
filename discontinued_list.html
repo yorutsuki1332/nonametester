@@ -176,12 +176,13 @@
                 font-size: 14px;
             }
             /* 模擬表格標籤提示 */
-            .product-table td:nth-child(1):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-            .product-table td:nth-child(2):before { content: "商品分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
-            .product-table td:nth-child(3):before { content: "售價"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(1):before { content: "商品編號"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(2):before { content: "商品名稱"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(3):before { content: "商品分類"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+            .product-table td:nth-child(4):before { content: "售價"; color: var(--text-muted); font-size: 12px; font-weight: 600; }
             
             /* 操作按鈕移至下方並佔滿橫向空間 */
-            .product-table td:nth-child(4) {
+            .product-table td:nth-child(5) {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
@@ -189,7 +190,7 @@
                 padding-top: 12px;
                 border-top: 1px solid var(--border-color);
             }
-            .product-table td:nth-child(4):before { display: none; }
+            .product-table td:nth-child(5):before { display: none; }
             .btn-restore, .btn-danger {
                 width: 100%;
                 margin-right: 0;
