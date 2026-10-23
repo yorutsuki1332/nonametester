@@ -205,6 +205,97 @@
             width: 100%;
         }
 
+        /* 🌟 拖拉或點擊上傳區塊樣式 */
+        .image-upload-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 35px 20px;
+            text-align: center;
+            background: #fafaf9;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #111;
+            background: #f4f4f2;
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .drop-zone-text {
+            font-size: 14px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .drop-zone-text strong {
+            color: var(--text-main);
+        }
+
+        .image-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .image-preview-item {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            background: #f4f4f2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-delete-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .image-delete-btn:hover {
+            background: #ff6b6b;
+        }
+
         .form-actions {
             display: flex;
             justify-content: flex-end;
@@ -404,6 +495,7 @@
                         </select>
                     </div>
                 </div>
+
                 <h2 class="form-section-title">價格設定</h2>
                 <div class="form-grid">
                     <div class="form-group">
@@ -414,6 +506,23 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 🌟 拖拉或點擊上傳商品圖片區塊 (上限 15 張) -->
+                <h2 class="form-section-title">商品圖片 (最多 15 張)</h2>
+                <div class="form-grid full">
+                    <div class="form-group image-upload-container">
+                        <label>上傳圖片</label>
+                        <div class="drop-zone" id="dropZone">
+                            <input type="file" id="productImages" accept="image/*" multiple onchange="handleImageSelection(event)">
+                            <div class="drop-zone-text">
+                                📁 <strong>點擊此處</strong> 或將圖片檔案拖曳至此上傳<br>
+                                <span style="font-size: 12px; color: #888;">支援多張選取，最多可上傳 15 張圖片</span>
+                            </div>
+                        </div>
+                        <div class="image-preview-grid" id="imagePreviewGrid"></div>
+                    </div>
+                </div>
+
                 <h2 class="form-section-title">商品詳情</h2>
                 <div class="form-grid full">
                     <div class="form-group">
@@ -421,6 +530,7 @@
                         <textarea id="productDesc" class="form-control" placeholder="請輸入材質、尺寸或品牌故事..." required></textarea>
                     </div>
                 </div>
+
                 <div class="form-actions">
                     <button type="button" class="btn btn-outline" onclick="initAutoSku()">重新載入序號</button>
                     <button type="submit" class="btn btn-primary">確認上架商品</button>
@@ -446,14 +556,16 @@
 
         let currentYear = new Date().getFullYear();
         let nextIndex = 1;
+        let uploadedImages = []; // 儲存已上傳圖片的 Base64 陣列
 
         document.addEventListener('DOMContentLoaded', () => {
             initAutoSku();
+            initDropZone();
         });
 
         function initAutoSku() {
             currentYear = new Date().getFullYear();
-            db.collection("products" && "discontinued_products").get().then((querySnapshot) => {
+            db.collection("products").get().then((querySnapshot) => {
                 let maxIndex = 0;
                 const yearStr = String(currentYear);
 
@@ -495,6 +607,77 @@
             skuInput.value = `${region}${currentYear}${paddedIndex}${gender}`;
         }
 
+        /* --- 🌟 拖拉與點擊上傳圖片互動邏輯 --- */
+        function initDropZone() {
+            const dropZone = document.getElementById('dropZone');
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('dragover');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('dragover');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    processFiles(files);
+                }
+            }, false);
+        }
+
+        function handleImageSelection(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                processFiles(files);
+            }
+            event.target.value = ''; // 清空 input 讓重複選取同一張圖也能觸發
+        }
+
+        function processFiles(files) {
+            if (uploadedImages.length + files.length > 15) {
+                alert('商品圖片總數不能超過 15 張！');
+                return;
+            }
+
+            Array.from(files).forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (uploadedImages.length < 15) {
+                        uploadedImages.push(e.target.result);
+                        renderImagePreviews();
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderImagePreviews() {
+            const grid = document.getElementById('imagePreviewGrid');
+            grid.innerHTML = uploadedImages.map((imgSrc, index) => `
+                <div class="image-preview-item">
+                    <img src="${imgSrc}" alt="預覽圖">
+                    <button type="button" class="image-delete-btn" onclick="removeImage(${index})">&times;</button>
+                </div>
+            `).join('');
+        }
+
+        function removeImage(index) {
+            uploadedImages.splice(index, 1);
+            renderImagePreviews();
+        }
+
         document.getElementById('addProductForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const skuValue = document.getElementById('productSKU').value;
@@ -511,16 +694,18 @@
                 price: parseFloat(document.getElementById('salePrice').value),
                 category: document.getElementById('productCategory').value,
                 tag: document.getElementById('productTag').value,
-                description: document.getElementById('productDesc').value
+                description: document.getElementById('productDesc').value,
+                images: uploadedImages
             };
 
-            // 使用 skuValue 作為 Firestore 的文件 ID (doc ID) 儲存
             db.collection("products").doc(skuValue).set(newProduct).then(() => {
                 const toast = document.getElementById('toastMessage');
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
                 
                 this.reset();
+                uploadedImages = [];
+                renderImagePreviews();
                 initAutoSku();
             }).catch((error) => {
                 alert('上架失敗： ' + error.message);

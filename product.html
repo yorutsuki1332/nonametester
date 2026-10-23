@@ -12,7 +12,6 @@
         :root { --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --border-color: #f0f0f0; --radius-lg: 16px; --transition: all 0.3s ease; }
         body { background-color: var(--bg-white); color: var(--text-main); line-height: 1.6; }
         
-        /* 導覽列：彈性響應式排版 */
         nav { 
             position: fixed; 
             top: 0; 
@@ -32,14 +31,12 @@
         }
         .logo { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-decoration: none; color: #333; flex-shrink: 0; }
         
-        /* 導覽列搜尋框樣式 */
         .nav-search-container { flex-grow: 1; max-width: 400px; min-width: 200px; }
         .nav-search-input { width: 100%; padding: 10px 18px; border: 1px solid var(--border-color); border-radius: 20px; font-size: 13px; outline: none; background: #fafafa; transition: var(--transition); }
         .nav-search-input:focus { border-color: #111; background: #fff; }
 
         .nav-right-group { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
         
-        /* 返回首頁按鈕樣式 */
         .back-home-btn { 
             display: flex; 
             align-items: center; 
@@ -58,11 +55,34 @@
         }
         .back-home-btn:hover { background: var(--baby-yellow); border-color: #e5e5e5; }
 
-        /* 商品詳情響應式雙欄排版 */
         .product-detail-container { max-width: 1100px; margin: 100px auto 60px; padding: 0 5%; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
         
-        .product-gallery { background-color: #f9f9f8; border-radius: var(--radius-lg); height: 500px; display: flex; justify-content: center; align-items: center; font-size: 18px; color: #aaa; width: 100%; }
-        
+        /* 🌟 商品圖片輪播與佔位樣式 */
+        .product-image-slider, .product-gallery-placeholder { 
+            position: relative; 
+            width: 100%; 
+            height: 500px; 
+            background-color: #f9f9f8; 
+            border-radius: var(--radius-lg); 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .product-image-slider img { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .product-image-slider img.active { display: block; }
+        .product-gallery-placeholder { font-size: 15px; color: #888; }
+
+        .slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.4); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; opacity: 0; transition: 0.3s; z-index: 5; }
+        .product-image-slider:hover .slider-btn { opacity: 1; }
+        .slider-btn.prev { left: 15px; }
+        .slider-btn.next { right: 15px; }
+        .slider-btn:hover { background: rgba(0,0,0,0.7); }
+
+        .slider-dots { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 5; }
+        .slider-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: 0.3s; }
+        .slider-dot.active { background: #ffffff; width: 20px; border-radius: 4px; }
+
         /* 右側資訊區塊 */
         .product-info-wrapper { 
             padding: 10px 0; 
@@ -73,7 +93,6 @@
         .detail-name { font-size: 28px; font-weight: 600; margin-bottom: 12px; line-height: 1.3; }
         .detail-price { font-size: 22px; font-weight: 600; color: #111; margin-bottom: 15px; }
         
-        /* 商品描述 */
         .detail-description { 
             font-size: 14px; 
             color: #555; 
@@ -90,7 +109,6 @@
         .detail-description::-webkit-scrollbar { width: 6px; }
         .detail-description::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 3px; }
 
-        /* 🌟 數量調節區塊樣式 */
         .quantity-action-container {
             display: flex;
             align-items: center;
@@ -128,7 +146,6 @@
             outline: none;
         }
 
-        /* 加入購物車按鈕 */
         .add-to-cart-huge { 
             flex-grow: 1;
             background: #111; 
@@ -141,17 +158,16 @@
             cursor: pointer; 
             transition: var(--transition); 
         }
-        .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1);}
+        .add-to-cart-huge:hover { background: #333; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
 
         #loadingMsg { text-align: center; padding: 150px; font-size: 18px; color: #888; grid-column: 1/-1;}
 
-        /* 📱 手機響應式斷點 */
         @media (max-width: 768px) {
             nav { padding: 10px 4%; }
             .nav-search-container { order: 3; width: 100%; max-width: 100%; margin-top: 5px; }
             .product-detail-container { grid-template-columns: 1fr; gap: 30px; margin-top: 140px; padding: 0 4%; }
             .product-info-wrapper { height: auto; }
-            .product-gallery { height: 300px; }
+            .product-image-slider, .product-gallery-placeholder { height: 350px; }
             .detail-name { font-size: 24px; }
             .detail-price { font-size: 20px; }
             .detail-description { max-height: none; }
@@ -169,7 +185,6 @@
     <nav>
         <a href="index.html" class="logo">LIGHTNING</a>
         
-        <!-- 導覽列即時搜尋框 -->
         <div class="nav-search-container">
             <input type="text" id="navSearchInput" class="nav-search-input" placeholder="🔍 搜尋商品名稱或分類..." onkeypress="handleNavSearch(event)">
         </div>
@@ -232,11 +247,26 @@
         function renderProductDetail() {
             const container = document.getElementById('mainContainer');
             const descText = currentProduct.description || "這件商品尚未提供詳細描述，但它絕對值得擁有！";
+           
+            // 🌟 過濾有效圖片
+            const validImages = currentProduct.images ? currentProduct.images.filter(img => img && img.trim() !== '') : [];
+            const hasImages = validImages.length > 0;
+            let galleryHtml = '';
+
+            if (hasImages) {
+                const imgs = validImages.map((img, idx) => `<img src="${img}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">`).join('');
+                const dots = validImages.length > 1 ? `<div class="slider-dots">${validImages.map((_, idx) => `<span class="slider-dot ${idx === 0 ? 'active' : ''}" onclick="changeSlide('${currentProduct.id}', ${idx})"></span>`).join('')}</div>` : '';
+                const controls = validImages.length > 1 ? `
+                    <button class="slider-btn prev" onclick="moveSlide('${currentProduct.id}', -1)">&#10094;</button>
+                    <button class="slider-btn next" onclick="moveSlide('${currentProduct.id}', 1)">&#10095;</button>
+                ` : '';
+                galleryHtml = `<div class="product-image-slider" id="slider-${currentProduct.id}">${imgs}${controls}${dots}</div>`;
+            } else {
+                galleryHtml = `<div class="product-gallery-placeholder"><span>${currentProduct.category || 'NO IMAGE'} 示意圖</span></div>`;
+            }
 
             container.innerHTML = `
-                <div class="product-gallery">
-                    <span>${currentProduct.category} 示意圖</span>
-                </div>
+                ${galleryHtml}
                 <div class="product-info-wrapper">
                     <div class="breadcrumbs">首頁 / ${currentProduct.category} / ${currentProduct.name}</div>
                     <h1 class="detail-name">${currentProduct.name}</h1>
@@ -244,21 +274,46 @@
                     
                     <div class="detail-description">${descText}</div>
                     
-                    <!-- 🌟 數量調節與加入購物車按鈕區塊 -->
                     <div class="quantity-action-container">
                         <div class="quantity-selector">
-                            <button class="add-to-cart-huge" onclick="addToCart()">加入購物車</button>
-                            <div style="width: 10px;"></div>
                             <button type="button" class="qty-btn" onclick="updateQty(-1)">-</button>
                             <input type="number" id="productQuantity" class="qty-input" value="1" min="1" readonly>
                             <button type="button" class="qty-btn" onclick="updateQty(1)">+</button>
                         </div>
+                        <button class="add-to-cart-huge" onclick="addToCart()">加入購物車</button>
                     </div>
                 </div>
             `;
         }
+        
+        window.sliderIndexes = {};
 
-        /* 🌟 數量增減控制函式 */
+        function changeSlide(productId, index) {
+            const slider = document.getElementById(`slider-${productId}`);
+            if (!slider) return;
+            const imgs = slider.querySelectorAll('img');
+            const dots = slider.querySelectorAll('.slider-dot');
+            
+            if (imgs.length === 0) return;
+            let targetIndex = (index + imgs.length) % imgs.length;
+            window.sliderIndexes[productId] = targetIndex;
+
+            imgs.forEach((img, idx) => {
+                img.classList.toggle('active', idx === targetIndex);
+            });
+            dots.forEach((dot, idx) => {
+                dot.classList.toggle('active', idx === targetIndex);
+            });
+        }
+
+        function moveSlide(productId, direction) {
+            const slider = document.getElementById(`slider-${productId}`);
+            if (!slider) return;
+            const imgs = slider.querySelectorAll('img');
+            let currentIndex = window.sliderIndexes[productId] || 0;
+            changeSlide(productId, currentIndex + direction);
+        }
+
         function updateQty(change) {
             const qtyInput = document.getElementById('productQuantity');
             let currentQty = parseInt(qtyInput.value) || 1;
