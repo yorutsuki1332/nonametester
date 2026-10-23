@@ -520,12 +520,12 @@
 
             tbody.innerHTML = filteredList.map(o => `
                 <tr>
-                    <td style="font-family: monospace; font-size: 12px;">${o.id}</td>
+                    <td style="font-weight: 500;">${o.id}</td>
                     <td style="font-weight: 500;">${o.name || '未提供'}</td>
                     <td>${o.email || '未提供'}</td>
-                    <td>HKD ${Number(o.total || 0).toFixed(1)}</td>
+                    <td width="130">HKD ${Number(o.total || 0).toFixed(1)}</td>
                     <td><span class="badge ${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}">${o.status === 'completed' ? 'completed' : o.status === 'cancelled' ? 'cancelled' : 'pending'}</span></td>
-                    <td>
+                    <td width="110">
                         <button class="btn-edit" onclick="openOrderModal('${o.id}')">檢視詳情</button>
                     </td>
                 </tr>

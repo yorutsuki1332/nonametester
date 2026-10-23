@@ -515,8 +515,8 @@
                     <td style="font-weight: 500;">${p.name}</td>
                     <td>${p.category}</td>
                     <td>${p.tag ? `<span class="badge ${p.tag.toLowerCase()}">${p.tag}</span>` : '<span style="color:#aaa;">無</span>'}</td>
-                    <td>HKD ${Number(p.price).toFixed(1)}</td>
-                    <td>
+                    <td width="100">HKD ${Number(p.price).toFixed(1)}</td>
+                    <td width="90">
                         <button class="btn-edit" onclick="openEditModal('${p.id}')">修改</button>
                     </td>
                 </tr>
