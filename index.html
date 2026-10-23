@@ -41,8 +41,7 @@
         .product-tag { position: absolute; top: 15px; left: 15px; background-color: #111; color: #fff; font-size: 10px; font-weight: 800; padding: 4px 10px; z-index: 10; border-radius: 4px; }
         .product-tag.hot { background-color: #ff6b6b; }
         
-        /* 🌟 商品圖片輪播與佔位統一高度大小，防止框架崩潰 */
-        .product-image-slider, .product-image-placeholder { position: relative; width: 100%; height: 340px; background-color: #f9f9f8; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+        .product-image-slider, .product-image-placeholder { position: relative; width: 100%; height: 340px; background-color: #f9f9f8; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; touch-action: pan-y; }
         .product-image-slider img { width: 100%; height: 100%; object-fit: cover; display: none; }
         .product-image-slider img.active { display: block; }
         .product-image-placeholder { font-size: 13px; color: var(--text-muted); }
@@ -396,19 +395,27 @@
                 return;
             }
             grid.innerHTML = listToRender.map(p => {
-                // 🌟 過濾有效圖片網址，排除空值或空字串
                 const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
                 const hasImages = validImages.length > 0;
                 let imageHtml = '';
                 
                 if (hasImages) {
-                    const imgs = validImages.map((img, idx) => `<img src="${img}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">`).join('');
+                    const imgs = validImages.map((img, idx) => `
+                        <img ${idx === 0 ? `src="${img}"` : `data-src="${img}"`} 
+                             class="${idx === 0 ? 'active' : ''}" 
+                             data-index="${idx}"
+                             loading="${idx === 0 ? 'eager' : 'lazy'}"
+                             decoding="async">
+                    `).join('');
+
                     const dots = validImages.length > 1 ? `<div class="slider-dots">${validImages.map((_, idx) => `<span class="slider-dot ${idx === 0 ? 'active' : ''}" onclick="event.preventDefault(); changeSlide('${p.id}', ${idx})"></span>`).join('')}</div>` : '';
                     const controls = validImages.length > 1 ? `
                         <button class="slider-btn prev" onclick="event.preventDefault(); moveSlide('${p.id}', -1)">&#10094;</button>
                         <button class="slider-btn next" onclick="event.preventDefault(); moveSlide('${p.id}', 1)">&#10095;</button>
                     ` : '';
-                    imageHtml = `<div class="product-image-slider" id="slider-${p.id}">${imgs}${controls}${dots}</div>`;
+                    
+                    // 🌟 綁定流動裝置觸控滑動事件 (Touch Swipe)
+                    imageHtml = `<div class="product-image-slider" id="slider-${p.id}" ontouchstart="handleTouchStart('${p.id}', event)" ontouchend="handleTouchEnd('${p.id}', event)">${imgs}${controls}${dots}</div>`;
                 } else {
                     imageHtml = `<div class="product-image-placeholder"><span>${p.category || 'NO IMAGE'}</span></div>`;
                 }
@@ -441,6 +448,13 @@
             let targetIndex = (index + imgs.length) % imgs.length;
             window.sliderIndexes[productId] = targetIndex;
 
+            // 懶載入機制：切換到該張圖片時若尚未載入 src，則在此時賦值讀取
+            const targetImg = imgs[targetIndex];
+            if (targetImg.dataset.src) {
+                targetImg.src = targetImg.dataset.src;
+                targetImg.removeAttribute('data-src');
+            }
+
             imgs.forEach((img, idx) => {
                 img.classList.toggle('active', idx === targetIndex);
             });
@@ -455,6 +469,32 @@
             const imgs = slider.querySelectorAll('img');
             let currentIndex = window.sliderIndexes[productId] || 0;
             changeSlide(productId, currentIndex + direction);
+        }
+
+        // 🌟 手機觸控滑動換圖邏輯 (Touch Swipe)
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function handleTouchStart(productId, e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+
+        function handleTouchEnd(productId, e) {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            // 如果水平滑動距離大於垂直距離且大於 30px，則視為切換圖片手勢
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+                e.preventDefault(); // 阻止觸發連結跳轉
+                if (diffX < 0) {
+                    moveSlide(productId, 1);  // 向左滑 -> 下一張
+                } else {
+                    moveSlide(productId, -1); // 向右滑 -> 上一張
+                }
+            }
         }
 
         function toggleCart(open) {

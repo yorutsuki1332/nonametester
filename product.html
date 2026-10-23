@@ -68,6 +68,7 @@
             display: flex; 
             align-items: center; 
             justify-content: center; 
+            touch-action: pan-y;
         }
         .product-image-slider img { width: 100%; height: 100%; object-fit: cover; display: none; }
         .product-image-slider img.active { display: block; }
@@ -254,13 +255,23 @@
             let galleryHtml = '';
 
             if (hasImages) {
-                const imgs = validImages.map((img, idx) => `<img src="${img}" class="${idx === 0 ? 'active' : ''}" data-index="${idx}">`).join('');
+                // 🌟 第一張優先載入 src，其餘使用 data-src 延遲載入
+                const imgs = validImages.map((img, idx) => `
+                    <img ${idx === 0 ? `src="${img}"` : `data-src="${img}"`} 
+                         class="${idx === 0 ? 'active' : ''}" 
+                         data-index="${idx}"
+                         loading="${idx === 0 ? 'eager' : 'lazy'}"
+                         decoding="async">
+                `).join('');
+
                 const dots = validImages.length > 1 ? `<div class="slider-dots">${validImages.map((_, idx) => `<span class="slider-dot ${idx === 0 ? 'active' : ''}" onclick="changeSlide('${currentProduct.id}', ${idx})"></span>`).join('')}</div>` : '';
                 const controls = validImages.length > 1 ? `
                     <button class="slider-btn prev" onclick="moveSlide('${currentProduct.id}', -1)">&#10094;</button>
                     <button class="slider-btn next" onclick="moveSlide('${currentProduct.id}', 1)">&#10095;</button>
                 ` : '';
-                galleryHtml = `<div class="product-image-slider" id="slider-${currentProduct.id}">${imgs}${controls}${dots}</div>`;
+                
+                // 🌟 綁定手機觸控滑動切換圖片事件
+                galleryHtml = `<div class="product-image-slider" id="slider-${currentProduct.id}" ontouchstart="handleTouchStart('${currentProduct.id}', event)" ontouchend="handleTouchEnd('${currentProduct.id}', event)">${imgs}${controls}${dots}</div>`;
             } else {
                 galleryHtml = `<div class="product-gallery-placeholder"><span>${currentProduct.category || 'NO IMAGE'} 示意圖</span></div>`;
             }
@@ -298,6 +309,13 @@
             let targetIndex = (index + imgs.length) % imgs.length;
             window.sliderIndexes[productId] = targetIndex;
 
+            // 🌟 懶載入機制：切換到該張圖片時若尚未載入 src，則在此時賦值讀取
+            const targetImg = imgs[targetIndex];
+            if (targetImg.dataset.src) {
+                targetImg.src = targetImg.dataset.src;
+                targetImg.removeAttribute('data-src');
+            }
+
             imgs.forEach((img, idx) => {
                 img.classList.toggle('active', idx === targetIndex);
             });
@@ -312,6 +330,30 @@
             const imgs = slider.querySelectorAll('img');
             let currentIndex = window.sliderIndexes[productId] || 0;
             changeSlide(productId, currentIndex + direction);
+        }
+
+        // 🌟 手機左右滑動切換圖片 (Touch Swipe)
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function handleTouchStart(productId, e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+
+        function handleTouchEnd(productId, e) {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+                if (diffX < 0) {
+                    moveSlide(productId, 1);  // 向左滑 -> 下一張
+                } else {
+                    moveSlide(productId, -1); // 向右滑 -> 上一張
+                }
+            }
         }
 
         function updateQty(change) {

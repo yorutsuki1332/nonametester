@@ -6,6 +6,9 @@
     <title>LIGHTNING ADMIN | 商品上架後台</title>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-storage-compat.js"></script>
+    <!-- 🌟 引入前端圖片壓縮 SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.1/dist/browser-image-compression.js"></script>
     <style>
         * {
             margin: 0;
@@ -516,7 +519,7 @@
                             <input type="file" id="productImages" accept="image/*" multiple onchange="handleImageSelection(event)">
                             <div class="drop-zone-text">
                                 📁 <strong>點擊此處</strong> 或將圖片檔案拖曳至此上傳<br>
-                                <span style="font-size: 12px; color: #888;">支援多張選取，最多可上傳 15 張圖片</span>
+                                <span style="font-size: 12px; color: #888;">支援多張選取，最多可上傳 15 張圖片（自動高清壓縮與平行上傳）</span>
                             </div>
                         </div>
                         <div class="image-preview-grid" id="imagePreviewGrid"></div>
@@ -553,10 +556,12 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const storage = firebase.storage();
 
         let currentYear = new Date().getFullYear();
         let nextIndex = 1;
-        let uploadedImages = []; // 儲存已上傳圖片的 Base64 陣列
+        let uploadedFiles = [];     // 儲存實際已壓縮的 File 物件陣列
+        let uploadedPreviews = [];  // 儲存預覽用的 Blob URL 陣列
 
         document.addEventListener('DOMContentLoaded', () => {
             initAutoSku();
@@ -644,28 +649,41 @@
             event.target.value = ''; // 清空 input 讓重複選取同一張圖也能觸發
         }
 
-        function processFiles(files) {
-            if (uploadedImages.length + files.length > 15) {
+        /* 🌟 使用 browser-image-compression 處理圖片壓縮與預覽 */
+        async function processFiles(files) {
+            const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (uploadedFiles.length + fileArray.length > 15) {
                 alert('商品圖片總數不能超過 15 張！');
                 return;
             }
 
-            Array.from(files).forEach(file => {
-                if (!file.type.startsWith('image/')) return;
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    if (uploadedImages.length < 15) {
-                        uploadedImages.push(e.target.result);
-                        renderImagePreviews();
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
+            // 壓縮設定檔
+            const options = {
+                maxSizeMB: 0.5,           // 限制單張圖片最大 0.5MB
+                maxWidthOrHeight: 1200,   // 限制邊長最大 1200px
+                useWebWorker: true
+            };
+
+            for (const file of fileArray) {
+                try {
+                    const compressedFile = await imageCompression(file, options);
+                    uploadedFiles.push(compressedFile);
+                    const previewUrl = URL.createObjectURL(compressedFile);
+                    uploadedPreviews.push(previewUrl);
+                } catch (error) {
+                    console.error('圖片壓縮失敗，改用原圖暫存:', error);
+                    uploadedFiles.push(file);
+                    const previewUrl = URL.createObjectURL(file);
+                    uploadedPreviews.push(previewUrl);
+                }
+            }
+
+            renderImagePreviews();
         }
 
         function renderImagePreviews() {
             const grid = document.getElementById('imagePreviewGrid');
-            grid.innerHTML = uploadedImages.map((imgSrc, index) => `
+            grid.innerHTML = uploadedPreviews.map((imgSrc, index) => `
                 <div class="image-preview-item">
                     <img src="${imgSrc}" alt="預覽圖">
                     <button type="button" class="image-delete-btn" onclick="removeImage(${index})">&times;</button>
@@ -674,11 +692,13 @@
         }
 
         function removeImage(index) {
-            uploadedImages.splice(index, 1);
+            uploadedFiles.splice(index, 1);
+            uploadedPreviews.splice(index, 1);
             renderImagePreviews();
         }
 
-        document.getElementById('addProductForm').addEventListener('submit', function(e) {
+        /* 🌟 改為 Promise.all 平行上傳至 Firebase Storage */
+        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const skuValue = document.getElementById('productSKU').value;
 
@@ -687,29 +707,49 @@
                 return;
             }
 
-            const newProduct = {
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                name: document.getElementById('productName').value,
-                sku: skuValue,
-                price: parseFloat(document.getElementById('salePrice').value),
-                category: document.getElementById('productCategory').value,
-                tag: document.getElementById('productTag').value,
-                description: document.getElementById('productDesc').value,
-                images: uploadedImages
-            };
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '正在同時上傳圖片與建立商品...';
 
-            db.collection("products").doc(skuValue).set(newProduct).then(() => {
+            try {
+                // 1. 同時將所有圖片上傳至 Firebase Storage
+                const uploadPromises = uploadedFiles.map(async (file, i) => {
+                    const filePath = `products/${skuValue}/${Date.now()}_${i}`;
+                    const snapshot = await storage.ref().child(filePath).put(file);
+                    return await snapshot.ref.getDownloadURL();
+                });
+
+                const imageUrls = await Promise.all(uploadPromises);
+
+                // 2. 將圖片下載網址陣列儲存至 Firestore
+                const newProduct = {
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    name: document.getElementById('productName').value,
+                    sku: skuValue,
+                    price: parseFloat(document.getElementById('salePrice').value),
+                    category: document.getElementById('productCategory').value,
+                    tag: document.getElementById('productTag').value,
+                    description: document.getElementById('productDesc').value,
+                    images: imageUrls
+                };
+
+                await db.collection("products").doc(skuValue).set(newProduct);
+
                 const toast = document.getElementById('toastMessage');
                 toast.classList.add('show');
                 setTimeout(() => toast.classList.remove('show'), 3000);
                 
                 this.reset();
-                uploadedImages = [];
+                uploadedFiles = [];
+                uploadedPreviews = [];
                 renderImagePreviews();
                 initAutoSku();
-            }).catch((error) => {
+            } catch (error) {
                 alert('上架失敗： ' + error.message);
-            });
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '確認上架商品';
+            }
         });
     </script>
 </body>

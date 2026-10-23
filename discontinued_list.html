@@ -6,10 +6,13 @@
     <title>LIGHTNING ADMIN | 已下架貨品</title>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-storage-compat.js"></script>
+    <!-- 🌟 引入前端圖片壓縮 SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.1/dist/browser-image-compression.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Noto Sans TC', sans-serif; }
         :root { --bg-main: #f9f9f8; --bg-white: #ffffff; --baby-yellow: #FEF9C3; --text-main: #333333; --text-muted: #888888; --border-color: #e5e5e5; --radius-lg: 16px; --radius-md: 8px; --transition: all 0.3s ease; }
-        /* 預設桌機版型 */
+        
         body {
             background-color: var(--bg-main);
             color: var(--text-main);
@@ -46,7 +49,6 @@
         .page-header h1 { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
         .page-header p { color: var(--text-muted); font-size: 14px; }
         
-        /* 🌟 搜尋輸入框樣式 */
         .search-box-wrapper {
             margin-bottom: 25px;
         }
@@ -86,7 +88,6 @@
         .btn-edit { background-color: #ffffff; color: black; border: 1px solid #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: var(--transition); margin-right: 5px; }
         .btn-edit:hover { background-color: #f0f0f0; }
         
-        /* 彈跳視窗相關樣式 */
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); z-index: 1500; opacity: 0; visibility: hidden; transition: var(--transition); }
         .overlay.open { opacity: 1; visibility: visible; }
         .payment-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 550px; max-height: 85vh; background: #fff; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.1); z-index: 2500; opacity: 0; visibility: hidden; transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
@@ -101,7 +102,6 @@
         .form-input { width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: 0.3s; background: #fff; }
         .form-input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
         
-        /* 🌟 圖片上傳拖拉區塊樣式 */
         .drop-zone {
             border: 2px dashed var(--border-color);
             border-radius: var(--radius-md);
@@ -297,7 +297,7 @@
                         <input type="file" id="editProductImageInput" accept="image/*" multiple onchange="handleEditImageSelection(event)">
                         <div class="drop-zone-text">
                             📁 <strong>點擊此處</strong> 或將圖片檔案拖曳至此新增<br>
-                            <span style="font-size: 11px; color: #888;">支援多張選取</span>
+                            <span style="font-size: 11px; color: #888;">支援多張選取（自動高清壓縮與平行上傳）</span>
                         </div>
                     </div>
                     <div class="image-preview-grid" id="editImagePreviewGrid"></div>
@@ -341,10 +341,13 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const storage = firebase.storage();
 
         let discontinuedMap = {};
         let allDiscontinuedList = []; 
-        let editingImages = []; // 🌟 儲存目前編輯中的圖片陣列
+        let existingImages = [];    // 儲存原本已存在的雲端圖片網址陣列
+        let newImageFiles = [];     // 儲存新選擇且已壓縮的 File 檔案陣列
+        let newImagePreviews = [];  // 儲存新選擇圖片的預覽 Blob URL 陣列
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchDiscontinuedProducts();
@@ -413,8 +416,10 @@
             document.getElementById('editPrice').value = product.price || 0;
             document.getElementById('editDescription').value = product.description || '';
 
-            // 🌟 載入該商品的現有圖片
-            editingImages = product.images ? [...product.images] : [];
+            // 🌟 載入現有圖片並重置新選取的圖片暫存
+            existingImages = product.images ? [...product.images] : [];
+            newImageFiles = [];
+            newImagePreviews = [];
             renderEditImagePreviews();
 
             document.getElementById('editModal').classList.add('open');
@@ -447,58 +452,112 @@
             event.target.value = '';
         }
 
-        function processEditFiles(files) {
-            if (editingImages.length + files.length > 15) {
+        /* 🌟 使用 browser-image-compression 處理圖片壓縮與預覽 */
+        async function processEditFiles(files) {
+            const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+            const totalCount = existingImages.length + newImageFiles.length + fileArray.length;
+            
+            if (totalCount > 15) {
                 alert('商品圖片總數不能超過 15 張！');
                 return;
             }
-            Array.from(files).forEach(file => {
-                if (!file.type.startsWith('image/')) return;
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    if (editingImages.length < 15) {
-                        editingImages.push(e.target.result);
-                        renderEditImagePreviews();
-                    }
-                };
-                reader.readAsDataURL(file);
-            });
+
+            // 壓縮設定檔
+            const options = {
+                maxSizeMB: 0.5,           // 限制單張圖片最大 0.5MB
+                maxWidthOrHeight: 1200,   // 限制邊長最大 1200px
+                useWebWorker: true
+            };
+
+            for (const file of fileArray) {
+                try {
+                    const compressedFile = await imageCompression(file, options);
+                    newImageFiles.push(compressedFile);
+                    const previewUrl = URL.createObjectURL(compressedFile);
+                    newImagePreviews.push(previewUrl);
+                } catch (error) {
+                    console.error('圖片壓縮失敗，改用原圖暫存:', error);
+                    newImageFiles.push(file);
+                    const previewUrl = URL.createObjectURL(file);
+                    newImagePreviews.push(previewUrl);
+                }
+            }
+
+            renderEditImagePreviews();
         }
 
         function renderEditImagePreviews() {
             const grid = document.getElementById('editImagePreviewGrid');
-            grid.innerHTML = editingImages.map((imgSrc, index) => `
+            
+            const existingHtml = existingImages.map((url, index) => `
                 <div class="image-preview-item">
-                    <img src="${imgSrc}" alt="預覽圖">
-                    <button type="button" class="image-delete-btn" onclick="removeEditImage(${index})">&times;</button>
+                    <img src="${url}" alt="既有圖片">
+                    <button type="button" class="image-delete-btn" onclick="removeExistingImage(${index})">&times;</button>
                 </div>
             `).join('');
+
+            const newHtml = newImagePreviews.map((url, index) => `
+                <div class="image-preview-item">
+                    <img src="${url}" alt="新選取圖片">
+                    <button type="button" class="image-delete-btn" onclick="removeNewImage(${index})">&times;</button>
+                </div>
+            `).join('');
+
+            grid.innerHTML = existingHtml + newHtml;
         }
 
-        function removeEditImage(index) {
-            editingImages.splice(index, 1);
+        function removeExistingImage(index) {
+            existingImages.splice(index, 1);
             renderEditImagePreviews();
         }
 
-        document.getElementById('editProductForm').addEventListener('submit', function(e) {
+        function removeNewImage(index) {
+            newImageFiles.splice(index, 1);
+            newImagePreviews.splice(index, 1);
+            renderEditImagePreviews();
+        }
+
+        /* 🌟 改為 Promise.all 平行上傳至 Firebase Storage */
+        document.getElementById('editProductForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const productId = document.getElementById('editProductId').value;
+            const submitBtn = this.querySelector('button[type="submit"]');
             
-            const updatedData = {
-                name: document.getElementById('editName').value,
-                category: document.getElementById('editCategory').value,
-                tag: document.getElementById('editTag').value,
-                price: parseFloat(document.getElementById('editPrice').value),
-                description: document.getElementById('editDescription').value,
-                images: editingImages // 🌟 儲存更新後的圖片陣列
-            };
+            submitBtn.disabled = true;
+            submitBtn.textContent = '正在同時上傳圖片與更新資料...';
 
-            db.collection("discontinued_products").doc(productId).update(updatedData).then(() => {
-                showToast('✅ 商品資料與圖片已成功更新！');
+            try {
+                // 1. 同時將新選取的圖片上傳至 Firebase Storage
+                const uploadPromises = newImageFiles.map(async (file, i) => {
+                    const filePath = `products/${productId}/${Date.now()}_${i}`;
+                    const snapshot = await storage.ref().child(filePath).put(file);
+                    return await snapshot.ref.getDownloadURL();
+                });
+
+                const newlyUploadedUrls = await Promise.all(uploadPromises);
+
+                // 2. 合併保留的既有圖片與新上傳的圖片網址
+                const finalImages = [...existingImages, ...newlyUploadedUrls];
+
+                const updatedData = {
+                    name: document.getElementById('editName').value,
+                    category: document.getElementById('editCategory').value,
+                    tag: document.getElementById('editTag').value,
+                    price: parseFloat(document.getElementById('editPrice').value),
+                    description: document.getElementById('editDescription').value,
+                    images: finalImages
+                };
+
+                await db.collection("discontinued_products").doc(productId).update(updatedData);
+
+                showToast('✅ 已下架商品資料與圖片已成功更新！');
                 closeEditModal();
-            }).catch((error) => {
+            } catch (error) {
                 alert('更新失敗： ' + error.message);
-            });
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '儲存修改';
+            }
         });
 
         function restoreProduct(id) {
