@@ -453,7 +453,7 @@
 
         function initAutoSku() {
             currentYear = new Date().getFullYear();
-            db.collection("products").get().then((querySnapshot) => {
+            db.collection("products" && "discontinued_products").get().then((querySnapshot) => {
                 let maxIndex = 0;
                 const yearStr = String(currentYear);
 
