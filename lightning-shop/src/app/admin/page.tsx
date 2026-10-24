@@ -16,7 +16,8 @@ export default function AdminAddProductPage() {
   
   const [productSKU, setProductSKU] = useState('');
   const [nextIndex, setNextIndex] = useState(1);
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [currentYear, setCurrentYear] = useState(2026);
+
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedPreviews, setUploadedPreviews] = useState<string[]>([]);
@@ -26,6 +27,9 @@ export default function AdminAddProductPage() {
   // 初始化自動 SKU 序號
   useEffect(() => {
     initAutoSku();
+  }, []);
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
   }, []);
 
   // 當地區或性別改變時更新 SKU 預覽
