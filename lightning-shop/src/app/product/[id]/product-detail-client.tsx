@@ -86,8 +86,8 @@ export default function ProductDetailClient({
 
   if (!product) {
     return (
-      <div className="bg-white text-[#333333] min-h-screen flex items-center justify-center font-sans">
-        <div className="text-[18px] text-[#888]">商品不存在或已下架。</div>
+      <div className="product-detail-container" style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+        <div style={{ fontSize: '18px', color: '#888' }}>商品不存在或已下架。</div>
       </div>
     );
   }
@@ -97,26 +97,27 @@ export default function ProductDetailClient({
   const descText = product.description || "這件商品尚未提供詳細描述，但它絕對值得擁有！";
 
   return (
-    <div className="bg-white text-[#333333] min-h-screen font-sans leading-relaxed">
+    <div style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif' }}>
       {/* 導覽列 */}
-      <nav className="fixed top-0 left-0 w-full min-h-[75px] bg-white/98 backdrop-blur-md flex justify-between items-center px-[5%] z-50 border-b border-[#f0f0f0] gap-[15px] flex-wrap py-3">
-        <Link href="/" className="text-[20px] font-bold tracking-[2px] text-[#333] no-underline shrink-0 pl-[25.5px]">
+      <nav className="site-nav">
+        <Link href="/" className="logo" style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', color: '#333', textDecoration: 'none', flexShrink: 0, paddingLeft: '25.5px' }}>
           LIGHTNING
         </Link>
         
-        <div className="flex-grow max-w-[400px] min-w-[200px]">
+        <div className="nav-search-container" style={{ flexGrow: '1', maxWidth: '400px', minWidth: '200px' }}>
           <input 
             type="text" 
             value={navSearch}
             onChange={(e) => setNavSearch(e.target.value)}
             onKeyPress={handleNavSearch}
-            className="w-full py-2.5 px-[18px] border border-[#f0f0f0] rounded-[20px] text-[13px] outline-none bg-[#fafafa] focus:border-[#111] focus:bg-white transition-all duration-300"
+            className="nav-search-input"
+            style={{ border: '1px solid #f0f0f0', transition: 'all 0.3s' }}
             placeholder="🔍 搜尋商品名稱或分類..." 
           />
         </div>
 
-        <div className="flex items-center gap-[15px] shrink-0">
-          <Link href="/" className="flex items-center gap-1.5 text-[13px] font-medium text-[#333] py-2 px-3.5 rounded-[20px] bg-[#fafafa] border border-[#f0f0f0] no-underline hover:bg-[#FEF9C3] transition-all duration-300 whitespace-nowrap">
+        <div className="nav-right-group">
+          <Link href="/" className="back-home-btn">
             <span>←</span> 返回首頁
           </Link>
         </div>
@@ -127,45 +128,44 @@ export default function ProductDetailClient({
         {/* 圖片展示區：使用 Next.js Image 優化載入速度 */}
         {hasImages ? (
           <div 
-            className="relative w-full max-w-[450px] h-[500px] bg-[#f9f9f8] rounded-2xl overflow-hidden flex items-center justify-center touch-pan-y shadow-sm mx-auto md:mx-0 group"
+            style={{ position: 'relative', width: '450px', height: '500px', backgroundColor: '#f9f9f8', borderRadius: '10px', overflow: 'hidden', marginBottom: '15px', display: 'flex', justifyContent: 'center', touchAction: 'pan-y' }}
             onTouchStart={handleTouchStart}
             onTouchEnd={(e) => handleTouchEnd(validImages.length, e)}
           >
             {validImages.map((img, idx) => (
               <div 
                 key={idx} 
-                className={`absolute inset-0 w-full h-full ${idx === activeSlideIndex ? 'block' : 'hidden'}`}
+                style={{position: 'absolute', width: '100%', height:  '100%', objectFit: 'cover', display: idx === activeSlideIndex ? 'block' : 'none'}}
               >
                 <Image
                   src={img}
                   alt={product.name}
                   fill
-                  priority={idx === 0} // 第一張圖片優先載入（LCP 優化），解決載入慢的問題
+                  loading={idx === 0 ? 'eager' : 'lazy'} // 第一張圖片優先載入（LCP 優化），解決載入慢的問題
                   sizes="(max-width: 768px) 100vw, 450px"
-                  className="object-cover"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f9f9f8' }}
                 />
               </div>
             ))}
             {validImages.length > 1 && (
               <>
                 <button 
-                  className="absolute top-1/2 -translate-y-1/2 left-[15px] bg-black/40 text-white border-none w-[36px] h-[36px] rounded-full flex items-center justify-center text-[16px] z-10 hover:bg-black/70 transition-colors"
+                  style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '10px', background: 'rgba(0,0,0,0.4)', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', zIndex: 5 }}
                   onClick={() => moveSlide(-1, validImages.length)}
                 >
                   &#10094;
                 </button>
                 <button 
-                  className="absolute top-1/2 -translate-y-1/2 right-[15px] bg-black/40 text-white border-none w-[36px] h-[36px] rounded-full flex items-center justify-center text-[16px] z-10 hover:bg-black/70 transition-colors"
-                  onClick={() => moveSlide(1, validImages.length)}
+                  style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: '10px', background: 'rgba(0,0,0,0.4)', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', zIndex: 5 }}
+                  onClick={() => moveSlide( 1, validImages.length)}
                 >
                   &#10095;
                 </button>
-                <div className="absolute bottom-[15px] left-1/2 -translate-x-1/2 flex gap-[6px] z-10">
+                <div className="slider-dots">
                   {validImages.map((_, idx) => (
                     <span 
                       key={idx} 
-                      className={`h-[8px] rounded-full cursor-pointer transition-all duration-300 ${idx === activeSlideIndex ? 'w-[20px] bg-white rounded-[4px]' : 'w-[8px] bg-white/50'}`}
-                      onClick={() => changeSlide(idx, validImages.length)} 
+                      style={{ width: idx === activeSlideIndex ? '16px' : '6px', height: '6px', borderRadius: idx === activeSlideIndex ? '3px' : '50%', background: idx === activeSlideIndex ? '#fff' : 'rgba(255,255,255,0.5)', cursor: 'pointer', transition: '0.3s' }} onClick={() => changeSlide(idx, validImages.length)} 
                     />
                   ))}
                 </div>
@@ -173,29 +173,32 @@ export default function ProductDetailClient({
             )}
           </div>
         ) : (
-          <div className="relative w-full max-w-[450px] h-[500px] bg-[#f9f9f8] rounded-2xl overflow-hidden flex items-center justify-center text-[15px] text-[#888] mx-auto md:mx-0">
+          <div className="product-gallery-placeholder" style={{ width: '450px', height: '500px' }}>
             <span>{product.category || 'NO IMAGE'} 示意圖</span>
           </div>
         )}
 
         {/* 右側資訊區 */}
-        <div className="py-[10px] flex flex-col justify-center">
-          <div className="text-[13px] text-[#888] mb-[12px]">首頁 / {product.category} / {product.name}</div>
-          <h1 className="text-[28px] font-semibold mb-[12px] leading-[1.3]">{product.name}</h1>
-          <div className="text-[22px] font-semibold text-[#111] mb-[15px]">HKD {Number(product.price).toFixed(1)}</div>
+        <div className="product-info-wrapper">
+          <div className="breadcrumbs">
+            <button style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px', marginBottom: '2px', padding: 0 }} onClick={() => router.push('/')}>首頁</button> / {product.category} / {product.name}
+          </div>
+          <h1 className="detail-name">{product.name}</h1>
+          <h1 className="detail-sku">{product.id}</h1>
+          <div className="detail-price">HKD {Number(product.price).toFixed(1)}</div>
           
-          <div className="text-[14px] text-[#555] mb-[20px] whitespace-pre-wrap leading-[1.8] h-[250px] overflow-y-auto pr-[8px] break-words">
+          <div className="detail-description" style={{ height: '260px'}}>
             {descText}
           </div>
           
-          <div className="flex items-center gap-[15px] mt-[20px] mb-[12px] pt-[20px]">
-            <div className="flex items-center border border-[#f0f0f0] rounded-[12px] overflow-hidden bg-[#fafafa] h-[48px]">
-              <button type="button" className="bg-transparent border-none px-4 h-full text-[16px] cursor-pointer text-[#333] hover:bg-[#eee] transition-colors flex items-center justify-center" onClick={() => updateQty(-1)}>-</button>
-              <input type="number" value={quantity} readOnly className="w-[50px] h-full text-center border-none bg-transparent text-[15px] font-semibold outline-none pl-[5px]" />
-              <button type="button" className="bg-transparent border-none px-4 h-full text-[16px] cursor-pointer text-[#333] hover:bg-[#eee] transition-colors flex items-center justify-center" onClick={() => updateQty(1)}>+</button>
+          <div className="quantity-action-container" style={{ display: 'flex', position: 'relative'}}>
+            <div className="quantity-selector">
+              <button type="button" className="qty-btn" onClick={() => updateQty(-1)}>-</button>
+              <input type="number" value={quantity} readOnly className="qty-input" style={{ paddingLeft: '20px', textAlign: 'center' }} />
+              <button type="button" className="qty-btn" onClick={() => updateQty(1)}>+</button>
             </div>
             <button 
-              className="flex-grow bg-[#111] text-white h-[48px] px-6 border-none rounded-[12px] text-[15px] font-semibold cursor-pointer hover:bg-[#333] transition-all duration-300 shadow-sm"
+              className="add-to-cart-huge"
               onClick={addToCart}
             >
               加入購物車
