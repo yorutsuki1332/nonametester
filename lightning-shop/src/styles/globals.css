@@ -614,7 +614,7 @@ body {
 
 @media (max-width: 768px) {
   .site-nav { 
-    padding: 10px 4%;
+    padding: 8px 4%;
     height: 130px; 
   }
   .nav-search-container { 
@@ -627,7 +627,7 @@ body {
     grid-template-columns: 1fr; 
     gap: 30px; 
     margin-top: 140px; 
-    padding: 0 4%; 
+    padding: 10px 4%; 
   }
   .product-info-wrapper { 
     height: auto; 
