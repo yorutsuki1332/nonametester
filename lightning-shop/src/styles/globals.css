@@ -615,19 +615,19 @@ body {
 @media (max-width: 768px) {
   .site-nav { 
     padding: 10px 4%;
-    height: 130px; 
+    height: 120px; 
+    gap: 8px;
   }
   .nav-search-container { 
     order: 3; 
     width: 100%; 
     max-width: 100%; 
-    margin-top: 1px; 
-    padding: 0;
+    margin-top: 0px; 
   }
   .product-detail-container { 
     grid-template-columns: 1fr; 
     gap: 30px; 
-    margin-top: 140px; 
+    margin-top: 120px; 
     padding: 10px 4%; 
   }
   .product-info-wrapper { 
