@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
 
@@ -88,7 +88,7 @@ export default function AdminProductsListPage() {
     setTimeout(() => setIsToastShow(false), 3000);
   };
 
-  //開啟修改 Modal
+  // 開啟修改 Modal
   const openEditModal = (productId: string) => {
     const product = productsMap[productId];
     if (!product) return;
@@ -159,29 +159,40 @@ export default function AdminProductsListPage() {
     setNewImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 儲存修改
+  // 儲存修改 (已改為上傳至 Vercel Blob)
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdating(true);
 
     try {
-      // 平行上傳新圖片
+      // 1. 將新選取的圖片平行上傳至 Vercel Blob API
       const uploadPromises = newImageFiles.map(async (file, i) => {
-        const filePath = `products/${editId}/${Date.now()}_${i}`;
-        const snapshot = await storage.ref().child(filePath).put(file);
-        return await snapshot.ref.getDownloadURL();
+        const filename = `products/${editId}/${Date.now()}_${i}_${file.name}`;
+        
+        const response = await fetch(`/api/upload?filename=${encodeURIComponent(filename)}`, {
+          method: 'POST',
+          body: file,
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || '圖片上傳至 Vercel Blob 失敗');
+        }
+
+        return data.url; // 取得 Vercel Blob 的公開圖片網址
       });
 
       const newlyUploadedUrls = await Promise.all(uploadPromises);
       const finalImages = [...existingImages, ...newlyUploadedUrls];
 
+      // 2. 更新 Firebase Firestore 中的資料
       const updatedData = {
         name: editName,
         category: editCategory,
         tag: editTag,
         price: parseFloat(editPrice),
         description: editDescription,
-        images: finalImages,
+        images: finalImages, // 包含既有與新上傳的 Vercel Blob 網址
       };
 
       await db.collection("products").doc(editId).update(updatedData);
@@ -349,7 +360,7 @@ export default function AdminProductsListPage() {
                     <input type="file" accept="image/*" multiple onChange={handleEditImageSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     <div className="text-[13px] text-[#888] pointer-events-none">
                       📁 <strong className="text-[#333]">點擊此處</strong> 或將圖片檔案拖曳至此新增<br/>
-                      <span className="text-[11px] text-[#888]">支援多張選取（自動高清壓縮與平行上傳）</span>
+                      <span className="text-[11px] text-[#888]">支援多張選取（自動高清壓縮與 Vercel Blob 上傳）</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">
@@ -374,7 +385,7 @@ export default function AdminProductsListPage() {
                 </div>
                 
                 <button type="submit" disabled={isUpdating} className="w-full bg-[#FEF9C3] text-[#111] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#f0e9aa] transition mt-2">
-                  {isUpdating ? '正在同時上傳圖片與更新資料...' : '儲存修改'}
+                  {isUpdating ? '正在上傳至 Vercel Blob 並更新資料...' : '儲存修改'}
                 </button>
                 <button type="button" onClick={openDiscontinueModalFromEdit} className="w-full bg-[#ff6b6b] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition mt-3">
                   下架商品

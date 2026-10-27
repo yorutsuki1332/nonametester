@@ -10,12 +10,11 @@ export async function POST(request) {
   }
 
   try {
-    // 將請求的檔案內容上傳至 Vercel Blob，設定為公開存取
+    // 將檔案上傳至 Vercel Blob，設定為公開存取
     const blob = await put(filename, request.body, {
       access: 'public',
     });
 
-    // 回傳上傳成功後的檔案資訊（包含網址 blob.url）
     return NextResponse.json(blob);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

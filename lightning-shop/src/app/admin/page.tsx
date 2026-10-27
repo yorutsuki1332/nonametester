@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
 
@@ -17,7 +17,6 @@ export default function AdminAddProductPage() {
   const [productSKU, setProductSKU] = useState('');
   const [nextIndex, setNextIndex] = useState(1);
   const [currentYear, setCurrentYear] = useState(2026);
-
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedPreviews, setUploadedPreviews] = useState<string[]>([]);
@@ -111,8 +110,7 @@ export default function AdminAddProductPage() {
     setUploadedPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 表單送出
-  // 表單送出
+  // 表單送出 (已改為上傳至 Vercel Blob)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productSKU) {
@@ -125,7 +123,6 @@ export default function AdminAddProductPage() {
     try {
       // 1. 將每個選中的圖片分別上傳至 Vercel Blob API
       const uploadPromises = uploadedFiles.map(async (file, i) => {
-        // 建立檔名：產品SKU_時間戳記_索引
         const filename = `products/${productSKU}/${Date.now()}_${i}_${file.name}`;
         
         const response = await fetch(`/api/upload?filename=${encodeURIComponent(filename)}`, {
@@ -153,7 +150,7 @@ export default function AdminAddProductPage() {
         category: productCategory,
         tag: productTag,
         description: productDesc,
-        images: imageUrls, // 這裡存的是 Vercel Blob 的網址
+        images: imageUrls, // 儲存 Vercel Blob 的香港節點公開網址
       };
 
       await db.collection("products").doc(productSKU).set(newProduct);
@@ -265,7 +262,7 @@ export default function AdminAddProductPage() {
                 <input type="file" accept="image/*" multiple onChange={handleImageSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 <div className="text-[14px] text-[#888] pointer-events-none">
                   📁 <strong className="text-[#333]">點擊此處</strong> 或將圖片檔案拖曳至此上傳<br/>
-                  <span className="text-[12px] text-[#888]">支援多張選取，最多可上傳 15 張圖片（自動高清壓縮與平行上傳）</span>
+                  <span className="text-[12px] text-[#888]">支援多張選取，最多可上傳 15 張圖片（自動高清壓縮與 Vercel Blob 上傳）</span>
                 </div>
               </div>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-3 mt-2.5">
@@ -290,14 +287,14 @@ export default function AdminAddProductPage() {
           <div className="flex flex-col-reverse md:flex-row justify-end gap-4 mt-10 pt-5 border-t border-[#e5e5e5]">
             <button type="button" onClick={initAutoSku} className="w-full md:w-auto py-3 px-[30px] rounded-[30px] text-[14px] font-medium bg-transparent text-[#888] border border-[#e5e5e5] hover:bg-[#f5f5f5] hover:text-[#333] transition cursor-pointer">重新載入序號</button>
             <button type="submit" disabled={isSubmitting} className="w-full md:w-auto py-3 px-[30px] rounded-[30px] text-[14px] font-medium bg-[#111111] text-white hover:bg-[#333333] transition cursor-pointer shadow-sm">
-              {isSubmitting ? '正在同時上傳圖片與建立商品...' : '確認上架商品'}
+              {isSubmitting ? '正在上傳至 Vercel Blob 並建立商品...' : '確認上架商品'}
             </button>
           </div>
         </form>
       </div>
 
       <div className={`fixed bottom-[30px] left-1/2 -translate-x-1/2 bg-[#333] text-white px-[25px] py-3 rounded-[30px] text-[13px] font-medium z-[3000] transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
-        ✅ 商品上架成功！雲端資料庫已同步。
+        ✅ 商品上架成功！圖片已儲存至 Vercel Blob。
       </div>
     </>
   );

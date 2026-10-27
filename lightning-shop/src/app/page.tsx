@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 
@@ -398,15 +399,18 @@ export default function Home() {
                       {hasImages ? (
                         <>
                           {validImages.map((img, idx) => (
-                            <img 
-                              key={idx}
-                              src={idx === 0 ? img : (sliderIndexes[p.id] === idx ? img : undefined)}
-                              data-src={img}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: idx === activeIdx ? 'block' : 'none' }}
-                              loading={idx === 0 ? 'eager' : 'lazy'}
-                              decoding="async"
-                              alt={p.name}
-                            />
+                            idx === activeIdx && (
+                              <div key={idx} style={{ position: 'relative', width: '100%', height: '100%' }}>
+                                <Image 
+                                  src={img}
+                                  alt={p.name}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, 300px"
+                                  style={{ objectFit: 'cover' }}
+                                  priority={idx === 0}
+                                />
+                              </div>
+                            )
                           ))}
                           {validImages.length > 1 && (
                             <>

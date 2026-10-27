@@ -98,7 +98,7 @@ export default function ProductDetailClient({
 
   return (
     <div style={{ backgroundColor: '#ffffff', color: '#333333', minHeight: '100vh' }}>
-      {/* 導覽列：完美套用 globals.css 的 .site-nav 及其響應式斷點 */}
+      {/* 導覽列 */}
       <nav className="site-nav">
         <Link href="/" className="logo">
           LIGHTNING
@@ -122,9 +122,9 @@ export default function ProductDetailClient({
         </div>
       </nav>
 
-      {/* 主內容區：完美對應第二張圖的雙欄對齊與尺寸比例 */}
+      {/* 主內容區 */}
       <main className="product-detail-container">
-        {/* 圖片展示區 */}
+        {/* 圖片展示區 (讀取 Vercel Blob 網址並由 Next.js Image 優化) */}
         {hasImages ? (
           <div 
             className="product-image-slider"
