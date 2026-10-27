@@ -612,11 +612,10 @@ body {
   transform: translateY(-2px);
 }
 
-/* 🌟 響應式手機版適配 (max-width: 768px)[cite: 2] */
 @media (max-width: 768px) {
   .site-nav { 
     padding: 10px 4%;
-    height: 60px; 
+    height: 100px; 
   }
   .nav-search-container { 
     order: 3; 

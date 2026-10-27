@@ -86,7 +86,7 @@ export default function ProductDetailClient({
 
   if (!product) {
     return (
-      <div className="product-detail-container" style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+      <div className="product-detail-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ fontSize: '18px', color: '#888' }}>商品不存在或已下架。</div>
       </div>
     );
@@ -97,8 +97,8 @@ export default function ProductDetailClient({
   const descText = product.description || "這件商品尚未提供詳細描述，但它絕對值得擁有！";
 
   return (
-    <div style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', fontFamily: 'sans-serif' }}>
-      {/* 導覽列 */}
+    <div style={{ backgroundColor: '#ffffff', color: '#333333', minHeight: '100vh' }}>
+      {/* 導覽列：完美套用 globals.css 的 .site-nav 及其響應式斷點 */}
       <nav className="site-nav">
         <Link href="/" className="logo">
           LIGHTNING
@@ -122,7 +122,7 @@ export default function ProductDetailClient({
         </div>
       </nav>
 
-      {/* 主內容區：完美依照 globals.css 進行兩欄與單欄自適應 */}
+      {/* 主內容區：完美對應第二張圖的雙欄對齊與尺寸比例 */}
       <main className="product-detail-container">
         {/* 圖片展示區 */}
         {hasImages ? (
