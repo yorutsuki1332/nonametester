@@ -28,7 +28,35 @@ body {
   box-sizing: border-box;
 }
 
-/* 導覽列樣式 (修復 Logo 偏移) */
+/* ===========================
+   Admin 側邊欄導覽列按鈕樣式
+   =========================== */
+.admin-link {
+  display: flex;
+  align-items: center;
+  padding: 11px 15px;
+  text-decoration: none;
+  color: #888888;
+  font-size: 14px;
+  font-weight: 400;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.admin-link:hover,
+.admin-link.active {
+  background-color: #FEF9C3;
+  color: #333333;
+}
+
+.admin-link.active {
+  font-weight: 700;
+}
+
+/* ===========================
+   頂部導覽列樣式
+   =========================== */
 .site-nav {
   position: fixed;
   top: 0;
@@ -55,6 +83,15 @@ body {
   color: var(--text-main);
   text-decoration: none;
   flex-shrink: 0;
+}
+
+.logo span {
+  color: var(--text-muted);
+  font-size: 12px;
+  display: block;
+  margin-top: 5px;
+  letter-spacing: 1px;
+  font-weight: 500;
 }
 
 .nav-right-group {
@@ -150,7 +187,9 @@ body {
   background: #fff;
 }
 
-/* 主頁樣式 */
+/* ===========================
+   主頁與商品列表樣式
+   =========================== */
 .hero-container {
   padding: 100px 4% 0;
   max-width: 1400px;
@@ -359,7 +398,9 @@ body {
   border-color: var(--baby-yellow);
 }
 
-/* 產品詳情頁樣式 (修復數量鍵與數字偏移) */
+/* ===========================
+   產品詳情頁樣式
+   =========================== */
 .product-detail-container {
   max-width: 1100px;
   margin: 100px auto 60px;
@@ -479,7 +520,9 @@ body {
   box-shadow: 0 10px 20px rgba(0,0,0,0.1);
 }
 
-/* 購物車與 Modal 樣式 */
+/* ===========================
+   購物車與 Modal 樣式
+   =========================== */
 .cart-drawer {
   position: fixed;
   top: 0;
@@ -612,6 +655,9 @@ body {
   transform: translateY(-2px);
 }
 
+/* ===========================
+   RWD 響應式調整
+   =========================== */
 @media (max-width: 768px) {
   .site-nav { 
     padding: 10px 4%;
