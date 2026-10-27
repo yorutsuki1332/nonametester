@@ -112,6 +112,7 @@ export default function AdminAddProductPage() {
   };
 
   // 表單送出
+  // 表單送出
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productSKU) {
@@ -122,15 +123,28 @@ export default function AdminAddProductPage() {
     setIsSubmitting(true);
 
     try {
-      // 平行上傳圖片至 Firebase Storage
+      // 1. 將每個選中的圖片分別上傳至 Vercel Blob API
       const uploadPromises = uploadedFiles.map(async (file, i) => {
-        const filePath = `products/${productSKU}/${Date.now()}_${i}`;
-        const snapshot = await storage.ref().child(filePath).put(file);
-        return await snapshot.ref.getDownloadURL();
+        // 建立檔名：產品SKU_時間戳記_索引
+        const filename = `products/${productSKU}/${Date.now()}_${i}_${file.name}`;
+        
+        const response = await fetch(`/api/upload?filename=${encodeURIComponent(filename)}`, {
+          method: 'POST',
+          body: file,
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || '圖片上傳至 Vercel Blob 失敗');
+        }
+
+        return data.url; // 取得 Vercel Blob 的公開圖片網址
       });
 
+      // 等待所有圖片平行上傳完畢
       const imageUrls = await Promise.all(uploadPromises);
 
+      // 2. 將商品資訊與 Vercel Blob 圖片網址寫入 Firebase Firestore
       const newProduct = {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         name: productName,
@@ -139,7 +153,7 @@ export default function AdminAddProductPage() {
         category: productCategory,
         tag: productTag,
         description: productDesc,
-        images: imageUrls,
+        images: imageUrls, // 這裡存的是 Vercel Blob 的網址
       };
 
       await db.collection("products").doc(productSKU).set(newProduct);
