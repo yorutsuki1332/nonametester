@@ -615,7 +615,7 @@ body {
 @media (max-width: 768px) {
   .site-nav { 
     padding: 10px 4%;
-    height: 100px; 
+    height: 130px; 
   }
   .nav-search-container { 
     order: 3; 
