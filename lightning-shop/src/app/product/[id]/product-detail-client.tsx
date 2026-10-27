@@ -97,7 +97,7 @@ export default function ProductDetailClient({
   const descText = product.description || "這件商品尚未提供詳細描述，但它絕對值得擁有！";
 
   return (
-    <div style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif' }}>
+    <div style={{ backgroundColor: '#fff', color: '#333333', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       {/* 導覽列 */}
       <nav className="site-nav">
         <Link href="/" className="logo" style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '2px', color: '#333', textDecoration: 'none', flexShrink: 0, paddingLeft: '25.5px' }}>
@@ -124,7 +124,7 @@ export default function ProductDetailClient({
       </nav>
 
       {/* 主內容區 */}
-      <main className="product-detail-container">
+      <main className="product-detail-container sm:flex-col">
         {/* 圖片展示區：使用 Next.js Image 優化載入速度 */}
         {hasImages ? (
           <div 

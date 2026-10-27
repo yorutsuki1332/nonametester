@@ -611,3 +611,45 @@ body {
   background: #f0e9aa;
   transform: translateY(-2px);
 }
+
+/* 🌟 響應式手機版適配 (max-width: 768px)[cite: 2] */
+@media (max-width: 768px) {
+  .site-nav { 
+    padding: 10px 4%; 
+  }
+  .nav-search-container { 
+    order: 3; 
+    width: 100%; 
+    max-width: 100%; 
+    margin-top: 5px; 
+  }
+  .product-detail-container { 
+    grid-template-columns: 1fr; 
+    gap: 30px; 
+    margin-top: 140px; 
+    padding: 0 4%; 
+  }
+  .product-info-wrapper { 
+    height: auto; 
+  }
+  .product-image-slider, 
+  .product-gallery-placeholder { 
+    height: 350px; 
+  }
+  .detail-name { 
+    font-size: 24px; 
+  }
+  .detail-price { 
+    font-size: 20px; 
+  }
+  .detail-description { 
+    max-height: none; 
+  }
+  .quantity-action-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .quantity-selector {
+    justify-content: center;
+  }
+}
