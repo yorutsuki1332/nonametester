@@ -614,14 +614,14 @@ body {
 
 @media (max-width: 768px) {
   .site-nav { 
-    padding: 8px 4%;
+    padding: 10px 4%;
     height: 130px; 
   }
   .nav-search-container { 
     order: 3; 
     width: 100%; 
     max-width: 100%; 
-    margin-top: 5px; 
+    margin-top: 1px; 
   }
   .product-detail-container { 
     grid-template-columns: 1fr; 
