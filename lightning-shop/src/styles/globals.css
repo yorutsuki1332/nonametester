@@ -622,6 +622,7 @@ body {
     width: 100%; 
     max-width: 100%; 
     margin-top: 1px; 
+    padding: 0;
   }
   .product-detail-container { 
     grid-template-columns: 1fr; 
