@@ -160,13 +160,12 @@ export default function AdminDiscontinuedListPage() {
     setNewImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // 儲存修改 (已改為上傳至 Vercel Blob)
+  // 儲存修改 (上傳至 Vercel Blob)
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdating(true);
 
     try {
-      // 1. 將新選取的圖片上傳至 Vercel Blob API
       const uploadPromises = newImageFiles.map(async (file, i) => {
         const filename = `products/${editId}/${Date.now()}_${i}_${file.name}`;
         
@@ -180,13 +179,12 @@ export default function AdminDiscontinuedListPage() {
           throw new Error(data.error || '圖片上傳至 Vercel Blob 失敗');
         }
 
-        return data.url; // 取得 Vercel Blob 的公開圖片網址
+        return data.url;
       });
 
       const newlyUploadedUrls = await Promise.all(uploadPromises);
       const finalImages = [...existingImages, ...newlyUploadedUrls];
 
-      // 2. 更新 Firebase Firestore 中的資料
       const updatedData = {
         name: editName,
         category: editCategory,
@@ -253,60 +251,62 @@ export default function AdminDiscontinuedListPage() {
 
   return (
     <>
-      <div className="mb-[30px]">
+      <div className="mb-7.5">
         <h1 className="text-[24px] font-semibold mb-1">已下架貨品</h1>
         <p className="text-[#888888] text-[14px]">管理目前所有已下架的商品，可選擇重新上架或永久刪除。</p>
       </div>
 
-      <div className="mb-[25px]">
+      <div className="mb-6.25">
         <input 
           type="text" 
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full max-w-[400px] p-[12px_18px] border border-[#e5e5e5] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] transition"
+          className="w-full max-w-100 p-[12px_18px] border border-[#e5e5e5] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] transition"
           placeholder="🔍 搜尋商品名稱或分類..." 
         />
       </div>
 
-      <div className="bg-white rounded-[16px] p-4 md:p-[25px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#e5e5e5] w-full">
+      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#e5e5e5] w-full">
         <table className="w-full border-collapse text-left text-[14px]">
           <thead className="hidden md:table-header-group">
             <tr>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">商品編號</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">商品名稱</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">分類</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">售價 (HKD)</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">操作</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">商品編號</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">商品名稱</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">分類</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">售價 (HKD)</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">操作</th>
             </tr>
           </thead>
           <tbody>
             {allList.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-[#888] py-[30px]">目前沒有已下架的商品</td></tr>
+              <tr><td colSpan={5} className="text-center text-[#888] py-7.5">目前沒有已下架的商品</td></tr>
             ) : filteredList.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-[#888] py-[30px]">沒有找到符合條件的已下架商品</td></tr>
+              <tr><td colSpan={5} className="text-center text-[#888] py-7.5">沒有找到符合條件的已下架商品</td></tr>
             ) : (
               filteredList.map(p => (
-                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-4 md:mb-0 p-4 md:p-0 shadow-sm md:shadow-none hover:bg-[#fafafa]">
-                  <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center font-medium">
+                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] md:shadow-none hover:bg-[#fafafa]">
+                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">商品編號</span>
                     {p.id}
                   </td>
-                  <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center font-medium">
+                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">商品名稱</span>
                     {p.name}
                   </td>
-                  <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center">
+                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">商品分類</span>
                     {p.category}
                   </td>
-                  <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center md:w-[90px]">
+                  <td width={90} className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-22.5">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">售價</span>
                     HKD {Number(p.price).toFixed(1)}
                   </td>
-                  <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex flex-col md:flex-row gap-2 mt-3 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 md:w-[290px]">
-                    <button className="w-full md:w-auto bg-white text-black border border-[#ccc] p-[8px_14px] md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#f0f0f0] transition" onClick={() => openEditModal(p.id)}>資料修改</button>
-                    <button className="w-full md:w-auto bg-[#111] text-white border-none p-[8px_14px] md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => restoreProduct(p.id)}>重新上架</button>
-                    <button className="w-full md:w-auto bg-[#ff6b6b] text-white border-none p-[8px_14px] md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#fa5252] transition" onClick={() => openDeleteModal(p.id)}>永久刪除</button>
+                  <td width={290} className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-72.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <button className="w-full md:w-auto bg-white text-black border border-[#ccc] p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#f0f0f0] transition" onClick={() => openEditModal(p.id)}>資料修改</button>
+                      <button className="w-full md:w-auto bg-[#111] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => restoreProduct(p.id)}>重新上架</button>
+                      <button className="w-full md:w-auto bg-[#ff6b6b] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#fa5252] transition" onClick={() => openDeleteModal(p.id)}>永久刪除</button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -318,8 +318,8 @@ export default function AdminDiscontinuedListPage() {
       {/* 修改已下架商品 Modal */}
       {isEditOpen && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[1500]" onClick={closeEditModal} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[85vh] bg-white rounded-[16px] shadow-2xl z-[2500] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={closeEditModal} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-137.5 max-h-[85vh] bg-white rounded-2xl shadow-2xl z-2500 flex flex-col overflow-hidden">
             <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
               <h2 className="text-[18px] font-semibold">修改已下架商品資料</h2>
               <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={closeEditModal}>&times;</button>
@@ -362,15 +362,15 @@ export default function AdminDiscontinuedListPage() {
                   </div>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">
                     {existingImages.map((url, idx) => (
-                      <div key={`existing-${idx}`} className="relative w-[80px] h-[80px] rounded-lg border border-[#e5e5e5] overflow-hidden bg-[#f4f4f2] flex items-center justify-center">
+                      <div key={`existing-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#e5e5e5] overflow-hidden bg-[#f4f4f2] flex items-center justify-center">
                         <img src={url} alt="既有圖片" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-black/60 text-white border-none rounded-full w-[18px] h-[18px] text-[10px] flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b]">&times;</button>
+                        <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-black/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b]">&times;</button>
                       </div>
                     ))}
                     {newImagePreviews.map((url, idx) => (
-                      <div key={`new-${idx}`} className="relative w-[80px] h-[80px] rounded-lg border border-[#e5e5e5] overflow-hidden bg-[#f4f4f2] flex items-center justify-center">
+                      <div key={`new-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#e5e5e5] overflow-hidden bg-[#f4f4f2] flex items-center justify-center">
                         <img src={url} alt="新選取圖片" className="w-full h-full object-cover" />
-                        <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-black/60 text-white border-none rounded-full w-[18px] h-[18px] text-[10px] flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b]">&times;</button>
+                        <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-black/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-[#ff6b6b]">&times;</button>
                       </div>
                     ))}
                   </div>
@@ -393,14 +393,14 @@ export default function AdminDiscontinuedListPage() {
       {/* 刪除確認 Modal */}
       {isDeleteOpen && deleteTarget && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[1500]" onClick={() => setIsDeleteOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] bg-white rounded-[16px] shadow-2xl z-[3000] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={() => setIsDeleteOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-137.5 bg-white rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
             <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
               <h2 className="text-[18px] font-semibold">刪除確認</h2>
               <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsDeleteOpen(false)}>&times;</button>
             </div>
             <div className="p-6">
-              <p className="text-[14px] text-[#555] mb-[25px] leading-relaxed">
+              <p className="text-[14px] text-[#555] mb-6.25 leading-relaxed">
                 確定要永久刪除「{deleteTarget.name}」這件商品嗎？此動作無法復原。
               </p>
               <button type="button" onClick={confirmDelete} className="w-full bg-[#ff6b6b] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition">
@@ -415,7 +415,7 @@ export default function AdminDiscontinuedListPage() {
       )}
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-[30px] left-1/2 -translate-x-1/2 bg-[#333] text-white px-[25px] py-3 rounded-[30px] text-[13px] font-medium z-[3000] transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+      <div className={`fixed bottom-0 left-1/2 -translate-x-1/2 bg-[#333] text-white px-6.25 py-3 rounded-[30px] text-[13px] font-medium z-3000 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
         {toastMsg}
       </div>
     </>

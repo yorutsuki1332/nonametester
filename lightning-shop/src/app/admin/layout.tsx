@@ -9,7 +9,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f9f9f8] text-[#333333]">
       {/* 側邊導覽列：手機版為上方橫向導覽，電腦版為左側固定 260px */}
-      <aside className="w-full md:w-65 bg-white border-b md:border-b-0 md:border-r border-[#e5e5e5] px-5 py-3 md:py-7.5 flex flex-col md:fixed md:h-screen z-100 shrink-0">
+      <aside className="w-full md:w-65 bg-white border-b md:border-b-0 md:border-r border-[#e5e5e5] px-4 py-3 md:py-7.5 flex flex-col md:fixed md:h-screen z-100 shrink-0">
         <div className="text-[16px] text-center md:text-left md:text-[20px] font-bold tracking-[2px] mb-3 md:mb-12.5 text-[#333333] px-2.5">
           LIGHTNING 
           <span className="text-[#888888] text-[12px] md:block inline-block ml-2 md:ml-0 mt-1.25 tracking-[1px] font-medium">
@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </div>
 
-        <ul className="list-none flex flex-row md:flex-direction md:flex-col gap-2.5 overflow-x-auto pb-1 md:pb-0">
+        <ul className="list-none flex flex-row md:flex-direction md:flex-col gap-1.5 overflow-x-auto pb-1 md:pb-0">
           <li>
             <Link 
               href="/admin" 

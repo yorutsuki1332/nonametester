@@ -130,38 +130,38 @@ export default function AdminOrdersListPage() {
 
   return (
     <>
-      <div className="mb-[25px]">
+      <div className="mb-6.25">
         <h1 className="text-[24px] font-semibold mb-1">訂單管理</h1>
         <p className="text-[#888888] text-[14px]">管理目前所有在雲端資料庫中的訂單紀錄。請點擊「檢視詳情」查看與管理。</p>
       </div>
 
-      <div className="mb-[25px]">
+      <div className="mb-6.25">
         <input 
           type="text" 
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full max-w-[400px] p-[12px_18px] border border-[#e5e5e5] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] transition"
+          className="w-full max-w-100 p-[12px_18px] border border-[#e5e5e5] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] transition"
           placeholder="🔍 搜尋訂單 ID、收件人或信箱..." 
         />
       </div>
 
-      <div className="bg-white rounded-[16px] p-4 md:p-[25px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#e5e5e5] w-full">
+      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#e5e5e5] w-full">
         <table className="w-full border-collapse text-left text-[14px]">
           <thead className="hidden md:table-header-group">
             <tr>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">訂單 ID</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">收件人</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">電子郵件</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">總金額 (HKD)</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">狀態</th>
-              <th className="p-[15px] border-b-2 border-[#e5e5e5] text-[#888] font-semibold">操作</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">訂單 ID</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">收件人</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">電子郵件</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">總金額 (HKD)</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">狀態</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">操作</th>
             </tr>
           </thead>
           <tbody>
             {allList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#888] py-[30px]">目前尚無任何訂單紀錄</td></tr>
+              <tr><td colSpan={6} className="text-center text-[#888] py-7.5">目前尚無任何訂單紀錄</td></tr>
             ) : filteredList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#888] py-[30px]">沒有找到符合條件的訂單</td></tr>
+              <tr><td colSpan={6} className="text-center text-[#888] py-7.5">沒有找到符合條件的訂單</td></tr>
             ) : (
               filteredList.map(o => {
                 const status = o.status || 'pending';
@@ -172,29 +172,29 @@ export default function AdminOrdersListPage() {
                   : 'bg-[#FEF9C3] text-[#333]';
 
                 return (
-                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-4 md:mb-0 p-4 md:p-0 shadow-sm md:shadow-none hover:bg-[#fafafa]">
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center font-medium">
+                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] md:shadow-none hover:bg-[#fafafa]">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">訂單 ID</span>
                       {o.id}
                     </td>
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center font-medium">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">收件人</span>
                       {o.name || '未提供'}
                     </td>
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">電子郵件</span>
                       {o.email || '未提供'}
                     </td>
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center md:w-[130px]">
+                    <td width={130} className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-32.5">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">總金額</span>
                       HKD {Number(o.total || 0).toFixed(1)}
                     </td>
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex justify-between items-center">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">狀態</span>
                       <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${badgeClass}`}>{status}</span>
                     </td>
-                    <td className="block md:table-cell p-[6px_0] md:p-[15px] border-none md:border-b border-[#e5e5e5] flex flex-col md:flex-row gap-2 mt-3 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0 md:w-[110px]">
-                      <button className="w-full md:w-auto bg-[#111] text-white border-none p-[8px_14px] md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
+                    <td width={110} className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
+                      <button className="w-full md:w-auto bg-[#111] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
                     </td>
                   </tr>
                 );
@@ -207,8 +207,8 @@ export default function AdminOrdersListPage() {
       {/* 訂單詳情 Modal */}
       {isDetailOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[1500]" onClick={closeOrderModal} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px] max-h-[85vh] bg-white rounded-[16px] shadow-2xl z-[2500] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={closeOrderModal} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-2xl z-2500 flex flex-col overflow-hidden">
             <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
               <h2 className="text-[18px] font-semibold">訂單詳細資訊</h2>
               <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={closeOrderModal}>&times;</button>
@@ -232,10 +232,10 @@ export default function AdminOrdersListPage() {
               </div>
               <div className="mb-5">
                 <label className="block text-[13px] font-semibold mb-2 text-[#555]">購買商品明細</label>
-                <div className="bg-[#f9f9f9] p-3 rounded-lg text-[13px] max-h-[150px] overflow-y-auto border border-[#ddd]">
+                <div className="bg-[#f9f9f9] p-3 rounded-lg text-[13px] max-h-37.5 overflow-y-auto border border-[#ddd]">
                   {selectedOrder.items && selectedOrder.items.length > 0 ? (
                     selectedOrder.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-space-between mb-1.5 border-b border-dashed border-[#eee] pb-1.5">
+                      <div key={idx} className="flex justify-between mb-1.5 border-b border-dashed border-[#eee] pb-1.5">
                         <span><span className="font-semibold pr-1.5">[{item.id}]</span>{item.name} × {item.quantity}</span>
                         <span>HKD {Number(item.price * item.quantity).toFixed(1)}</span>
                       </div>
@@ -260,14 +260,14 @@ export default function AdminOrdersListPage() {
       {/* 完成訂單確認 Modal */}
       {isConfirmOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[1500]" onClick={() => setIsConfirmOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px] bg-white rounded-[16px] shadow-2xl z-[3000] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={() => setIsConfirmOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-white rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
             <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
               <h2 className="text-[18px] font-semibold">確認完成訂單</h2>
               <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsConfirmOpen(false)}>&times;</button>
             </div>
             <div className="p-6">
-              <p className="text-[14px] text-[#555] mb-[25px] leading-relaxed">
+              <p className="text-[14px] text-[#555] mb-6.25 leading-relaxed">
                 確定要將收件人「{selectedOrder.name || '未提供'}」的這筆訂單標記為「已完成 (completed)」嗎？
               </p>
               <button type="button" onClick={executeCompleteOrder} className="w-full bg-[#2b8a3e] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#236c31] transition">
@@ -284,14 +284,14 @@ export default function AdminOrdersListPage() {
       {/* 取消/刪除訂單確認 Modal */}
       {isCancelOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[1500]" onClick={() => setIsCancelOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px] bg-white rounded-[16px] shadow-2xl z-[3000] flex flex-col overflow-hidden">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={() => setIsCancelOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-white rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
             <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
               <h2 className="text-[18px] font-semibold">確認刪除訂單</h2>
               <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCancelOpen(false)}>&times;</button>
             </div>
             <div className="p-6">
-              <p className="text-[14px] text-[#555] mb-[25px] leading-relaxed">
+              <p className="text-[14px] text-[#555] mb-6.25 leading-relaxed">
                 確定要將收件人「{selectedOrder.name || '未提供'}」的這筆訂單標記為「已取消 (cancelled)」嗎？
               </p>
               <button type="button" onClick={executeDeleteOrder} className="w-full bg-[#ff6b6b] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition">
@@ -306,7 +306,7 @@ export default function AdminOrdersListPage() {
       )}
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-[30px] left-1/2 -translate-x-1/2 bg-[#333] text-white px-[25px] py-3 rounded-[30px] text-[13px] font-medium z-[3000] transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+      <div className={`fixed bottom-0 left-1/2 -translate-x-1/2 bg-[#333] text-white px-6.25 py-3 rounded-[30px] text-[13px] font-medium z-3000 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
         {toastMsg}
       </div>
     </>
