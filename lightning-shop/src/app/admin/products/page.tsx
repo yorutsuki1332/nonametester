@@ -293,11 +293,11 @@ export default function AdminProductsListPage() {
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">標籤</span>
                     {p.tag ? <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${p.tag.toLowerCase() === 'hot' ? 'bg-[#ff6b6b] text-white' : 'bg-[#111] text-white'}`}>{p.tag}</span> : <span className="text-[#aaa]">無</span>}
                   </td>
-                  <td width={100} className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-30">
+                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-30">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">售價 (HKD)</span>
                     HKD {Number(p.price).toFixed(1)}
                   </td>
-                  <td width={90} className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-22.5 mt-3 md:mt-0 pt-3 md:pt-3.75">
+                  <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-22.5 mt-3 md:mt-0 pt-3 md:pt-3.75">
                     <button className="w-full md:w-auto bg-[#111] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => openEditModal(p.id)}>修改</button>
                   </td>
                 </tr>
