@@ -42,22 +42,34 @@ export default function AdminAddProductPage() {
     const year = new Date().getFullYear();
     setCurrentYear(year);
     try {
-      const querySnapshot = await db.collection("products").get();
+      const [productSnapshot, discontinuedSnapshot] = await Promise.all([
+        db.collection("products").get(), 
+        db.collection("discontinued_products").get()
+      ]);
+
       let maxIndex = 0;
       const yearStr = String(year);
 
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const sku = data.sku || doc.id;
-        if (sku && sku.includes(yearStr)) {
-          const regex = new RegExp(yearStr + '(\\d{3})');
-          const match = sku.match(regex);
-          if (match && match[1]) {
-            const idx = parseInt(match[1], 10);
-            if (idx > maxIndex) maxIndex = idx;
+      const evaluateSnapshot = (querySnapshot: firebase.firestore.QuerySnapshot) => {
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const sku = data.sku || doc.id;
+          if (sku && sku.includes(yearStr)) {
+            const regex = new RegExp(yearStr + '(\\d{3})');
+            const match = sku.match(regex);
+            if (match && match[1]) {
+              const idx = parseInt(match[1], 10);
+              if (idx > maxIndex) {
+                maxIndex = idx;
+              }
+            }
           }
-        }
-      });
+        })
+      };
+
+      evaluateSnapshot(productSnapshot);
+      evaluateSnapshot(discontinuedSnapshot);
+
       setNextIndex(maxIndex + 1);
     } catch (error) {
       console.log("讀取資料庫失敗:", error);
