@@ -521,7 +521,7 @@ export default function Home() {
       </div>
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-400 ${isToastShow ? 'translate-y-0' : 'translate-y-[150%]'}`}>
+      <div className={`fixed bottom-0 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-400 ${isToastShow ? 'translate-y-0' : 'translate-y-[150%]'}`}>
         {toastMessage}
       </div>
 
