@@ -1,56 +1,47 @@
-# 🚀 LIGHTNING LIFESTYLE — Patch 0.1 更新日誌
-
-**版本日期：** 2026年10月24日
-
-**版本代號：** Patch 0.1 (Performance & Seller Center Image Engine Upgrade)
-
----
+# 🚀 LIGHTNING LIFESTYLE — Patch Log v0.0 更新日誌
+**版本發佈日期：** 2026年10月24日
+**更新版本：** v0.0 (Performance & Seller Center Image Engine Upgrade)
 
 ### 📦 1. 後台圖片處理與上傳引擎重構 (Admin & Product Management)
-
-* **適用頁面：** `admin.html` (新增商品)、`products_list.html` (上架貨品)、`discontinued_list.html` (已下架貨品)
-* **前端自動圖片壓縮 (Image Compression)：**
-* 引入 `browser-image-compression` SDK。
-* 所有新增或修改時上傳的商品圖片均會在前端自動壓縮（單張最大限制 0.5MB、邊長最大 1200px），大幅降低網路頻寬消耗與 Firebase Storage 儲存空間。
-
-
-* **平行上傳與非同步優化 (Parallel Uploads)：**
-* 將圖片上傳邏輯改為 `Promise.all` 平行處理，顯著提升多圖上傳與資料儲存的速度。
-
-
-* **多圖管理介面同步升級：**
-* 所有商品編輯 Modal (包括已下架商品) 均統一支援多圖拖拉上傳 (Drag & Drop)、動態預覽刪除與上限 15 張圖片限制。
-
-
-
----
+**適用頁面：** `admin.html` (新增商品)、`products_list.html` (上架貨品)、`discontinued_list.html` (已下架貨品)
+# 前端自動圖片壓縮 (Image Compression)：**
+    引入 `browser-image-compression` SDK。
+    所有新增或修改時上傳的商品圖片均會在前端自動壓縮（單張最大限制 0.5MB、邊長最大 1200px），大幅降低網路頻寬消耗與 Firebase Storage 儲存空間。
+# 平行上傳與非同步優化 (Parallel Uploads)：將圖片上傳邏輯改為 `Promise.all` 平行處理，顯著提升多圖上傳與資料儲存的速度。
+# 多圖管理介面同步升級：所有商品編輯 Modal (包括已下架商品) 均統一支援多圖拖拉上傳 (Drag & Drop)、動態預覽刪除與上限 15 張圖片限制。
 
 ### ⚡ 2. 前台圖片載入效能與體驗優化 (Storefront & Product Detail)
+**適用頁面：** `index.html` (首頁全站商品)、`product.html` (商品詳情頁)
+# 按需延遲載入 (On-Demand Lazy Loading)：每個商品的輪播圖僅第一張圖片在頁面渲染時載入 `src`（Eager Loading），其餘圖片均使用 `data-src` 儲存網址。
+    只有當使用者點擊切換、選擇指示點或滑動圖片時，才會動態載入相應圖片，大幅縮短首屏載入時間。
+# 瀏覽器原生載入優化：圖片標籤全面加入 `loading="lazy"` 與 `decoding="async"` 屬性，優化記憶體使用與頁面流暢度。
+# 輪播互動體驗重構：移除自動輪播機制，防止非必要的頻寬消耗與干擾。
+    電腦端：支援滑鼠點擊箭頭按鈕及下方指示圓點切換圖片。
+    流動裝置端：支援左右手指滑動手勢 (`Touch Swipe`) 切換圖片，並優化滑動時的事件處理，防止誤觸商品連結。
 
-* **適用頁面：** `index.html` (首頁全站商品)、`product.html` (商品詳情頁)
-* **按需延遲載入 (On-Demand Lazy Loading)：**
-* 每個商品的輪播圖僅第一張圖片在頁面渲染時載入 `src`（Eager Loading），其餘圖片均使用 `data-src` 儲存網址。
-* 只有當使用者點擊切換、選擇指示點或滑動圖片時，才會動態載入相應圖片，大幅縮短首屏載入時間。
-
-
-* **瀏覽器原生載入優化：**
-* 圖片標籤全面加入 `loading="lazy"` 與 `decoding="async"` 屬性，優化記憶體使用與頁面流暢度。
-
-
-* **輪播互動體驗重構：**
-* 移除自動輪播機制，防止非必要的頻寬消耗與干擾。
-* **電腦端：** 支援滑鼠點擊箭頭按鈕及下方指示圓點切換圖片。
-* **流動裝置端：** 支援左右手指滑動手勢 (`Touch Swipe`) 切換圖片，並優化滑動時的事件處理，防止誤觸商品連結。
-
-
+### 📝 3. 系統營運與資料庫邏輯修復
+# 訂單號與 SKU 自動編號優化：訂單編號及商品 SKU 自動生成時，修正了對應年份與流水號的比對邏輯，確保訂單與商品編號的唯一性與排序正確。
+# 已下架貨品還原與刪除機制：完善 `discontinued_products` 與 `products` 雲端資料庫之間的重新上架 (Restore) 與永久刪除 (Delete) 流程。
 
 ---
 
-### 📝 3. 系統營運與資料庫邏輯修復
+# 🚀 LIGHTNING LIFESTYLE - Patch Log v0.1 更新日誌
+**版本發佈日期：** 2026年10月30日
+**更新版本：** v0.1 (Architecture & UI Modernization)
 
-* **訂單號與 SKU 自動編號優化：**
-* 訂單編號及商品 SKU 自動生成時，修正了對應年份與流水號的比對邏輯，確保訂單與商品編號的唯一性與排序正確。
+***重點更新: 本版本標誌著網站正式從傳統原生 HTML 架構全面遷移至 Next.js (App Router) + Tailwind CSS + Vercel 現代化前端架構，並針對頁面渲染規範、商品輪播互動以及行動裝置響應式設計進行了全面升級與修正。
 
+### ✨ 新增內容 (Added)
+Next.js 現代化架構轉型： 完整將前端專案遷移至 Next.js App Router，大幅提升頁面載入速度、SEO 表現與整體運作效能。
+行動端手勢與響應式斷點： 於 globals.css 中完整導入針對手機與平板的 @media (max-width: 768px) 響應式斷點，全面優化行動端瀏覽體驗。
+觸控滑動輪播支援： 商品詳情頁與首頁卡片新增 touchAction: 'pan-y' 與行動端左右滑動切換圖片功能。
 
-* **已下架貨品還原與刪除機制：**
-* 完善 `discontinued_products` 與 `products` 雲端資料庫之間的重新上架 (Restore) 與永久刪除 (Delete) 流程。
+### 🛠️ 修改與優化 (Changed & Improved)
+突破 Next.js 16 預渲染限制： 完美解決 Next.js 16 嚴格的靜態預渲染規範，修復因 new Date() 產生的編譯錯誤及動態連線相容性問題。
+商品圖片輪播核心修復： 重構商品詳情頁的圖片切換邏輯，解決圖片無法正常切換或顯示異常的問題，確保首張圖片享有 priority 載入優化（LCP 優化）。
+導覽列與介面佈局微調： 優化手機版導覽列（Site Nav）的元件排列與間距，縮短搜尋框與頂部 Logo/返回按鈕的上下距離，使視覺更緊湊精緻。
+多欄網格自適應： 商品詳情頁與全站商品列表完美對齊 Grid 雙欄與單欄自適應排版，確保不同螢幕尺寸下皆能呈現極佳美學。
+
+### 🗑️ 刪減與清理 (Removed)
+移除冗餘 DOM 操作： 清理所有不相容於 React 虛擬 DOM 的傳統原生 HTML 指令碼與過時路由代碼。
+精簡樣式相依： 移除多餘的內聯固定寬度（如硬編碼的 450px），全面改由現代化 CSS 類別與 Tailwind 彈性控制。
