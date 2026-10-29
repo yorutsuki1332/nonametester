@@ -206,14 +206,14 @@ export default function ProductDetailClient({
           <h1 className="text-[24px] md:text-[28px] font-semibold mb-3 leading-[1.3]">{product.name}</h1>
           <div className="text-[20px] md:text-[22px] font-semibold text-[#111] mb-3.75">HKD {Number(product.price).toFixed(1)}</div>
           
-          <div className="text-[14px] text-[#555] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:max-h-62.5 overflow-y-auto pr-2 wrap-break-word [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#ddd] [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="text-[14px] text-[#555] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2 wrap-break-word [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#ddd] [&::-webkit-scrollbar-thumb]:rounded-full">
             {descText}
           </div>
           
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3.75 mt-5 mb-3">
             <div className="flex items-center justify-center border border-[#f0f0f0] rounded-xl overflow-hidden bg-[#fafafa]">
               <button type="button" className="bg-transparent border-none py-3 px-4 text-[16px] cursor-pointer text-[#333] transition hover:bg-neutral-200" onClick={() => updateQty(-1)}>-</button>
-              <input type="number" value={quantity} readOnly className="w-12.5 text-center border-none bg-transparent text-[15px] font-semibold outline-none" />
+              <input type="number" value={quantity} readOnly className="w-12.5 md:pl-5 text-center border-none bg-transparent text-[15px] font-semibold outline-none" />
               <button type="button" className="bg-transparent border-none py-3 px-4 text-[16px] cursor-pointer text-[#333] transition hover:bg-neutral-200" onClick={() => updateQty(1)}>+</button>
             </div>
             <button 
