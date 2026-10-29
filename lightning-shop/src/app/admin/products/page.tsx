@@ -261,12 +261,12 @@ export default function AdminProductsListPage() {
         <table className="w-full border-collapse text-left text-[14px]">
           <thead className="hidden md:table-header-group">
             <tr>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">商品編號</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">商品名稱</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">分類</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">標籤</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">售價 (HKD)</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-16">操作</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">商品編號</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">商品名稱</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">分類</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">標籤</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">售價 (HKD)</th>
+              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -276,7 +276,7 @@ export default function AdminProductsListPage() {
               <tr><td colSpan={6} className="text-center text-[#888] py-7.5">沒有找到符合條件的商品</td></tr>
             ) : (
               filteredList.map(p => (
-                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] md:shadow-none hover:bg-[#fafafa]">
+                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-sm md:shadow-none hover:bg-[#fafafa]">
                   <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                     <span className="md:hidden text-[#888] text-[12px] font-semibold">商品編號</span>
                     {p.id}
