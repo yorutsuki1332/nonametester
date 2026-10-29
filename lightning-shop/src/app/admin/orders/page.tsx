@@ -172,7 +172,7 @@ export default function AdminOrdersListPage() {
                   : 'bg-[#FEF9C3] text-[#333]';
 
                 return (
-                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-[0_2px_10px_rgba(0,0,0,0.02)] md:shadow-none hover:bg-[#fafafa]">
+                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-sm md:shadow-none hover:bg-[#fafafa]">
                     <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">訂單 ID</span>
                       {o.id}
