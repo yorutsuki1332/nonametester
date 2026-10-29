@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
@@ -59,8 +59,8 @@ export default function Home() {
   const [isPaying, setIsPaying] = useState(false);
 
   // 手機滑動紀錄
-  const [touchStartX, setTouchStartX] = useState(0);
-  const [touchStartY, setTouchStartY] = useState(0);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   useEffect(() => {
     const savedCart = localStorage.getItem('lightning_life_cart');
@@ -171,13 +171,13 @@ export default function Home() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-    setTouchStartY(e.touches[0].clientY);
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (productId: string, e: React.TouchEvent, validLength: number) => {
-    const diffX = e.changedTouches[0].clientX - touchStartX;
-    const diffY = e.changedTouches[0].clientY - touchStartY;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
 
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
       if (diffX < 0) {
@@ -291,24 +291,24 @@ export default function Home() {
   return (
     <div className="bg-white text-[#333333] min-h-screen overflow-x-hidden font-sans">
       {/* 導覽列 */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '75px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 6%', zIndex: 1000, borderBottom: '1px solid #f0f0f0' }}>
-        <div style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase' }}>LIGHTNING</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#f0f0f0]">
+        <div className="text-[20px] font-bold tracking-[2px] uppercase">LIGHTNING</div>
+        <div className="flex items-center gap-5">
           <div 
-            style={{ fontSize: '13px', fontWeight: 500, cursor: 'pointer', color: '#333', padding: '6px 12px', borderRadius: '6px', background: '#fafafa', border: '1px solid #f0f0f0' }}
+            className="text-[13px] font-medium cursor-pointer text-[#333] py-1.5 px-3 rounded-md bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3]"
             onClick={() => setIsAuthOpen(true)}
           >
             {currentUser ? `👤 ID: ${currentAccountId} ` : '會員登入 / 註冊'}
-            {currentUser && <span style={{ color: '#888', fontSize: '11px', marginLeft: '5px' }} onClick={(e) => { e.stopPropagation(); handleLogout(); }}>(登出)</span>}
+            {currentUser && <span className="text-[#888] text-[11px] ml-1.5" onClick={(e) => { e.stopPropagation(); handleLogout(); }}>(登出)</span>}
           </div>
 
-          <div style={{ cursor: 'pointer', position: 'relative', padding: '5px', display: 'flex', alignItems: 'center' }} onClick={() => setIsCartOpen(true)}>
-            <svg style={{ width: '22px', height: '22px', fill: 'none', stroke: '#333', strokeWidth: 1.5 }} viewBox="0 0 24 24">
+          <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
+            <svg className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <path d="M16 10a4 4 0 0 1-8 0"></path>
             </svg>
-            <div style={{ position: 'absolute', top: '-4px', right: '-6px', backgroundColor: '#FEF9C3', color: '#333', fontSize: '11px', fontWeight: 600, width: '18px', height: '18px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div className="absolute -top-1 -right-1.5 bg-[#FEF9C3] text-[#333] text-[11px] font-semibold w-4.5 h-4.5 rounded-full flex justify-center items-center">
               {totalCount}
             </div>
           </div>
@@ -316,37 +316,37 @@ export default function Home() {
       </nav>
 
       {/* 背景遮罩 */}
-      <div className={`overlay ${isAnyModalOpen ? 'open' : ''}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
+      <div className={`fixed inset-0 bg-white/60 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
 
       {/* 會員登入/註冊 Modal */}
-      <div className={`payment-modal ${isAuthOpen ? 'open' : ''}`}>
-        <div style={{ padding: '25px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600 }}>{isRegisterMode ? '註冊新會員' : '會員登入'}</h2>
-          <button style={{ background: 'none', border: 'none', fontSize: '26px', cursor: 'pointer', color: '#888' }} onClick={() => setIsAuthOpen(false)}>&times;</button>
+      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isAuthOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
+        <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
+          <h2 className="text-[18px] font-semibold">{isRegisterMode ? '註冊新會員' : '會員登入'}</h2>
+          <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsAuthOpen(false)}>&times;</button>
         </div>
-        <div style={{ padding: '25px', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleAuthSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>帳戶 ID</label>
-              <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="例如：john123" required />
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold mb-2 text-[#555]">帳戶 ID</label>
+              <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="例如：john123" required />
             </div>
             {isRegisterMode && (
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>電子郵件 (接收訂單通知)</label>
-                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="example@email.com" required />
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (接收訂單通知)</label>
+                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="example@email.com" required />
               </div>
             )}
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>密碼 (至少 6 位數)</label>
-              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="請輸入密碼" required minLength={6} />
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold mb-2 text-[#555]">密碼 (至少 6 位數)</label>
+              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入密碼" required minLength={6} />
             </div>
-            <button type="submit" style={{ width: '100%', background: '#FEF9C3', color: '#111', padding: '16px', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '10px' }}>
+            <button type="submit" className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa] hover:-translate-y-0.5 mt-2.5">
               {isRegisterMode ? '立即註冊' : '登入系統'}
             </button>
           </form>
-          <div style={{ textAlign: 'center', marginTop: '15px', fontSize: '13px' }}>
-            <span style={{ color: '#888' }}>{isRegisterMode ? '已經有帳號了？' : '還沒有帳號？'}</span>
-            <button onClick={() => setIsRegisterMode(!isRegisterMode)} style={{ color: '#111', fontWeight: 600, textDecoration: 'underline', marginLeft: '5px', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <div className="text-center mt-4 text-[13px]">
+            <span className="text-[#888]">{isRegisterMode ? '已經有帳號了？' : '還沒有帳號？'}</span>
+            <button onClick={() => setIsRegisterMode(!isRegisterMode)} className="text-[#111] font-semibold underline ml-1.5 bg-none border-none cursor-pointer">
               {isRegisterMode ? '點此登入' : '點此註冊'}
             </button>
           </div>
@@ -354,28 +354,28 @@ export default function Home() {
       </div>
 
       {/* 頂部 Hero 與搜尋 */}
-      <div style={{ padding: '100px 4% 0', maxWidth: '1400px', margin: '0 auto' }}>
-        <header style={{ height: '35vh', backgroundColor: '#FEF9C3', borderRadius: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '0 20px' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: 600, letterSpacing: '4px', marginBottom: '15px' }}>日常的美好，源於細節</h1>
-          <p style={{ fontSize: '14px', color: '#555', letterSpacing: '2px' }}>輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
+      <div className="pt-25 px-[4%] max-w-350 mx-auto">
+        <header className="h-[35vh] bg-[#FEF9C3] rounded-2xl flex flex-col justify-center items-center text-center px-5">
+          <h1 className="text-[36px] font-semibold tracking-[4px] mb-3.5">日常的美好，源於細節</h1>
+          <p className="text-[14px] text-[#555] tracking-[2px]">輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
         </header>
-        <div style={{ maxWidth: '600px', margin: '30px auto 0', padding: '0 4%' }}>
+        <div className="max-w-150 mx-auto mt-7.5 px-[4%]">
           <input 
             type="text" 
             value={searchKeyword}
             onChange={handleSearch}
-            style={{ width: '100%', padding: '14px 20px', border: '1px solid #f0f0f0', borderRadius: '30px', fontSize: '14px', outline: 'none', background: '#fafafa', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}
+            className="w-full py-3.5 px-5 border border-[#f0f0f0] rounded-[30px] text-[14px] outline-none bg-[#fafafa] transition shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] focus:bg-white focus:shadow-[0_4px_15px_rgba(0,0,0,0.05)]"
             placeholder="🔍 搜尋商品名稱或分類..." 
           />
         </div>
       </div>
 
       {/* 商品列表 */}
-      <main style={{ maxWidth: '1200px', margin: '40px auto', padding: '0 4%' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 600, letterSpacing: '2px', marginBottom: '40px', textAlign: 'center' }}>全站商品 / ALL ITEMS</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '50px 30px' }}>
+      <main className="max-w-300 my-10 mx-auto px-[4%]">
+        <h2 className="text-[20px] font-semibold tracking-[2px] mb-10 text-center">全站商品 / ALL ITEMS</h2>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
           {filteredProducts.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#999', gridColumn: '1/-1', padding: '40px 0' }}>沒有找到符合條件的商品。</p>
+            <p className="text-center text-[#999] col-span-full py-10">沒有找到符合條件的商品。</p>
           ) : (
             filteredProducts.map(p => {
               const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
@@ -383,16 +383,16 @@ export default function Home() {
               const activeIdx = sliderIndexes[p.id] || 0;
 
               return (
-                <div key={p.id} style={{ backgroundColor: '#fff', display: 'flex', flexDirection: 'column', borderRadius: '10px', position: 'relative' }}>
+                <div key={p.id} className="bg-white transition duration-400 flex flex-col rounded-[10px] relative hover:-translate-y-2 group">
                   {p.tag && (
-                    <div style={{ position: 'absolute', top: '15px', left: '15px', backgroundColor: p.tag.toLowerCase() === 'hot' ? '#ff6b6b' : '#111', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '4px 10px', zIndex: 10, borderRadius: '4px' }}>
+                    <div className={`absolute top-3.75 left-3.75 text-white text-[10px] font-extrabold py-1 px-2.5 z-10 rounded ${p.tag.toLowerCase() === 'hot' ? 'bg-[#ff6b6b]' : 'bg-[#111]'}`}>
                       {p.tag}
                     </div>
                   )}
 
-                  <Link href={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block', flexGrow: 1 }}>
+                  <Link href={`/product/${p.id}`} className="no-underline text-inherit block grow">
                     <div 
-                      style={{ position: 'relative', width: '100%', height: '340px', backgroundColor: '#f9f9f8', borderRadius: '10px', overflow: 'hidden', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'pan-y' }}
+                      className="relative w-full h-85 bg-[#f9f9f8] rounded-[10px] overflow-hidden mb-3.75 flex items-center justify-center touch-pan-y"
                       onTouchStart={handleTouchStart}
                       onTouchEnd={(e) => handleTouchEnd(p.id, e, validImages.length)}
                     >
@@ -400,13 +400,13 @@ export default function Home() {
                         <>
                           {validImages.map((img, idx) => (
                             idx === activeIdx && (
-                              <div key={idx} style={{ position: 'relative', width: '100%', height: '100%' }}>
+                              <div key={idx} className="relative w-full h-full">
                                 <Image 
                                   src={img}
                                   alt={p.name}
                                   fill
                                   sizes="(max-width: 768px) 100vw, 300px"
-                                  style={{ objectFit: 'cover' }}
+                                  className="object-cover"
                                   priority={idx === 0}
                                 />
                               </div>
@@ -414,27 +414,27 @@ export default function Home() {
                           ))}
                           {validImages.length > 1 && (
                             <>
-                              <button style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', left: '10px', background: 'rgba(0,0,0,0.4)', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', zIndex: 5 }} onClick={(e) => { e.preventDefault(); moveSlide(p.id, -1, validImages.length); }}>&#10094;</button>
-                              <button style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: '10px', background: 'rgba(0,0,0,0.4)', color: 'white', border: 'none', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', zIndex: 5 }} onClick={(e) => { e.preventDefault(); moveSlide(p.id, 1, validImages.length); }}>&#10095;</button>
-                              <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '5px', zIndex: 5 }}>
+                              <button className="absolute top-1/2 -translate-y-1/2 left-2.5 bg-black/40 text-white border-none w-7.5 h-7.5 rounded-full cursor-pointer flex items-center justify-center text-[14px] opacity-0 hover:bg-black/70 transition duration-300 z-5 group-hover:opacity-100" onClick={(e) => { e.preventDefault(); moveSlide(p.id, -1, validImages.length); }}>&#10094;</button>
+                              <button className="absolute top-1/2 -translate-y-1/2 right-2.5 bg-black/40 text-white border-none w-7.5 h-7.5 rounded-full cursor-pointer flex items-center justify-center text-[14px] opacity-0 hover:bg-black/70 transition duration-300 z-5 group-hover:opacity-100" onClick={(e) => { e.preventDefault(); moveSlide(p.id, 1, validImages.length); }}>&#10095;</button>
+                              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-5">
                                 {validImages.map((_, idx) => (
-                                  <span key={idx} style={{ width: idx === activeIdx ? '16px' : '6px', height: '6px', borderRadius: idx === activeIdx ? '3px' : '50%', background: idx === activeIdx ? '#fff' : 'rgba(255,255,255,0.5)', cursor: 'pointer', transition: '0.3s' }} onClick={(e) => { e.preventDefault(); changeSlide(p.id, idx, validImages.length); }} />
+                                  <span key={idx} className={`h-1.5 rounded-full cursor-pointer transition-all duration-300 ${idx === activeIdx ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`} onClick={(e) => { e.preventDefault(); changeSlide(p.id, idx, validImages.length); }} />
                                 ))}
                               </div>
                             </>
                           )}
                         </>
                       ) : (
-                        <span style={{ fontSize: '13px', color: '#888' }}>{p.category || 'NO IMAGE'}</span>
+                        <span className="text-[13px] text-[#888]">{p.category || 'NO IMAGE'}</span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, padding: '0 5px' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: 500, marginBottom: '10px', color: '#333' }}>{p.name}</h3>
-                      <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '15px' }}>HKD {Number(p.price).toFixed(1)}</div>
+                    <div className="flex flex-col grow px-1.25">
+                      <h3 className="text-[15px] font-medium mb-2.5 text-[#333]">{p.name}</h3>
+                      <div className="text-[15px] font-semibold mb-3.5">HKD {Number(p.price).toFixed(1)}</div>
                     </div>
                   </Link>
 
-                  <button style={{ width: '100%', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '12px', fontSize: '13px', cursor: 'pointer' }} onClick={() => addToCart(p.id)}>
+                  <button className="w-full bg-transparent border border-[#e5e5e5] rounded-[10px] py-3 text-[13px] cursor-pointer transition duration-400 hover:bg-[#FEF9C3] hover:border-[#FEF9C3]" onClick={() => addToCart(p.id)}>
                     加入購物車
                   </button>
                 </div>
@@ -445,75 +445,75 @@ export default function Home() {
       </main>
 
       {/* 購物車抽屜 */}
-      <div className={`cart-drawer ${isCartOpen ? 'open' : ''}`}>
-        <div style={{ padding: '30px 25px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600 }}>購物車清單 ({totalCount})</h2>
-          <button style={{ background: 'none', border: 'none', fontSize: '26px', cursor: 'pointer', color: '#888' }} onClick={() => setIsCartOpen(false)}>&times;</button>
+      <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-white shadow-[-5px_0_30px_rgba(0,0,0,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-[30px_25px] border-b border-[#f0f0f0] flex justify-between items-center">
+          <h2 className="text-[18px] font-semibold">購物車清單 ({totalCount})</h2>
+          <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCartOpen(false)}>&times;</button>
         </div>
-        <div style={{ flexGrow: 1, overflowY: 'auto', padding: '25px' }}>
+        <div className="grow overflow-y-auto p-6.25">
           {cart.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#aaa', marginTop: '50px' }}>購物車目前是空的喔</p>
+            <p className="text-center text-[#aaa] mt-12.5">購物車目前是空的喔</p>
           ) : (
             cart.map(item => (
-              <div key={item.id} style={{ display: 'flex', gap: '15px', marginBottom: '25px', alignItems: 'center' }}>
-                <div style={{ width: '60px', height: '70px', backgroundColor: '#f9f9f8', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '11px' }}>ITEM</div>
-                <div style={{ flexGrow: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '5px' }}>{item.name}</div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px' }}>HKD {Number(item.price).toFixed(1)}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button style={{ background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }} onClick={() => updateQuantity(item.id, -1)}>-</button>
-                    <span style={{ fontSize: '13px' }}>{item.quantity}</span>
-                    <button style={{ background: '#f5f5f5', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }} onClick={() => updateQuantity(item.id, 1)}>+</button>
-                    <button style={{ background: 'none', border: 'none', color: '#b0b0b0', fontSize: '12px', cursor: 'pointer', marginLeft: 'auto' }} onClick={() => removeFromCart(item.id)}>移除</button>
+              <div key={item.id} className="flex gap-3.75 mb-6.25 items-center">
+                <div className="w-15 h-17.5 bg-[#f9f9f8] rounded-md flex justify-center items-center text-[11px]">ITEM</div>
+                <div className="grow">
+                  <div className="text-[13px] font-medium mb-1">{item.name}</div>
+                  <div className="text-[13px] font-semibold mb-2.5">HKD {Number(item.price).toFixed(1)}</div>
+                  <div className="flex items-center gap-3">
+                    <button className="bg-[#f5f5f5] border-none rounded-full w-6 h-6 cursor-pointer flex items-center justify-center" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                    <span className="text-[13px]">{item.quantity}</span>
+                    <button className="bg-[#f5f5f5] border-none rounded-full w-6 h-6 cursor-pointer flex items-center justify-center" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                    <button className="bg-none border-none text-[#b0b0b0] text-[12px] cursor-pointer ml-auto" onClick={() => removeFromCart(item.id)}>移除</button>
                   </div>
                 </div>
               </div>
             ))
           )}
         </div>
-        <div style={{ padding: '25px', borderTop: '1px solid #f0f0f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '14px' }}><span>商品小計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', paddingTop: '15px', borderTop: '1px solid #f0f0f0', fontSize: '16px', fontWeight: 600 }}><span>訂單總計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
-          <button style={{ width: '100%', backgroundColor: '#111', color: '#fff', border: 'none', borderRadius: '10px', padding: '16px', cursor: 'pointer', fontSize: '14px' }} onClick={() => { setIsCartOpen(false); setIsPaymentOpen(true); }}>前往結帳 Checkout</button>
+        <div className="p-6.25 border-t border-[#f0f0f0]">
+          <div className="flex justify-between mb-3 text-[14px]"><span>商品小計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
+          <div className="flex justify-between mb-5 pt-3.75 border-t border-[#f0f0f0] text-[16px] font-semibold"><span>訂單總計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
+          <button className="w-full bg-[#111] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] transition hover:bg-[#333]" onClick={() => { setIsCartOpen(false); setIsPaymentOpen(true); }}>前往結帳 Checkout</button>
         </div>
       </div>
 
       {/* 結帳 Modal */}
-      <div className={`payment-modal ${isPaymentOpen ? 'open' : ''}`}>
-        <div style={{ padding: '25px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 600 }}>安全結帳</h2>
-          <button style={{ background: 'none', border: 'none', fontSize: '26px', cursor: 'pointer', color: '#888' }} onClick={() => setIsPaymentOpen(false)}>&times;</button>
+      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
+        <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
+          <h2 className="text-[18px] font-semibold">安全結帳</h2>
+          <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsPaymentOpen(false)}>&times;</button>
         </div>
-        <div style={{ padding: '25px', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleCheckoutSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>收件人姓名</label>
-              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="請輸入真實姓名" required />
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件人姓名</label>
+              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入真實姓名" required />
             </div>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>電子郵件 (接收訂單通知)</label>
-              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="example@email.com" required />
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (接收訂單通知)</label>
+              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="example@email.com" required />
             </div>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>收件地址</label>
-              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} style={{ width: '100%', padding: '12px 15px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', outline: 'none' }} placeholder="請輸入完整收件地址" required />
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件地址</label>
+              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入完整收件地址" required />
             </div>
             
-            <hr style={{ border: 0, borderTop: '1px dashed #eee', margin: '25px 0' }} />
+            <hr className="border-0 border-t border-dashed border-[#eee] my-6.25" />
             
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#555' }}>信用卡資訊 (模擬)</label>
-            <div style={{ padding: '15px', border: '1px solid #ddd', borderRadius: '8px', background: '#f9f9f9', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-              <div style={{ fontSize: '24px' }}>💳</div>
-              <div style={{ flexGrow: 1 }}>
-                <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} style={{ width: '100%', border: 'none', padding: 0, background: 'transparent', marginBottom: '5px', outline: 'none', fontSize: '14px' }} placeholder="0000 0000 0000 0000" required />
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input type="text" value={cardExpiry} onChange={handleExpiryInput} style={{ width: '60px', border: 'none', padding: 0, background: 'transparent', outline: 'none', fontSize: '14px' }} placeholder="MM/YY" required maxLength={5} />
-                  <input type="text" value={cardCvc} onChange={(e) => setCardCvc(e.target.value)} style={{ width: '50px', border: 'none', padding: 0, background: 'transparent', outline: 'none', fontSize: '14px' }} placeholder="CVC" required maxLength={4} />
+            <label className="block text-[13px] font-semibold mb-2 text-[#555]">信用卡資訊 (模擬)</label>
+            <div className="p-3.75 border border-[#ddd] rounded-lg bg-[#f9f9f9] flex items-center gap-2.5 mb-5">
+              <div className="text-[24px]">💳</div>
+              <div className="grow">
+                <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full border-none p-0 bg-transparent mb-1.5 outline-none text-[14px]" placeholder="0000 0000 0000 0000" required />
+                <div className="flex gap-2.5">
+                  <input type="text" value={cardExpiry} onChange={handleExpiryInput} className="w-15 border-none p-0 bg-transparent outline-none text-[14px]" placeholder="MM/YY" required maxLength={5} />
+                  <input type="text" value={cardCvc} onChange={(e) => setCardCvc(e.target.value)} className="w-12.5 border-none p-0 bg-transparent outline-none text-[14px]" placeholder="CVC" required maxLength={4} />
                 </div>
               </div>
             </div>
 
-            <button type="submit" disabled={isPaying} style={{ width: '100%', background: '#FEF9C3', color: '#111', padding: '16px', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 600, cursor: 'pointer', marginTop: '10px' }}>
+            <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa] hover:-translate-y-0.5 mt-2.5">
               {isPaying ? '付款處理中...' : `確認付款 HKD ${currentTotal.toLocaleString()}`}
             </button>
           </form>
@@ -521,11 +521,11 @@ export default function Home() {
       </div>
 
       {/* 吐司通知 */}
-      <div style={{ position: 'fixed', bottom: '20px', left: '50%', transform: `translateX(-50%) translateY(${isToastShow ? '0' : '150%'})`, backgroundColor: '#333', color: '#fff', padding: '12px 25px', borderRadius: '30px', fontSize: '13px', fontWeight: 500, zIndex: 4000, transition: 'all 0.4s ease' }}>
+      <div className={`fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-400 ${isToastShow ? 'translate-y-0' : 'translate-y-[150%]'}`}>
         {toastMessage}
       </div>
 
-      <footer style={{ backgroundColor: '#fafafa', color: '#888', textAlign: 'center', padding: '40px 20px', fontSize: '12px', marginTop: '100px' }}>
+      <footer className="bg-[#fafafa] text-[#888] text-center py-10 px-5 text-[12px] mt-25">
         <p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p>
       </footer>
     </div>

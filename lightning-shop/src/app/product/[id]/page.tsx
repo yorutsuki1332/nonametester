@@ -20,7 +20,7 @@ async function getProductData(id: string) {
 }
 
 async function ProductContent({ params }: PageProps) {
-  await connection(); // 🌟 將動態連線與參數讀取移至 <Suspense> 內的子元件
+  await connection();
 
   const { id } = await params;
   const rawProduct = await getProductData(id);

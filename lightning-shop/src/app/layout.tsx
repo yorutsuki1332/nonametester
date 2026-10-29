@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import '../styles/globals.css';
+import '@/styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'LIGHTNING | 日常選品與飾品',
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body className="bg-white text-[#333333] font-sans antialiased">
+      <body className="bg-white text-[#333333] font-sans antialiased overflow-x-hidden selection:bg-[#FEF9C3]">
         {children}
       </body>
     </html>
