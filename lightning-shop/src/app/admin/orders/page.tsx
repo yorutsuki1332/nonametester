@@ -185,7 +185,7 @@ export default function AdminOrdersListPage() {
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">電子郵件</span>
                       {o.email || '未提供'}
                     </td>
-                    <td width={130} className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-32.5">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-32.5">
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">總金額</span>
                       HKD {Number(o.total || 0).toFixed(1)}
                     </td>
@@ -193,7 +193,7 @@ export default function AdminOrdersListPage() {
                       <span className="md:hidden text-[#888] text-[12px] font-semibold">狀態</span>
                       <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${badgeClass}`}>{status}</span>
                     </td>
-                    <td width={110} className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
+                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
                       <button className="w-full md:w-auto bg-[#111] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
                     </td>
                   </tr>
