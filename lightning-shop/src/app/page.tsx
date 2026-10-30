@@ -207,7 +207,18 @@ export default function Home() {
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        showToast('註冊成功並已自動登入！');
+        // 🌟 註冊成功後，透過 API 發送歡迎信
+        try {
+          await fetch('/api/send-welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: authEmail, accountId: authAccountId })
+          });
+        } catch (emailErr) {
+          console.error('歡迎信發送請求失敗:', emailErr);
+        }
+
+        showToast('註冊成功並已自動登入！歡迎信已發送');
         setIsAuthOpen(false);
       } else {
         const docRef = db.collection("users").doc(authAccountId);
@@ -272,6 +283,22 @@ export default function Home() {
 
       await db.collection("orders").doc(customOrderId).set(orderData);
 
+      // 🌟 透過後端 API 發送訂單確認信
+      try {
+        await fetch('/api/send-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+            email: shippingEmail.trim(),
+            orderId: customOrderId,
+            total: totalAmount,
+            items: cart
+          })
+        });
+      } catch (emailErr) {
+        console.error('訂單確認信發送請求失敗:', emailErr);
+      }
+
       setTimeout(() => {
         alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}`);
         saveCartToStorage([]);
@@ -294,13 +321,26 @@ export default function Home() {
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#f0f0f0]">
         <div className="text-[20px] font-bold tracking-[2px] uppercase">LIGHTNING</div>
         <div className="flex items-center gap-5">
-          <div 
+          <Link 
+            href={currentUser ? "/account" : "#"}
             className="text-[13px] font-medium cursor-pointer text-[#333] py-1.5 px-3 rounded-md bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3]"
-            onClick={() => setIsAuthOpen(true)}
+            onClick={(e) => {
+              if (!currentUser) {
+                e.preventDefault();
+                setIsAuthOpen(true);
+              }
+            }}
           >
-            {currentUser ? `👤 ID: ${currentAccountId} ` : '會員登入 / 註冊'}
-            {currentUser && <span className="text-[#888] text-[11px] ml-1.5" onClick={(e) => { e.stopPropagation(); handleLogout(); }}>(登出)</span>}
-          </div>
+            {currentUser ? `👤 會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
+            {currentUser && (
+              <span 
+                className="text-[#888] text-[11px] ml-1.5 hover:text-red-500" 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }}
+              >
+                (登出)
+              </span>
+            )}
+          </Link>
 
           <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
             <svg className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" viewBox="0 0 24 24">
