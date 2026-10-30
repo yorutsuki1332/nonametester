@@ -180,7 +180,7 @@ export default function AccountPage() {
   // 篩選後訂單 (配合後台 status 命名)
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'all') return true;
-    if (orderFilter === 'pending') return o.status === 'pending' || o.status === 'preparing';
+    if (orderFilter === 'pending') return o.status === 'pending' || o.status === 'paid' || o.status === 'preparing';
     if (orderFilter === 'shipped') return o.status === 'shipping';
     if (orderFilter === 'delivered') return o.status === 'completed';
     return true;
