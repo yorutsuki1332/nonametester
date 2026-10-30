@@ -19,7 +19,7 @@ interface UserProfile {
 interface Order {
   id: string;
   total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered';
+  status: 'pending' | 'paid' | 'preparing' | 'shipping' | 'completed' | 'cancelled';
   createdAt: any;
   items: Array<{
     id: string;
@@ -159,26 +159,30 @@ export default function AccountPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  // 訂單狀態標籤樣式
+  // 訂單狀態標籤樣式 (配合後台 status 命名)
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
-      case 'delivered':
-        return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium">已完成送達</span>;
-      case 'shipped':
-        return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium">出貨配送中</span>;
-      case 'processing':
-        return <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium">商品備貨中</span>;
+      case 'completed':
+        return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium">已完成訂單</span>;
+      case 'shipping':
+        return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium">已完成發貨 (配送中)</span>;
+      case 'preparing':
+        return <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium">已完成備貨</span>;
+      case 'paid':
+        return <span className="bg-purple-50 text-purple-600 px-3 py-1 rounded-full text-xs font-medium">已確認付款</span>;
+      case 'cancelled':
+        return <span className="bg-rose-50 text-rose-600 px-3 py-1 rounded-full text-xs font-medium">訂單已取消</span>;
       default:
-        return <span className="bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-xs font-medium">待處理 / 確認中</span>;
+        return <span className="bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-xs font-medium">待確認付款</span>;
     }
   };
 
-  // 篩選後訂單
+  // 篩選後訂單 (配合後台 status 命名)
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'all') return true;
-    if (orderFilter === 'pending') return o.status === 'pending' || o.status === 'processing';
-    if (orderFilter === 'shipped') return o.status === 'shipped';
-    if (orderFilter === 'delivered') return o.status === 'delivered';
+    if (orderFilter === 'pending') return o.status === 'pending' || o.status === 'preparing';
+    if (orderFilter === 'shipped') return o.status === 'shipping';
+    if (orderFilter === 'delivered') return o.status === 'completed';
     return true;
   });
 
@@ -331,17 +335,17 @@ export default function AccountPage() {
                     </div>
                   </div>
 
-                  {/* 視覺化物流進度 */}
+                  {/* 視覺化物流進度 (完美對應後台 status) */}
                   <div className="bg-stone-50 p-4 rounded-xl mb-4">
                     <span className="text-xs font-semibold text-stone-700 block mb-3">物流進度狀態</span>
                     <div className="grid grid-cols-4 text-center text-xs relative">
                       <div className="absolute top-2.5 left-[12%] right-[12%] h-0.5 bg-stone-200 z-0" />
                       
                       {[
-                        { title: '訂單成立', active: true },
-                        { title: '備貨中', active: order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered' },
-                        { title: '配送中', active: order.status === 'shipped' || order.status === 'delivered' },
-                        { title: '已送達', active: order.status === 'delivered' }
+                        { title: '確認付款', active: order.status === 'paid' || order.status === 'preparing' || order.status === 'shipping' || order.status === 'completed' },
+                        { title: '完成備貨', active: order.status === 'preparing' || order.status === 'shipping' || order.status === 'completed' },
+                        { title: '完成發貨', active: order.status === 'shipping' || order.status === 'completed' },
+                        { title: '訂單完成', active: order.status === 'completed' }
                       ].map((step, idx) => (
                         <div key={idx} className="relative z-10 flex flex-col items-center">
                           <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] mb-1 font-bold ${
@@ -423,7 +427,7 @@ export default function AccountPage() {
                   {!coupon.isUsed && (
                     <button
                       onClick={() => copyCouponCode(coupon.code)}
-                      className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition"
+                      className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
                     >
                       {copiedCode === coupon.code ? '✅ 已複製' : '複製代碼'}
                     </button>
@@ -522,7 +526,7 @@ export default function AccountPage() {
               <button
                 type="submit"
                 disabled={isUpdatingProfile}
-                className="w-full bg-[#FEF9C3] text-stone-900 py-3.5 rounded-xl font-semibold text-sm hover:bg-amber-200 transition shadow-sm mt-4"
+                className="w-full bg-[#FEF9C3] text-stone-900 py-3.5 rounded-xl font-semibold text-sm hover:bg-amber-200 transition shadow-sm mt-4 cursor-pointer"
               >
                 {isUpdatingProfile ? '更新儲存中...' : '儲存變更資料'}
               </button>
