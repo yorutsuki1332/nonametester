@@ -66,6 +66,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               📝 訂單管理
             </Link>
           </li>
+          <li>
+            <Link 
+              href="/admin/coupons" 
+              className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
+                pathname === '/admin/coupons' 
+                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
+                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+              }`}
+            >
+              🎟️ 優惠券管理
+            </Link>
+          </li>
+          <li>
+            <Link 
+              href="/admin/credits" 
+              className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
+                pathname === '/admin/credits' 
+                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
+                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+              }`}
+            >
+              💰 購物金/補償管理
+            </Link>
+          </li>
         </ul>
       </aside>
 

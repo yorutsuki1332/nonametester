@@ -14,6 +14,7 @@ interface UserProfile {
   phone?: string;
   address?: string;
   totalSpent?: number;
+  storeCredit?: number; // 🌟 購物金餘額
 }
 
 interface Order {
@@ -37,7 +38,17 @@ interface Coupon {
   discountText: string;
   minSpend: number;
   expireDate: string;
+  usesLeft: number;
   isUsed: boolean;
+}
+
+// 🌟 購物金變動紀錄介面
+interface CreditLog {
+  id: string;
+  type: 'grant' | 'use';
+  amount: number;
+  reason: string;
+  createdAt: any;
 }
 
 export default function AccountPage() {
@@ -47,7 +58,8 @@ export default function AccountPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'level' | 'profile'>('orders');
+  const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]); // 🌟 購物金紀錄
+  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'credits' | 'level' | 'profile'>('orders');
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'shipped' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
 
@@ -60,11 +72,11 @@ export default function AccountPage() {
   // 複製優惠碼狀態
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // 模擬優惠券資料（也可改為由 Firebase 載入）
+  // 優惠券資料 (可用次數預設為 1 次)
   const [coupons] = useState<Coupon[]>([
-    { id: '1', code: 'LIGHTNING100', discountText: 'HKD $100 折價券', minSpend: 500, expireDate: '2026-12-31', isUsed: false },
-    { id: '2', code: 'WELCOMEVIP', discountText: '全館 9 折 VIP 專屬券', minSpend: 0, expireDate: '2026-11-30', isUsed: false },
-    { id: '3', code: 'FREESHIP', discountText: '免運費優惠券', minSpend: 200, expireDate: '2026-10-15', isUsed: true },
+    { id: '1', code: 'LIGHTNING100', discountText: 'HKD $100 折價券', minSpend: 500, expireDate: '2026-12-31', usesLeft: 1, isUsed: false },
+    { id: '2', code: 'WELCOMEVIP', discountText: '全館 9 折 VIP 專屬券', minSpend: 0, expireDate: '2026-11-30', usesLeft: 1, isUsed: false },
+    { id: '3', code: 'FREESHIP', discountText: '免運費優惠券', minSpend: 200, expireDate: '2026-10-15', usesLeft: 0, isUsed: true },
   ]);
 
   useEffect(() => {
@@ -74,9 +86,11 @@ export default function AccountPage() {
         try {
           // 取得用戶 Profile 資料
           const userQuery = await db.collection("users").where("uid", "==", user.uid).get();
+          let docId = '會員';
           if (!userQuery.empty) {
-            const userData = userQuery.docs[0].data() as UserProfile;
-            const docId = userQuery.docs[0].id;
+            const userDoc = userQuery.docs[0];
+            const userData = userDoc.data() as UserProfile;
+            docId = userDoc.id;
             setProfile({ ...userData, accountId: docId });
             setEditName(userData.name || '');
             setEditPhone(userData.phone || '');
@@ -85,7 +99,21 @@ export default function AccountPage() {
             setProfile({ accountId: '會員', email: user.email || '' });
           }
 
-          // 訂閱該用戶訂單（比對 email 或特定欄位）
+          // 🌟 即時訂閱該會員的購物金變動紀錄 (credit_logs)
+          let unsubscribeCreditLogs = () => {};
+          if (docId && docId !== '會員') {
+            unsubscribeCreditLogs = db.collection("users").doc(docId).collection("credit_logs")
+              .orderBy("createdAt", "desc")
+              .onSnapshot((snapshot) => {
+                const logs: CreditLog[] = [];
+                snapshot.forEach((doc) => {
+                  logs.push({ id: doc.id, ...doc.data() } as CreditLog);
+                });
+                setCreditLogs(logs);
+              });
+          }
+
+          // 訂閱該用戶訂單
           const ordersQuery = db.collection("orders")
             .where("email", "==", user.email)
             .orderBy("createdAt", "desc");
@@ -102,14 +130,16 @@ export default function AccountPage() {
             setLoading(false);
           });
 
-          return () => unsubscribeOrders();
+          return () => {
+            unsubscribeOrders();
+            unsubscribeCreditLogs();
+          };
 
         } catch (error) {
           console.error("Profile load error:", error);
           setLoading(false);
         }
       } else {
-        // 未登入則導回首頁
         router.push('/');
       }
     });
@@ -159,7 +189,6 @@ export default function AccountPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  // 訂單狀態標籤樣式 (配合後台 status 命名)
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'completed':
@@ -177,7 +206,6 @@ export default function AccountPage() {
     }
   };
 
-  // 篩選後訂單 (配合後台 status 命名)
   const filteredOrders = orders.filter(o => {
     if (orderFilter === 'all') return true;
     if (orderFilter === 'pending') return o.status === 'pending' || o.status === 'paid' || o.status === 'preparing';
@@ -199,7 +227,6 @@ export default function AccountPage() {
 
   return (
     <div className="bg-white text-[#333333] min-h-screen font-sans pb-20">
-      {/* 頂部極簡導覽列 */}
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#f0f0f0]">
         <Link href="/" className="text-[20px] font-bold tracking-[2px] uppercase text-[#333] no-underline">
           LIGHTNING
@@ -213,7 +240,7 @@ export default function AccountPage() {
       </nav>
 
       <main className="max-w-4xl mx-auto pt-28 px-4 sm:px-6">
-        {/* 會員頂部名牌卡片 */}
+        {/* 會員頂部名牌卡片 (含購物金顯示) */}
         <div className="bg-linear-to-r from-stone-900 via-stone-800 to-stone-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-40 h-40 bg-[#FEF9C3]/10 rounded-full blur-2xl pointer-events-none" />
           
@@ -232,13 +259,20 @@ export default function AccountPage() {
               </p>
             </div>
 
-            <div className="bg-stone-800/80 backdrop-blur border border-stone-700/50 p-3.5 rounded-xl text-right min-w-40">
-              <span className="text-xs text-stone-400 block mb-1">累積消費金額</span>
-              <span className="text-xl font-bold font-mono text-[#FEF9C3]">HKD ${totalSpent.toLocaleString()}</span>
+            <div className="flex gap-3">
+              {/* 🌟 購物金卡片 */}
+              <div className="bg-amber-500/20 border border-amber-400/30 p-3.5 rounded-xl text-right min-w-32">
+                <span className="text-xs text-amber-200 block mb-1">可用購物金</span>
+                <span className="text-xl font-bold font-mono text-amber-300">HKD ${profile?.storeCredit || 0}</span>
+              </div>
+              
+              <div className="bg-stone-800/80 backdrop-blur border border-stone-700/50 p-3.5 rounded-xl text-right min-w-36">
+                <span className="text-xs text-stone-400 block mb-1">累積消費金額</span>
+                <span className="text-xl font-bold font-mono text-[#FEF9C3]">HKD ${totalSpent.toLocaleString()}</span>
+              </div>
             </div>
           </div>
 
-          {/* 升級進度條 */}
           <div className="mt-6 pt-6 border-t border-stone-700/60 relative z-10">
             <div className="flex justify-between text-xs text-stone-300 mb-2">
               <span>會員權益進度</span>
@@ -258,10 +292,11 @@ export default function AccountPage() {
         </div>
 
         {/* 分頁 Tab 切換 */}
-        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-8">
+        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-6">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
-            { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.filter(c => !c.isUsed).length },
+            { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.filter(c => !c.isUsed && c.usesLeft > 0).length },
+            { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
             { id: 'level', label: '👑 會員等級權益' },
             { id: 'profile', label: '⚙️ 個人資料設定' }
           ].map(tab => (
@@ -289,7 +324,6 @@ export default function AccountPage() {
         {/* TAB 1: 訂單記錄與進度 */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            {/* 訂單狀態快速過濾 */}
             <div className="flex gap-2 mb-4 overflow-x-auto">
               {[
                 { id: 'all', label: '全部訂單' },
@@ -335,7 +369,6 @@ export default function AccountPage() {
                     </div>
                   </div>
 
-                  {/* 視覺化物流進度 (完美對應後台 status) */}
                   <div className="bg-stone-50 p-4 rounded-xl mb-4">
                     <span className="text-xs font-semibold text-stone-700 block mb-3">物流進度狀態</span>
                     <div className="grid grid-cols-4 text-center text-xs relative">
@@ -361,7 +394,6 @@ export default function AccountPage() {
                     </div>
                   </div>
 
-                  {/* 商品清單 */}
                   <div className="space-y-3 mb-4">
                     {order.items?.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-center text-sm">
@@ -399,7 +431,7 @@ export default function AccountPage() {
               <div 
                 key={coupon.id} 
                 className={`border rounded-2xl p-5 relative overflow-hidden transition ${
-                  coupon.isUsed 
+                  coupon.isUsed || coupon.usesLeft <= 0 
                     ? 'bg-stone-50 border-stone-200 opacity-60' 
                     : 'bg-white border-amber-200 shadow-sm hover:shadow-md'
                 }`}
@@ -413,18 +445,18 @@ export default function AccountPage() {
                       {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
                     </p>
                   </div>
-                  {coupon.isUsed && (
-                    <span className="text-xs bg-stone-200 text-stone-600 px-2 py-0.5 rounded">已使用</span>
+                  {(coupon.isUsed || coupon.usesLeft <= 0) && (
+                    <span className="text-xs bg-stone-200 text-stone-600 px-2 py-0.5 rounded">已耗盡/已使用</span>
                   )}
                 </div>
 
                 <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
                   <div>
-                    <span className="text-[10px] text-stone-400 block">折扣代碼</span>
+                    <span className="text-[10px] text-stone-400 block">折扣代碼 (剩餘 {coupon.usesLeft} 次)</span>
                     <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
                   </div>
 
-                  {!coupon.isUsed && (
+                  {!coupon.isUsed && coupon.usesLeft > 0 && (
                     <button
                       onClick={() => copyCouponCode(coupon.code)}
                       className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
@@ -439,7 +471,48 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 3: 會員等級權益 */}
+        {/* 🌟 TAB 3: 購物金與補償紀錄 */}
+        {activeTab === 'credits' && (
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold text-stone-800 text-base mb-2">💰 您的購物金與補償明細</h3>
+            <p className="text-xs text-stone-500 mb-6">包含管理員發放的客服補償、專屬獎勵及購物折抵紀錄。</p>
+
+            {creditLogs.length === 0 ? (
+              <div className="text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+                <span className="text-3xl block mb-2">🪙</span>
+                <p className="text-stone-500 text-xs">目前尚無任何購物金變動紀錄</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {creditLogs.map(log => {
+                  const isGrant = log.type === 'grant';
+                  return (
+                    <div key={log.id} className="p-4 rounded-xl border border-stone-100 bg-stone-50/50 flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                            isGrant ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-700'
+                          }`}>
+                            {isGrant ? '商店發放 / 補償' : '訂單折抵使用'}
+                          </span>
+                          <span className="text-xs text-stone-400">
+                            {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleString('zh-TW') : '剛剛'}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-stone-800">{log.reason || '無備註'}</p>
+                      </div>
+                      <div className={`text-sm font-bold font-mono ${isGrant ? 'text-emerald-600' : 'text-stone-700'}`}>
+                        {isGrant ? `+HKD $${log.amount}` : `-HKD $${log.amount}`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: 會員等級權益 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
             <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6">
@@ -474,7 +547,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 4: 個人資料設定 */}
+        {/* TAB 5: 個人資料設定 */}
         {activeTab === 'profile' && (
           <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-stone-800 text-base mb-6">修改基本聯絡與預設收件資料</h3>

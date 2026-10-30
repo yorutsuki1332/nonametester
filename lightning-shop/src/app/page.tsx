@@ -23,6 +23,16 @@ interface CartItem {
   quantity: number;
 }
 
+interface Coupon {
+  id: string;
+  code: string;
+  discountText: string;
+  minSpend: number;
+  discountType: 'fixed' | 'percent';
+  discountValue: number;
+  usesLeft: number;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -34,6 +44,12 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
+  // 折扣券與購物金狀態
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [userStoreCredit, setUserStoreCredit] = useState<number>(0);
+  const [useCredit, setUseCredit] = useState<boolean>(false);
+
   // 會員表單
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [authAccountId, setAuthAccountId] = useState('');
@@ -77,26 +93,45 @@ export default function Home() {
       setFilteredProducts(list);
     });
 
+    const unsubscribeCoupons = db.collection("coupons")
+      .where("usesLeft", ">", 0)
+      .onSnapshot((snapshot) => {
+        const list: Coupon[] = [];
+        snapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() } as Coupon);
+        });
+        setAvailableCoupons(list);
+      }, (err) => {
+        console.error("Coupons fetch error:", err);
+      });
+
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
       if (user) {
         try {
           const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
           if (!querySnapshot.empty) {
-            setCurrentAccountId(querySnapshot.docs[0].id);
+            const doc = querySnapshot.docs[0];
+            setCurrentAccountId(doc.id);
+            setUserStoreCredit(doc.data().storeCredit || 0);
           } else {
             setCurrentAccountId('會員');
+            setUserStoreCredit(0);
           }
         } catch (e) {
           setCurrentAccountId('會員');
+          setUserStoreCredit(0);
         }
       } else {
         setCurrentAccountId('');
+        setUserStoreCredit(0);
+        setUserStoreCredit(0);
       }
     });
 
     return () => {
       unsubscribeProducts();
+      unsubscribeCoupons();
       unsubscribeAuth();
     };
   }, []);
@@ -160,6 +195,28 @@ export default function Home() {
     saveCartToStorage(updated);
   };
 
+  // 🌟 計算小計、折扣券與購物金折抵邏輯
+  const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  const calculateDiscount = () => {
+    if (!selectedCoupon) return 0;
+    if (currentSubtotal < selectedCoupon.minSpend) return 0;
+    
+    if (selectedCoupon.discountType === 'fixed') {
+      return Math.min(currentSubtotal, selectedCoupon.discountValue);
+    } else if (selectedCoupon.discountType === 'percent') {
+      return currentSubtotal * (1 - selectedCoupon.discountValue);
+    }
+    return 0;
+  };
+
+  const discountAmount = calculateDiscount();
+  const subtotalAfterCoupon = Math.max(0, currentSubtotal - discountAmount);
+  
+  // 購物金折抵計算
+  const creditToDeduct = useCredit ? Math.min(subtotalAfterCoupon, userStoreCredit) : 0;
+  const finalTotal = Math.max(0, subtotalAfterCoupon - creditToDeduct);
+
   const changeSlide = (productId: string, index: number, validLength: number) => {
     const targetIndex = (index + validLength) % validLength;
     setSliderIndexes(prev => ({ ...prev, [productId]: targetIndex }));
@@ -204,10 +261,10 @@ export default function Home() {
           accountId: authAccountId,
           email: authEmail,
           uid: userCred.user?.uid,
+          storeCredit: 0,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        // 🌟 註冊成功後，透過 API 發送歡迎信
         try {
           await fetch('/api/send-welcome', {
             method: 'POST',
@@ -269,21 +326,65 @@ export default function Home() {
       });
 
       const customOrderId = `${prefix}${String(maxIndex + 1).padStart(3, '0')}`;
-      const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
       const orderData = {
         name: shippingName.trim(),
         email: shippingEmail.trim(),
         address: shippingAddress.trim(),
         items: cart,
-        total: totalAmount,
+        subtotal: currentSubtotal,
+        discount: discountAmount,
+        creditDeducted: creditToDeduct,
+        couponCode: selectedCoupon ? selectedCoupon.code : null,
+        total: finalTotal,
         status: 'pending',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       };
 
       await db.collection("orders").doc(customOrderId).set(orderData);
 
-      // 🌟 透過後端 API 發送訂單確認信
+      // 1. 扣減優惠券次數
+      if (selectedCoupon) {
+        try {
+          const couponRef = db.collection("coupons").doc(selectedCoupon.code);
+          const couponDoc = await couponRef.get();
+          if (couponDoc.exists) {
+            const currentUses = couponDoc.data()?.usesLeft || 1;
+            if (currentUses > 1) {
+              await couponRef.update({ usesLeft: currentUses - 1 });
+            } else {
+              await couponRef.update({ usesLeft: 0 });
+            }
+          }
+        } catch (couponErr) {
+          console.error('優惠券次數扣減失敗:', couponErr);
+        }
+      }
+
+      // 2. 扣減會員購物金並新增 Log
+      if (useCredit && creditToDeduct > 0 && currentAccountId && currentUser) {
+        try {
+          const userRef = db.collection("users").doc(currentAccountId);
+          const userDoc = await userRef.get();
+          if (userDoc.exists) {
+            const currentCredit = userDoc.data()?.storeCredit || 0;
+            const updatedCredit = Math.max(0, currentCredit - creditToDeduct);
+            
+            await userRef.update({ storeCredit: updatedCredit });
+            setUserStoreCredit(updatedCredit);
+
+            await userRef.collection("credit_logs").add({
+              type: 'use',
+              amount: creditToDeduct,
+              reason: `訂單 #${customOrderId} 結帳折抵`,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          }
+        } catch (creditErr) {
+          console.error('購物金扣減失敗:', creditErr);
+        }
+      }
+
       try {
         await fetch('/api/send-order', {
             method: 'POST',
@@ -291,7 +392,7 @@ export default function Home() {
             body: JSON.stringify({
             email: shippingEmail.trim(),
             orderId: customOrderId,
-            total: totalAmount,
+            total: finalTotal,
             items: cart
           })
         });
@@ -300,8 +401,10 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}`);
+        alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計支付：HKD $${finalTotal.toFixed(1)}`);
         saveCartToStorage([]);
+        setSelectedCoupon(null);
+        setUseCredit(false);
         setIsPaymentOpen(false);
         setIsPaying(false);
       }, 1500);
@@ -312,7 +415,6 @@ export default function Home() {
   };
 
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const currentTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen;
 
   return (
@@ -484,12 +586,13 @@ export default function Home() {
         </div>
       </main>
 
-      {/* 購物車抽屜 */}
+      {/* 購物車抽屜 (含折扣券與購物金折抵) */}
       <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-white shadow-[-5px_0_30px_rgba(0,0,0,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-[30px_25px] border-b border-[#f0f0f0] flex justify-between items-center">
           <h2 className="text-[18px] font-semibold">購物車清單 ({totalCount})</h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCartOpen(false)}>&times;</button>
         </div>
+        
         <div className="grow overflow-y-auto p-6.25">
           {cart.length === 0 ? (
             <p className="text-center text-[#aaa] mt-12.5">購物車目前是空的喔</p>
@@ -511,11 +614,79 @@ export default function Home() {
             ))
           )}
         </div>
-        <div className="p-6.25 border-t border-[#f0f0f0]">
-          <div className="flex justify-between mb-3 text-[14px]"><span>商品小計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
-          <div className="flex justify-between mb-5 pt-3.75 border-t border-[#f0f0f0] text-[16px] font-semibold"><span>訂單總計</span><span>HKD {Number(currentTotal).toFixed(1)}</span></div>
-          <button className="w-full bg-[#111] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] transition hover:bg-[#333]" onClick={() => { setIsCartOpen(false); setIsPaymentOpen(true); }}>前往結帳 Checkout</button>
-        </div>
+
+        {cart.length > 0 && (
+          <div className="p-6.25 border-t border-[#f0f0f0] bg-[#fafafa]">
+            {/* 折扣券選擇 */}
+            <div className="mb-3">
+              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券</label>
+              <select 
+                className="w-full p-2.5 bg-white border border-[#ddd] rounded-lg text-[13px] outline-none cursor-pointer focus:border-[#111]"
+                value={selectedCoupon ? selectedCoupon.code : ''}
+                onChange={(e) => {
+                  const found = availableCoupons.find(c => c.code === e.target.value);
+                  setSelectedCoupon(found || null);
+                }}
+              >
+                <option value="">-- 不使用折扣券 --</option>
+                {availableCoupons.map(coupon => {
+                  const isEligible = currentSubtotal >= coupon.minSpend;
+                  return (
+                    <option key={coupon.id} value={coupon.code} disabled={!isEligible}>
+                      {coupon.discountText} (剩餘 {coupon.usesLeft} 次) {!isEligible ? `[滿 $${coupon.minSpend} 可用]` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 購物金勾選折抵 (僅登入時顯示) */}
+            {currentUser && userStoreCredit > 0 && (
+              <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200 rounded-lg flex items-center justify-between text-xs">
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-stone-800">
+                  <input 
+                    type="checkbox" 
+                    checked={useCredit} 
+                    onChange={(e) => setUseCredit(e.target.checked)}
+                    className="w-4 h-4 rounded border-amber-300 accent-stone-900 cursor-pointer"
+                  />
+                  使用購物金折抵 (可用 HKD ${userStoreCredit})
+                </label>
+              </div>
+            )}
+
+            <div className="flex justify-between mb-2 text-[13px] text-[#666]">
+              <span>商品小計</span>
+              <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
+            </div>
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between mb-2 text-[13px] text-emerald-600 font-medium">
+                <span>折扣優惠 ({selectedCoupon?.code})</span>
+                <span>- HKD {Number(discountAmount).toFixed(1)}</span>
+              </div>
+            )}
+
+            {creditToDeduct > 0 && (
+              <div className="flex justify-between mb-2 text-[13px] text-amber-700 font-medium">
+                <span>購物金折抵</span>
+                <span>- HKD {Number(creditToDeduct).toFixed(1)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between mb-5 pt-3 border-t border-[#e5e5e5] text-[16px] font-semibold text-[#111]">
+              <span>訂單總計</span>
+              <span>HKD {Number(finalTotal).toFixed(1)}</span>
+            </div>
+
+            <button 
+              className="w-full bg-[#111] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] transition hover:bg-[#333]" 
+              onClick={() => { setIsCartOpen(false); setIsPaymentOpen(true); }}
+            >
+              前往結帳 Checkout
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 結帳 Modal */}
@@ -538,6 +709,18 @@ export default function Home() {
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件地址</label>
               <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入完整收件地址" required />
             </div>
+
+            {/* 結帳明細摘要 */}
+            <div className="bg-[#f9f9f8] p-3.5 rounded-lg mb-5 text-[13px]">
+              <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between mb-1 text-emerald-600"><span>優惠券折抵：</span><span>- HKD ${discountAmount.toFixed(1)}</span></div>
+              )}
+              {creditToDeduct > 0 && (
+                <div className="flex justify-between mb-1 text-amber-700"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
+              )}
+              <div className="flex justify-between font-semibold pt-2 border-t border-[#eee] text-[14px]"><span>應付總額：</span><span>HKD ${finalTotal.toFixed(1)}</span></div>
+            </div>
             
             <hr className="border-0 border-t border-dashed border-[#eee] my-6.25" />
             
@@ -554,7 +737,7 @@ export default function Home() {
             </div>
 
             <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa] hover:-translate-y-0.5 mt-2.5">
-              {isPaying ? '付款處理中...' : `確認付款 HKD ${currentTotal.toLocaleString()}`}
+              {isPaying ? '付款處理中...' : `確認付款 HKD $${finalTotal.toFixed(1)}`}
             </button>
           </form>
         </div>
