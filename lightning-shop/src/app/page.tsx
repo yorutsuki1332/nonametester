@@ -363,12 +363,16 @@ export default function Home() {
 
           // 2. 直接在 Firebase Auth 建立帳號
           const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+          const newUid = userCred.user?.uid; // 取得剛建立的 uid
 
-          // 3. 呼叫 API 透過 Resend 發送 6 位數驗證碼與連結
           const res = await fetch('/api/send-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: authEmail, accountId: authAccountId })
+            body: JSON.stringify({ 
+              email: authEmail, 
+              accountId: authAccountId,
+              uid: newUid // 🌟 將 uid 傳給後端
+            })
           });
           const data = await res.json();
 

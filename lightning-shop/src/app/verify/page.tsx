@@ -11,7 +11,8 @@ function VerifyContent() {
   const router = useRouter();
   const email = searchParams.get('email');
   const code = searchParams.get('code');
-  const urlAccountId = searchParams.get('accountId'); // 取得網址帶的 accountId
+  const urlAccountId = searchParams.get('accountId');
+  const urlUid = searchParams.get('uid'); // 取得網址帶的 uid
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('正在驗證您的電子郵件...');
@@ -36,19 +37,19 @@ function VerifyContent() {
 
         const verificationData = docSnap.data();
         const serverCode = verificationData?.code;
-        // 優先使用資料庫儲存的 accountId，若無則使用網址帶的，最後才用備用字串
         const finalAccountId = verificationData?.accountId || urlAccountId || (email.split('@')[0] + '_user');
+        const finalUid = verificationData?.uid || urlUid || ''; // 取得最終 uid
 
         if (serverCode === code) {
-          // 檢查該 accountId 是否已經存在於 users 集合中
           const userDocRef = db.collection('users').doc(finalAccountId);
           const userDocSnap = await userDocRef.get();
 
           if (!userDocSnap.exists) {
-            // 🌟 嚴格使用您註冊時輸入的真實 accountId 建立會員資料
+            // 🌟 寫入完整的會員資料，包含 uid
             await userDocRef.set({
               accountId: finalAccountId,
               email: email,
+              uid: finalUid, // 成功帶入 uid！
               storeCredit: 0,
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -70,7 +71,7 @@ function VerifyContent() {
     }
 
     verify();
-  }, [email, code, urlAccountId]);
+  }, [email, code, urlAccountId, urlUid]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">

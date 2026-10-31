@@ -14,14 +14,14 @@ export async function POST(request: Request) {
     }
 
     const resend = new Resend(apiKey);
-    const { email, accountId } = await request.json(); // 接收前端傳來的 accountId
+    const { email, accountId, uid } = await request.json(); // 🌟 接收前端傳來的 uid
     
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = host.includes('localhost') ? 'http' : 'https';
     
-    // 🌟 將 accountId 帶入驗證連結中，方便按鈕點擊時辨識
-    const verifyUrl = `${protocol}://${host}/verify?email=${encodeURIComponent(email)}&code=${verificationCode}&accountId=${encodeURIComponent(accountId)}`;
+    // 🌟 將 uid 也帶入網址參數中
+    const verifyUrl = `${protocol}://${host}/verify?email=${encodeURIComponent(email)}&code=${verificationCode}&accountId=${encodeURIComponent(accountId)}&uid=${encodeURIComponent(uid || '')}`;
 
     const { data, error } = await resend.emails.send({
       from: 'LIGHTNING LIFESTYLE <onboarding@resend.dev>',
@@ -59,10 +59,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error }, { status: 400 });
     }
 
-    // 🌟 將 accountId 一併存入 verifications 文件中
+    // 🌟 將 uid 儲存到 verifications 文件中
     await db.collection('verifications').doc(email).set({
       code: verificationCode,
       accountId: accountId,
+      uid: uid || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       verified: false
     });
