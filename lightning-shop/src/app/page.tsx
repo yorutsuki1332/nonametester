@@ -31,9 +31,19 @@ interface Coupon {
   discountType: 'fixed' | 'percent';
   discountValue: number;
   usesLeft: number;
+  targetAccountId?: string | null; // 🌟 專屬會員 ID 欄位
   conditionType?: 'infinite' | 'counts' | 'periods';
   startTime?: string | null;
   endTime?: string | null;
+}
+
+interface UserProfile {
+  accountId: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  address?: string;
+  storeCredit?: number;
 }
 
 export default function Home() {
@@ -55,13 +65,14 @@ export default function Home() {
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
-  // 會員表單
+  // 會員表單與完整資料
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [authAccountId, setAuthAccountId] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentAccountId, setCurrentAccountId] = useState('');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // 提示訊息
   const [toastMessage, setToastMessage] = useState('');
@@ -70,7 +81,7 @@ export default function Home() {
   // 圖片輪播
   const [sliderIndexes, setSliderIndexes] = useState<{ [key: string]: number }>({});
   
-  // 結帳表單
+  // 結帳表單狀態 (🌟 自動填寫會員已知資料)
   const [shippingName, setShippingName] = useState('');
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
@@ -99,70 +110,94 @@ export default function Home() {
       setFilteredProducts(list);
     });
 
-    const unsubscribeCoupons = db.collection("coupons")
-      .where("usesLeft", ">", 0)
-      .onSnapshot((snapshot) => {
-        const list: Coupon[] = [];
-        const now = new Date().getTime();
-
-        snapshot.forEach((doc) => {
-          const { id, ...data } = doc.data() as any;
-          const coupon = { id: doc.id, ...data } as Coupon;
-
-          if (coupon.conditionType === 'periods' && coupon.startTime && coupon.endTime) {
-            const start = new Date(coupon.startTime).getTime();
-            const end = new Date(coupon.endTime).getTime();
-            if (now >= start && now <= end) {
-              list.push(coupon);
-            }
-          } else {
-            list.push(coupon);
-          }
-        });
-        setAvailableCoupons(list);
-      }, (err) => {
-        console.error("Coupons fetch error:", err);
-      });
-
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
+      let activeAccountId = '';
+      
       if (user) {
         try {
           const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
           if (!querySnapshot.empty) {
             const doc = querySnapshot.docs[0];
-            const accountId = doc.id;
-            setCurrentAccountId(accountId);
-            setUserStoreCredit(doc.data().storeCredit || 0);
+            activeAccountId = doc.id;
+            const userData = doc.data() as UserProfile;
+            setCurrentAccountId(activeAccountId);
+            setUserStoreCredit(userData.storeCredit || 0);
+            setUserProfile(userData);
 
-            db.collection("users").doc(accountId).collection("favorites").onSnapshot((favSnap) => {
+            db.collection("users").doc(activeAccountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
                 favMap[fDoc.id] = true;
               });
               setUserFavorites(favMap);
             });
-
           } else {
             setCurrentAccountId('會員');
             setUserStoreCredit(0);
-            setUserFavorites({});
+            setUserProfile(null);
           }
         } catch (e) {
           setCurrentAccountId('會員');
           setUserStoreCredit(0);
-          setUserFavorites({});
+          setUserProfile(null);
         }
       } else {
         setCurrentAccountId('');
         setUserStoreCredit(0);
+        setUserProfile(null);
         setUserFavorites({});
       }
+
+      // 🌟 即時監聽優惠券，並過濾掉其他會員專屬的優惠券
+      const unsubscribeCoupons = db.collection("coupons")
+        .where("usesLeft", ">", 0)
+        .onSnapshot((snapshot) => {
+          const list: Coupon[] = [];
+          const now = new Date().getTime();
+
+          snapshot.forEach((doc) => {
+            const { id, ...data } = doc.data() as any;
+            const coupon = { id: doc.id, ...data } as Coupon;
+
+            // 檢查是否為該會員可使用的優惠券：
+            // 1. 若 coupon.targetAccountId 存在，且不等於當前登入者的 accountId，則跳過 (排除其他人專屬)
+            if (coupon.targetAccountId && coupon.targetAccountId.trim() !== '' && coupon.targetAccountId !== activeAccountId) {
+              return; 
+            }
+
+            if ((coupon.conditionType === 'periods' || coupon.conditionType === 'counts') && coupon.startTime && coupon.endTime) {
+              const start = new Date(coupon.startTime).getTime();
+              const end = new Date(coupon.endTime).getTime();
+              if (now >= start && now <= end) {
+                list.push(coupon);
+              }
+            } else {
+              list.push(coupon);
+            }
+          });
+          setAvailableCoupons(list);
+        }, (err) => {
+          console.error("Coupons fetch error:", err);
+        });
+
+      return () => {
+        unsubscribeCoupons();
+      };
+    });
+
+    const unsubscribeProductsQuery = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+      const list: Product[] = [];
+      snapshot.forEach((doc) => {
+        const { id, ...data } = doc.data() as any;
+        list.push({ id: doc.id, ...data });
+      });
+      setProducts(list);
+      setFilteredProducts(list);
     });
 
     return () => {
-      unsubscribeProducts();
-      unsubscribeCoupons();
+      unsubscribeProductsQuery();
       unsubscribeAuth();
     };
   }, []);
@@ -245,7 +280,7 @@ export default function Home() {
   const calculateDiscount = () => {
     if (!selectedCoupon) return 0;
     
-    if (selectedCoupon.conditionType === 'periods' && selectedCoupon.startTime && selectedCoupon.endTime) {
+    if ((selectedCoupon.conditionType === 'periods' || selectedCoupon.conditionType === 'counts') && selectedCoupon.startTime && selectedCoupon.endTime) {
       const now = new Date().getTime();
       const start = new Date(selectedCoupon.startTime).getTime();
       const end = new Date(selectedCoupon.endTime).getTime();
@@ -332,6 +367,11 @@ export default function Home() {
         }
 
         const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+        
+        if (userCred.user) {
+          await userCred.user.sendEmailVerification();
+        }
+
         await docRef.set({
           accountId: authAccountId,
           email: authEmail,
@@ -340,17 +380,7 @@ export default function Home() {
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        try {
-          await fetch('/api/send-welcome', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: authEmail, accountId: authAccountId })
-          });
-        } catch (emailErr) {
-          console.error('歡迎信發送請求失敗:', emailErr);
-        }
-
-        showToast('註冊成功並已自動登入！歡迎信已發送');
+        alert('✨ 註冊成功！驗證郵件已發送至您的信箱，請前往點擊驗證連結以啟用完整權限。');
         setIsAuthOpen(false);
       } else {
         const docRef = db.collection("users").doc(authAccountId);
@@ -375,6 +405,18 @@ export default function Home() {
       val = val.substring(0, 2) + '/' + val.substring(2, 4);
     }
     setCardExpiry(val);
+  };
+
+  const openCheckoutModal = () => {
+    setIsCartOpen(false);
+    if (userProfile) {
+      if (userProfile.name) setShippingName(userProfile.name);
+      if (userProfile.email) setShippingEmail(userProfile.email);
+      if (userProfile.address) setShippingAddress(userProfile.address);
+    } else if (currentUser?.email) {
+      setShippingEmail(currentUser.email);
+    }
+    setIsPaymentOpen(true);
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
@@ -425,11 +467,7 @@ export default function Home() {
           const couponDoc = await couponRef.get();
           if (couponDoc.exists) {
             const currentUses = couponDoc.data()?.usesLeft || 1;
-            if (currentUses > 1) {
-              await couponRef.update({ usesLeft: currentUses - 1 });
-            } else {
-              await couponRef.update({ usesLeft: 0 });
-            }
+            await couponRef.update({ usesLeft: currentUses > 1 ? currentUses - 1 : 0 });
           }
         } catch (couponErr) {
           console.error('優惠券次數扣減失敗:', couponErr);
@@ -459,21 +497,6 @@ export default function Home() {
         }
       }
 
-      try {
-        await fetch('/api/send-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-            email: shippingEmail.trim(),
-            orderId: customOrderId,
-            total: finalTotal,
-            items: cart
-          })
-        });
-      } catch (emailErr) {
-        console.error('訂單確認信發送請求失敗:', emailErr);
-      }
-
       setTimeout(() => {
         alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計支付：HKD $${finalTotal.toFixed(1)}`);
         saveCartToStorage([]);
@@ -493,14 +516,12 @@ export default function Home() {
 
   return (
     <div className="bg-white text-[#333333] min-h-screen overflow-x-hidden font-sans">
-      {/* 導覽列 */}
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#f0f0f0]">
         <div className="text-[20px] font-bold tracking-[2px] uppercase">LIGHTNING</div>
-        <div className="flex items-center md:gap-4">
-          {/* 會員中心按鈕：使用 SVG 繪製 Icon */}
+        <div className="flex items-center gap-4">
           <Link 
             href={currentUser ? "/account" : "#"}
-            className="text-[13px] font-medium cursor-pointer text-[#333] p-2 md:py-1.5 md:px-3 rounded-md md:bg-[#fafafa] md:border md:border-[#f0f0f0] transition hover:bg-[#FEF9C3] flex items-center justify-center gap-1.5"
+            className="text-[13px] font-medium cursor-pointer text-[#333] p-2 md:py-1.5 md:px-3 rounded-md bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3] flex items-center justify-center gap-1.5"
             onClick={(e) => {
               if (!currentUser) {
                 e.preventDefault();
@@ -509,9 +530,8 @@ export default function Home() {
             }}
             title={currentUser ? `會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
           >
-            {/* SVG 人像 Icon */}
             <svg 
-              className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" 
+              className="w-5 h-5 fill-none stroke-[#333] stroke-[1.5]" 
               viewBox="0 0 24 24"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -524,7 +544,6 @@ export default function Home() {
             </span>
           </Link>
 
-          {/* 購物車按鈕：使用 SVG 購物袋 Icon */}
           <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
             <svg className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
@@ -538,7 +557,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 流動版專屬：固定於導覽列下方的向下延長主選單 (商品類別快速列) */}
       <div className="fixed top-18.75 left-0 w-full bg-white/95 backdrop-blur-md border-b border-[#f0f0f0] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex items-center gap-2 md:justify-center">
         {categories.map((cat) => (
           <button
@@ -555,33 +573,31 @@ export default function Home() {
         ))}
       </div>
 
-      {/* 背景遮罩 */}
       <div className={`fixed inset-0 bg-white/60 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
 
-      {/* 會員登入/註冊 Modal */}
       <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isAuthOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
         <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
-          <h2 className="text-[18px] font-semibold">{isRegisterMode ? '註冊新會員' : '會員登入'}</h2>
+          <h2 className="text-[18px] font-semibold">{isRegisterMode ? '註冊新會員 (含 Email 驗證)' : '會員登入'}</h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsAuthOpen(false)}>&times;</button>
         </div>
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleAuthSubmit}>
             <div className="mb-5">
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">帳戶 ID</label>
-              <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="例如：john123" required />
+              <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="例如：john123" required />
             </div>
             {isRegisterMode && (
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (接收訂單通知)</label>
-                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="example@email.com" required />
+                <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (將寄送驗證信)</label>
+                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
               </div>
             )}
             <div className="mb-5">
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">密碼 (至少 6 位數)</label>
-              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入密碼" required minLength={6} />
+              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入密碼" required minLength={6} />
             </div>
-            <button type="submit" className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa] hover:-translate-y-0.5 mt-2.5">
-              {isRegisterMode ? '立即註冊' : '登入系統'}
+            <button type="submit" className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
+              {isRegisterMode ? '立即註冊並發送驗證信' : '登入系統'}
             </button>
           </form>
           <div className="text-center mt-4 text-[13px]">
@@ -593,7 +609,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 頂部 Hero 與搜尋 */}
       <div className="pt-34 px-[4%] max-w-350 mx-auto">
         <header className="h-[35vh] bg-[#FEF9C3] rounded-2xl flex flex-col justify-center items-center text-center px-5">
           <h1 className="text-[36px] font-semibold tracking-[4px] mb-3.5">日常的美好，源於細節</h1>
@@ -604,13 +619,12 @@ export default function Home() {
             type="text" 
             value={searchKeyword}
             onChange={handleSearch}
-            className="w-full py-3.5 px-5 border border-[#f0f0f0] rounded-[30px] text-[14px] outline-none bg-[#fafafa] transition shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] focus:bg-white focus:shadow-[0_4px_15px_rgba(0,0,0,0.05)]"
+            className="w-full py-3.5 px-5 border border-[#f0f0f0] rounded-[30px] text-[14px] outline-none bg-[#fafafa] transition shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] focus:bg-white"
             placeholder="🔍 搜尋商品名稱或分類..." 
           />
         </div>
       </div>
 
-      {/* 商品列表 */}
       <main className="max-w-300 my-10 mx-auto px-[4%]">
         <h2 className="text-[20px] font-semibold tracking-[2px] mb-10 text-center">全站商品 / ALL ITEMS</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
@@ -634,7 +648,6 @@ export default function Home() {
                   <button 
                     onClick={(e) => handleToggleFavorite(p.id, e)}
                     className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-sm transition hover:scale-110 cursor-pointer"
-                    title={isFavorited ? '取消收藏' : '加入收藏'}
                   >
                     <span className={`text-[16px] transition ${isFavorited ? 'text-red-500 scale-110' : 'text-stone-400 hover:text-stone-600'}`}>
                       {isFavorited ? '♥' : '♡'}
@@ -652,28 +665,10 @@ export default function Home() {
                           {validImages.map((img, idx) => (
                             idx === activeIdx && (
                               <div key={idx} className="relative w-full h-full">
-                                <Image 
-                                  src={img}
-                                  alt={p.name}
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, 300px"
-                                  className="object-cover"
-                                  priority={idx === 0}
-                                />
+                                <Image src={img} alt={p.name} fill sizes="(max-width: 768px) 100vw, 300px" className="object-cover" priority={idx === 0} />
                               </div>
                             )
                           ))}
-                          {validImages.length > 1 && (
-                            <>
-                              <button className="absolute top-1/2 -translate-y-1/2 left-2.5 bg-black/40 text-white border-none w-7.5 h-7.5 rounded-full cursor-pointer flex items-center justify-center text-[14px] opacity-0 hover:bg-black/70 transition duration-300 z-5 group-hover:opacity-100" onClick={(e) => { e.preventDefault(); moveSlide(p.id, -1, validImages.length); }}>&#10094;</button>
-                              <button className="absolute top-1/2 -translate-y-1/2 right-2.5 bg-black/40 text-white border-none w-7.5 h-7.5 rounded-full cursor-pointer flex items-center justify-center text-[14px] opacity-0 hover:bg-black/70 transition duration-300 z-5 group-hover:opacity-100" onClick={(e) => { e.preventDefault(); moveSlide(p.id, 1, validImages.length); }}>&#10095;</button>
-                              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 z-5">
-                                {validImages.map((_, idx) => (
-                                  <span key={idx} className={`h-1.5 rounded-full cursor-pointer transition-all duration-300 ${idx === activeIdx ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`} onClick={(e) => { e.preventDefault(); changeSlide(p.id, idx, validImages.length); }} />
-                                ))}
-                              </div>
-                            </>
-                          )}
                         </>
                       ) : (
                         <span className="text-[13px] text-[#888]">{p.category || 'NO IMAGE'}</span>
@@ -685,7 +680,7 @@ export default function Home() {
                     </div>
                   </Link>
 
-                  <button className="w-full bg-transparent border border-[#e5e5e5] rounded-[10px] py-3 text-[13px] cursor-pointer transition duration-400 hover:bg-[#FEF9C3] hover:border-[#FEF9C3]" onClick={() => addToCart(p.id)}>
+                  <button className="w-full bg-transparent border border-[#e5e5e5] rounded-[10px] py-3 text-[13px] cursor-pointer transition hover:bg-[#FEF9C3]" onClick={() => addToCart(p.id)}>
                     加入購物車
                   </button>
                 </div>
@@ -695,7 +690,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* 購物車抽屜 */}
       <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-white shadow-[-5px_0_30px_rgba(0,0,0,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-[30px_25px] border-b border-[#f0f0f0] flex justify-between items-center">
           <h2 className="text-[18px] font-semibold">購物車清單 ({totalCount})</h2>
@@ -727,9 +721,9 @@ export default function Home() {
         {cart.length > 0 && (
           <div className="p-6.25 border-t border-[#f0f0f0] bg-[#fafafa]">
             <div className="mb-3">
-              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券</label>
+              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券 (已自動過濾其他人專屬券)</label>
               <select 
-                className="w-full p-2.5 bg-white border border-[#ddd] rounded-lg text-[13px] outline-none cursor-pointer focus:border-[#111]"
+                className="w-full p-2.5 bg-white border border-[#ddd] rounded-lg text-[13px] outline-none cursor-pointer"
                 value={selectedCoupon ? selectedCoupon.code : ''}
                 onChange={(e) => {
                   const found = availableCoupons.find(c => c.code === e.target.value);
@@ -737,15 +731,11 @@ export default function Home() {
                 }}
               >
                 <option value="">-- 不使用折扣券 --</option>
-                {availableCoupons.map(coupon => {
-                  const isEligible = currentSubtotal >= coupon.minSpend;
-                  const isPeriod = coupon.conditionType === 'periods';
-                  return (
-                    <option key={coupon.id} value={coupon.code} disabled={!isEligible}>
-                      {coupon.discountText} ({isPeriod ? '期間不限次數' : `剩餘 ${coupon.usesLeft} 次`}) {!isEligible ? `[滿 $${coupon.minSpend} 可用]` : ''}
-                    </option>
-                  );
-                })}
+                {availableCoupons.map(coupon => (
+                  <option key={coupon.id} value={coupon.code} disabled={currentSubtotal < coupon.minSpend}>
+                    {coupon.discountText} {coupon.targetAccountId ? '【專屬優惠】' : ''} {currentSubtotal < coupon.minSpend ? `[滿 $${coupon.minSpend} 可用]` : ''}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -770,7 +760,7 @@ export default function Home() {
 
             {discountAmount > 0 && (
               <div className="flex justify-between mb-2 text-[13px] text-emerald-600 font-medium">
-                <span>折扣優惠 ({selectedCoupon?.code})</span>
+                <span>折扣優惠</span>
                 <span>- HKD {Number(discountAmount).toFixed(1)}</span>
               </div>
             )}
@@ -789,7 +779,7 @@ export default function Home() {
 
             <button 
               className="w-full bg-[#111] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] transition hover:bg-[#333]" 
-              onClick={() => { setIsCartOpen(false); setIsPaymentOpen(true); }}
+              onClick={openCheckoutModal}
             >
               前往結帳 Checkout
             </button>
@@ -797,25 +787,31 @@ export default function Home() {
         )}
       </div>
 
-      {/* 結帳 Modal */}
       <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
         <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
-          <h2 className="text-[18px] font-semibold">安全結帳</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[18px] font-semibold">安全結帳</h2>
+            {userProfile && (
+              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                ✨ 已自動帶入會員資料
+              </span>
+            )}
+          </div>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsPaymentOpen(false)}>&times;</button>
         </div>
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleCheckoutSubmit}>
             <div className="mb-5">
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件人姓名</label>
-              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入真實姓名" required />
+              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入真實姓名" required />
             </div>
             <div className="mb-5">
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (接收訂單通知)</label>
-              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="example@email.com" required />
+              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
             </div>
             <div className="mb-5">
               <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件地址</label>
-              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入完整收件地址" required />
+              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入完整收件地址" required />
             </div>
 
             <div className="bg-[#f9f9f8] p-3.5 rounded-lg mb-5 text-[13px]">
@@ -843,7 +839,7 @@ export default function Home() {
               </div>
             </div>
 
-            <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa] hover:-translate-y-0.5 mt-2.5">
+            <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
               {isPaying ? '付款處理中...' : `確認付款 HKD $${finalTotal.toFixed(1)}`}
             </button>
           </form>
