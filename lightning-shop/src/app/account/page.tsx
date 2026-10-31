@@ -13,6 +13,8 @@ interface UserProfile {
   email: string;
   name?: string;
   phone?: string;
+  gender?: string;
+  birthday?: string;
   address?: string;
   totalSpent?: number;
   storeCredit?: number;
@@ -33,7 +35,6 @@ interface Order {
   address?: string;
 }
 
-// 優惠券介面 (新增期間欄位)
 interface Coupon {
   id: string;
   code: string;
@@ -76,10 +77,18 @@ export default function AccountPage() {
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'shipped' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
 
+  // 詳細個人資料編輯狀態
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editGender, setEditGender] = useState('prefer_not_to_say');
+  const [editBirthday, setEditBirthday] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  // 帳戶註銷確認 Modal 狀態
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -105,12 +114,13 @@ export default function AccountPage() {
             setProfile({ ...userData, accountId: docId });
             setEditName(userData.name || '');
             setEditPhone(userData.phone || '');
+            setEditGender(userData.gender || 'prefer_not_to_say');
+            setEditBirthday(userData.birthday || '');
             setEditAddress(userData.address || '');
           } else {
             setProfile({ accountId: '會員', email: user.email || '' });
           }
 
-          // 🌟 2. 即時訂閱優惠券：過濾全站通用/指定會員，並自動隱藏未生效與已過期的期間優惠券
           const unsubscribeCoupons = db.collection("coupons")
             .where("usesLeft", ">", 0)
             .onSnapshot((snapshot) => {
@@ -120,12 +130,9 @@ export default function AccountPage() {
               snapshot.forEach((doc) => {
                 const { id, ...data } = doc.data() as any;
                 const coupon = { id: doc.id, ...data } as Coupon;
-
-                // 檢查是否為當前用戶的優惠券 (全站通用 或 指定給當前會員)
                 const isTargetUser = !coupon.targetAccountId || coupon.targetAccountId === docId;
 
                 if (isTargetUser) {
-                  // 若為期間優惠券，檢查是否已過期或未開始
                   if ((coupon.conditionType === 'periods' || coupon.conditionType === 'counts') && coupon.startTime && coupon.endTime) {
                     const start = new Date(coupon.startTime).getTime();
                     const end = new Date(coupon.endTime).getTime();
@@ -222,6 +229,7 @@ export default function AccountPage() {
 
   const currentTier = getMemberTier(totalSpent);
 
+  // 🌟 資料修改確認鍵觸發函數
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.accountId) return;
@@ -231,16 +239,63 @@ export default function AccountPage() {
       await db.collection("users").doc(profile.accountId).update({
         name: editName.trim(),
         phone: editPhone.trim(),
+        gender: editGender,
+        birthday: editBirthday,
         address: editAddress.trim(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      setProfile(prev => prev ? { ...prev, name: editName, phone: editPhone, address: editAddress } : null);
-      showToast('✅ 個人資料已成功更新！');
+      setProfile(prev => prev ? { 
+        ...prev, 
+        name: editName, 
+        phone: editPhone, 
+        gender: editGender, 
+        birthday: editBirthday, 
+        address: editAddress 
+      } : null);
+
+      showToast('✅ 個人資料已確認修改並成功儲存！');
     } catch (error: any) {
       alert('更新失敗：' + error.message);
     } finally {
       setIsUpdatingProfile(false);
+    }
+  };
+
+  // 🌟 帳戶登出方法
+  const handleLogout = () => {
+    auth.signOut().then(() => {
+      showToast('已成功登出帳戶');
+      router.push('/');
+    }).catch((error) => {
+      alert('登出失敗：' + error.message);
+    });
+  };
+
+  // 🌟 帳戶註銷方法 (刪除 Firestore 資料與 Auth 帳號)
+  const handleAccountDeletion = async () => {
+    if (deleteConfirmText !== '確認註銷帳戶') {
+      alert('請正確輸入「確認註銷帳戶」文字以解鎖註銷程序！');
+      return;
+    }
+
+    if (!currentUser || !profile?.accountId) return;
+
+    setIsDeleting(true);
+    try {
+      // 1. 刪除資料庫中的使用者紀錄
+      await db.collection("users").doc(profile.accountId).delete();
+
+      // 2. 刪除 Firebase Auth 登入帳戶
+      await currentUser.delete();
+
+      alert('您的帳戶已成功永久註銷。');
+      router.push('/');
+    } catch (error: any) {
+      console.error('帳戶註銷失敗:', error);
+      alert('註銷失敗：' + error.message + '\n\n提示：若登入時間過久，請先重新登入後再執行註銷。');
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
     }
   };
 
@@ -297,7 +352,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="bg-white text-[#333333] min-h-screen font-sans pb-20">
+    <div className="bg-white text-[#333333] min-h-screen font-sans pb-20 relative">
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#f0f0f0]">
         <Link href="/" className="text-[20px] font-bold tracking-[2px] uppercase text-[#333] no-underline">
           LIGHTNING
@@ -361,14 +416,14 @@ export default function AccountPage() {
         </div>
 
         {/* 分頁 Tab 切換 */}
-        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-1.5">
+        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-0.75">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
             { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
             { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
             { id: 'favorites', label: '❤️ 我的收藏', count: favorites.length },
             { id: 'level', label: '👑 會員等級權益' },
-            { id: 'profile', label: '⚙️ 個人資料設定' }
+            { id: 'profile', label: '⚙️ 個人資料與安全' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -494,7 +549,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* 🌟 TAB 2: 優惠卷 (顯示使用期限提示) */}
+        {/* TAB 2: 優惠卷 */}
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {coupons.length === 0 ? (
@@ -506,7 +561,7 @@ export default function AccountPage() {
               coupons.map(coupon => {
                 const isPeriod = coupon.conditionType === 'periods' || coupon.conditionType === 'counts';
                 return (
-                  <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden sm:content-between bg-white shadow-sm hover:shadow-md transition">
+                  <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden bg-white shadow-sm hover:shadow-md transition">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
@@ -516,23 +571,12 @@ export default function AccountPage() {
                           {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
                         </p>
                       </div>
-                      {coupon.targetAccountId ? (
-                        <span className="text-[10px] bg-stone-900 text-amber-200 px-2 py-0.5 rounded font-mono">專屬發放</span>
-                      ) : isPeriod ? (
-                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">期間限時</span>
-                      ) : null}
                     </div>
 
                     {isPeriod && coupon.endTime && (
                       <div className="text-[11px] text-blue-600 mb-3 bg-blue-50/60 p-2 rounded-lg font-mono">
                         有效期限至：{coupon.endTime.replace('T', ' ')}
                       </div>
-                    )}
-
-                    {!isPeriod && (
-                      <div className="text-[11px] text-yellow-600 mb-3 bg-yellow-50/60 p-2 rounded-lg font-mono">
-                        無有效期限
-                      </div> 
                     )}
 
                     <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
@@ -557,7 +601,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 3: 購物金與補償紀錄 */}
+        {/* TAB 3: 購物金 */}
         {activeTab === 'credits' && (
           <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-stone-800 text-base mb-2">💰 您的購物金與補償明細</h3>
@@ -687,66 +731,172 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 6: 個人資料設定 */}
+        {/* 🌟 TAB 6: 個人資料設定與安全管理 (含完整填寫、確認修改鍵、登出與註銷方法) */}
         {activeTab === 'profile' && (
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold text-stone-800 text-base mb-6">修改基本聯絡與預設收件資料</h3>
-            
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+          <div className="space-y-6">
+            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+              <h3 className="font-semibold text-stone-800 text-base mb-1">詳細個人資料填寫</h3>
+              <p className="text-xs text-stone-500 mb-6">請填寫或更新您的詳細個人聯絡與基本資料，以確保享有完整的會員權益與配送服務。</p>
+              
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">帳戶 ID (無法變更)</label>
+                  <input 
+                    type="text" 
+                    value={profile?.accountId || ''} 
+                    disabled 
+                    className="w-full p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-500 cursor-not-allowed font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">註冊電子郵件</label>
+                  <input 
+                    type="email" 
+                    value={profile?.email || ''} 
+                    disabled 
+                    className="w-full p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-500 cursor-not-allowed font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">收件人真實姓名</label>
+                    <input 
+                      type="text" 
+                      value={editName} 
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="請輸入真實姓名"
+                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">聯絡電話</label>
+                    <input 
+                      type="tel" 
+                      value={editPhone} 
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="例如：+852 9123 4567"
+                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">性別</label>
+                    <select 
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                      className="w-full p-3 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:border-stone-900 transition cursor-pointer"
+                    >
+                      <option value="male">男性</option>
+                      <option value="female">女性</option>
+                      <option value="other">其他</option>
+                      <option value="prefer_not_to_say">不願透露</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">生日</label>
+                    <input 
+                      type="date" 
+                      value={editBirthday} 
+                      onChange={(e) => setEditBirthday(e.target.value)}
+                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">預設配送地址</label>
+                  <input 
+                    type="text" 
+                    value={editAddress} 
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    placeholder="請輸入完整的收件寄送地址"
+                    className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                  />
+                </div>
+
+                {/* 🌟 資料修改確認鍵 */}
+                <button
+                  type="submit"
+                  disabled={isUpdatingProfile}
+                  className="w-full bg-[#FEF9C3] text-stone-900 py-3.5 rounded-xl font-semibold text-sm hover:bg-amber-200 transition shadow-sm mt-4 cursor-pointer"
+                >
+                  {isUpdatingProfile ? '資料更新確認中...' : '確認修改並儲存個人資料'}
+                </button>
+              </form>
+            </div>
+
+            {/* 🌟 帳戶登出與註銷專區 */}
+            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6 shadow-sm space-y-6">
               <div>
-                <label className="block text-xs font-semibold text-stone-600 mb-1.5">帳號 ID (無法變更)</label>
-                <input 
-                  type="text" 
-                  value={profile?.accountId || ''} 
-                  disabled 
-                  className="w-full p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-500 cursor-not-allowed font-mono"
-                />
+                <h3 className="font-semibold text-stone-800 text-base mb-1">帳戶登出 (Logout)</h3>
+                <p className="text-xs text-stone-500 mb-3">若您需要在共用裝置上登出目前帳戶，請點擊下方按鈕：</p>
+                <button
+                  onClick={handleLogout}
+                  className="bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-stone-800 transition cursor-pointer"
+                >
+                  登出目前帳戶
+                </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-600 mb-1.5">收件人姓名</label>
-                <input 
-                  type="text" 
-                  value={editName} 
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder="請輸入常用收件人真實姓名"
-                  className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
-                />
+              <div className="pt-6 border-t border-stone-200">
+                <h3 className="font-semibold text-rose-700 text-base mb-1">⚠️ 帳戶註銷（永久刪除帳戶）方法</h3>
+                <p className="text-xs text-stone-600 mb-4 leading-relaxed">
+                  註銷帳戶後，您的所有會員權益、購物金餘額、個人資料及歷史紀錄將被永久清除且無法復原。如果您確認不再使用本平台，可點擊下方按鈕執行註銷。
+                </p>
+                <button
+                  onClick={() => { setDeleteConfirmText(''); setIsDeleteModalOpen(true); }}
+                  className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                >
+                  申請註銷帳戶
+                </button>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-600 mb-1.5">聯絡電話</label>
-                <input 
-                  type="tel" 
-                  value={editPhone} 
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="請輸入常用手機號碼"
-                  className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-600 mb-1.5">預設配送地址</label>
-                <input 
-                  type="text" 
-                  value={editAddress} 
-                  onChange={(e) => setEditAddress(e.target.value)}
-                  placeholder="請輸入完整的寄送地址"
-                  className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isUpdatingProfile}
-                className="w-full bg-[#FEF9C3] text-stone-900 py-3.5 rounded-xl font-semibold text-sm hover:bg-amber-200 transition shadow-sm mt-4 cursor-pointer"
-              >
-                {isUpdatingProfile ? '更新儲存中...' : '儲存變更資料'}
-              </button>
-            </form>
+            </div>
           </div>
         )}
       </main>
+
+      {/* 🌟 帳戶註銷確認互動視窗 (Modal) */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-rose-600 mb-2">⚠️ 安全確認：您確定要註銷帳戶嗎？</h3>
+            <p className="text-xs text-stone-600 mb-4 leading-relaxed">
+              此動作無法復原。系統將永久刪除您的所有資料、購物金及歷史紀錄。
+            </p>
+            <p className="text-xs font-semibold text-stone-800 mb-2">
+              請在下方輸入框手動輸入 <span className="text-rose-600 font-mono">確認註銷帳戶</span>：
+            </p>
+            <input 
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="請輸入：確認註銷帳戶"
+              className="w-full p-3 border border-stone-300 rounded-xl text-sm mb-6 focus:outline-none focus:border-rose-600 font-mono"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="grow bg-stone-100 text-stone-700 py-3 rounded-xl text-xs font-medium hover:bg-stone-200 transition cursor-pointer"
+              >
+                取消返回
+              </button>
+              <button
+                onClick={handleAccountDeletion}
+                disabled={isDeleting || deleteConfirmText !== '確認註銷帳戶'}
+                className="grow bg-rose-600 text-white py-3 rounded-xl text-xs font-semibold hover:bg-rose-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isDeleting ? '註銷中...' : '確認永久註銷'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 吐司通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
-import { HiOutlineUser } from "react-icons/hi";
 
 interface Product {
   id: string;
@@ -41,7 +40,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all'); // 🌟 當前選中的類別
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -100,7 +99,6 @@ export default function Home() {
       setFilteredProducts(list);
     });
 
-    // 前台優惠券即時監聽：自動過濾掉未生效或已過期的期間優惠券
     const unsubscribeCoupons = db.collection("coupons")
       .where("usesLeft", ">", 0)
       .onSnapshot((snapshot) => {
@@ -169,16 +167,13 @@ export default function Home() {
     };
   }, []);
 
-  // 🌟 綜合篩選邏輯（同時支援關鍵字搜尋與類別快速選單）
   const filterProducts = (keyword: string, category: string) => {
     let result = products;
 
-    // 類別篩選
     if (category !== 'all') {
       result = result.filter(p => p.category && p.category.trim() === category);
     }
 
-    // 關鍵字搜尋篩選
     const lower = keyword.trim().toLowerCase();
     if (lower) {
       result = result.filter(p => {
@@ -202,7 +197,6 @@ export default function Home() {
     filterProducts(searchKeyword, category);
   };
 
-  // 取得所有不重複的商品類別清單
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
 
   const showToast = (msg: string) => {
@@ -375,10 +369,6 @@ export default function Home() {
     }
   };
 
-  const handleLogout = () => {
-    auth.signOut().then(() => showToast('已成功登出'));
-  };
-
   const handleExpiryInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, '');
     if (val.length > 2) {
@@ -506,29 +496,35 @@ export default function Home() {
       {/* 導覽列 */}
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#f0f0f0]">
         <div className="text-[20px] font-bold tracking-[2px] uppercase">LIGHTNING</div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center md:gap-4">
+          {/* 會員中心按鈕：使用 SVG 繪製 Icon */}
           <Link 
             href={currentUser ? "/account" : "#"}
-            className="text-[13px] font-medium cursor-pointer text-[#333] py-1.5 px-3 rounded-md bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3]"
+            className="text-[13px] font-medium cursor-pointer text-[#333] p-2 md:py-1.5 md:px-3 rounded-md md:bg-[#fafafa] md:border md:border-[#f0f0f0] transition hover:bg-[#FEF9C3] flex items-center justify-center gap-1.5"
             onClick={(e) => {
               if (!currentUser) {
                 e.preventDefault();
                 setIsAuthOpen(true);
               }
             }}
+            title={currentUser ? `會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
           >
-            
-            {currentUser ? `👤 會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
-            {currentUser && (
-              <span 
-                className="text-[#888] text-[11px] ml-1.5 hover:text-red-500" 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }}
-              >
-                (登出)
-              </span>
-            )}
+            {/* SVG 人像 Icon */}
+            <svg 
+              className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" 
+              viewBox="0 0 24 24"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span className="hidden md:inline">
+              {currentUser ? `會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
+            </span>
           </Link>
 
+          {/* 購物車按鈕：使用 SVG 購物袋 Icon */}
           <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
             <svg className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
@@ -542,7 +538,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 🌟 流動版專屬：固定於導覽列下方的向下延長主選單 (商品類別快速列) */}
+      {/* 流動版專屬：固定於導覽列下方的向下延長主選單 (商品類別快速列) */}
       <div className="fixed top-18.75 left-0 w-full bg-white/95 backdrop-blur-md border-b border-[#f0f0f0] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex items-center gap-2 md:justify-center">
         {categories.map((cat) => (
           <button
@@ -597,7 +593,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 頂部 Hero 與搜尋 (因上方多加了一行主選單，此處適度增加 pt 距離確保不被遮擋) */}
+      {/* 頂部 Hero 與搜尋 */}
       <div className="pt-34 px-[4%] max-w-350 mx-auto">
         <header className="h-[35vh] bg-[#FEF9C3] rounded-2xl flex flex-col justify-center items-center text-center px-5">
           <h1 className="text-[36px] font-semibold tracking-[4px] mb-3.5">日常的美好，源於細節</h1>
@@ -635,7 +631,6 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 愛心收藏按鈕 */}
                   <button 
                     onClick={(e) => handleToggleFavorite(p.id, e)}
                     className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-sm transition hover:scale-110 cursor-pointer"
@@ -700,7 +695,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* 購物車抽屜 (含折扣券與購物金折抵) */}
+      {/* 購物車抽屜 */}
       <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-white shadow-[-5px_0_30px_rgba(0,0,0,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-[30px_25px] border-b border-[#f0f0f0] flex justify-between items-center">
           <h2 className="text-[18px] font-semibold">購物車清單 ({totalCount})</h2>
@@ -731,7 +726,6 @@ export default function Home() {
 
         {cart.length > 0 && (
           <div className="p-6.25 border-t border-[#f0f0f0] bg-[#fafafa]">
-            {/* 折扣券選擇 */}
             <div className="mb-3">
               <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券</label>
               <select 
@@ -856,7 +850,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 吐司通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
