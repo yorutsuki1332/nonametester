@@ -1,25 +1,32 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { db } from '@/lib/firebase'; // 🌟 修正為專案中現有的 firebase 設定檔路徑
+import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
-
-
 
 export async function POST(request: Request) {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { success: false, error: { message: '系統未設定 RESEND_API_KEY 環境變數。' } },
+        { status: 500 }
+      );
+    }
+
+    const resend = new Resend(apiKey);
     const { email, accountId } = await request.json();
     
     // 1. 產生 6 位數驗證碼
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    // 2. 產生驗證網址 (正式上線時請將 localhost:3000 換成您的真實網域名稱)
-    const verifyUrl = `http://localhost:3000/verify?email=${encodeURIComponent(email)}&code=${verificationCode}`;
+    // 2. 🌟 動態抓取當前網域名稱（自動區分 localhost 與線上 Vercel 網址）
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const verifyUrl = `${protocol}://${host}/verify?email=${encodeURIComponent(email)}&code=${verificationCode}`;
 
-    // 3. 透過 Resend 發送同時包含「按鈕」與「驗證碼」的信件
+    // 3. 透過 Resend 發送信件
     const { data, error } = await resend.emails.send({
-      from: 'LIGHTNING LIFESTYLE <onboarding@resend.dev>', // 測試時可使用 Resend 預設寄件者
+      from: 'LIGHTNING LIFESTYLE <onboarding@resend.dev>',
       to: [email],
       subject: '【LIGHTNING LIFESTYLE】您的帳號驗證信',
       html: `
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error }, { status: 400 });
     }
 
-    // 4. 將驗證碼存入 Firestore (以 email 為文件 ID)
+    // 4. 將驗證碼存入 Firestore
     await db.collection('verifications').doc(email).set({
       code: verificationCode,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -65,6 +72,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: { message: err.message } }, { status: 500 });
   }
 }
