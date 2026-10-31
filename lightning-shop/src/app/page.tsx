@@ -347,12 +347,13 @@ export default function Home() {
   };
 
   // 🌟 處理註冊與登入（包含透過 Resend 發送 6 位數驗證碼與驗證流程）
+  // 🌟 處理註冊與登入（先建立 Firebase Auth 帳號，再發送 6 位數驗證碼）
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isRegisterMode) {
         if (registerStep === 1) {
-          // 檢查帳戶 ID 是否已被註冊
+          // 1. 檢查帳戶 ID 是否已被註冊
           const docRef = db.collection("users").doc(authAccountId);
           const docSnap = await docRef.get();
           if (docSnap.exists) {
@@ -360,7 +361,10 @@ export default function Home() {
             return;
           }
 
-          // 呼叫 API 透過 Resend 發送 6 位數驗證碼
+          // 2. 直接在 Firebase Auth 建立帳號
+          const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+
+          // 3. 呼叫 API 透過 Resend 發送 6 位數驗證碼與連結
           const res = await fetch('/api/send-code', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -373,14 +377,13 @@ export default function Home() {
             return;
           }
 
-          alert('✨ 驗證信已發送至您的信箱，請查看信中的 6 位數驗證碼或點擊按鈕完成驗證！');
-          setRegisterStep(2); // 進入輸入驗證碼步驟
+          alert('✨ 帳號已建立！驗證信已發送至您的信箱，請輸入 6 位數驗證碼完成最後步驟。');
+          setRegisterStep(2); // 進入步驟 2 輸入驗證碼
         } else {
-          // 步驟 2：驗證使用者輸入的 6 位數驗證碼
+          // 4. 步驟 2：驗證使用者輸入的 6 位數驗證碼
           const verifDoc = await db.collection("verifications").doc(authEmail).get();
           if (!verifDoc.exists) {
             alert('找不到此信箱的驗證紀錄，請重新發送。');
-            setRegisterStep(1);
             return;
           }
 
@@ -390,22 +393,20 @@ export default function Home() {
             return;
           }
 
-          // 驗證碼正確，正式建立 Firebase Auth 帳戶
-          const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
-
-          // 寫入用戶資料到 Firestore
+          // 5. 驗證碼正確，將用戶資料寫入 Firestore 的 users 集合
+          const currentUserObj = auth.currentUser;
           await db.collection("users").doc(authAccountId).set({
             accountId: authAccountId,
             email: authEmail,
-            uid: userCred.user?.uid,
+            uid: currentUserObj?.uid || '',
             storeCredit: 0,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
-          // 清除驗證紀錄
+          // 6. 清除驗證紀錄
           await db.collection("verifications").doc(authEmail).delete();
 
-          alert('🎉 註冊成功並已完成驗證！');
+          alert('🎉 註冊與驗證全部完成！');
           setIsRegisterMode(false);
           setRegisterStep(1);
           setIsAuthOpen(false);
