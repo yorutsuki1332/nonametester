@@ -11,6 +11,7 @@ function VerifyContent() {
   const router = useRouter();
   const email = searchParams.get('email');
   const code = searchParams.get('code');
+  const urlAccountId = searchParams.get('accountId'); // 取得網址帶的 accountId
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('正在驗證您的電子郵件...');
@@ -35,28 +36,29 @@ function VerifyContent() {
 
         const verificationData = docSnap.data();
         const serverCode = verificationData?.code;
+        // 優先使用資料庫儲存的 accountId，若無則使用網址帶的，最後才用備用字串
+        const finalAccountId = verificationData?.accountId || urlAccountId || (email.split('@')[0] + '_user');
 
         if (serverCode === code) {
-          // 1. 檢查 users 集合是否已經有以 email 對應或用信箱尋找的帳戶，若無則自動建立預設 users 文件
-          // 由於驗證時我們知道 email，可以去 Auth 或是透過查詢找尋，或者以 email 前綴作為預設 accountId
-          const usersSnap = await db.collection('users').where('email', '==', email).get();
-          
-          if (usersSnap.empty) {
-            // 如果 users 裡還沒有該信箱的資料，自動幫他建立一筆（以 email @ 前面作為 accountId 或臨時 ID）
-            const defaultAccountId = email.split('@')[0] + '_' + Math.floor(100 + Math.random() * 900);
-            await db.collection('users').doc(defaultAccountId).set({
-              accountId: defaultAccountId,
+          // 檢查該 accountId 是否已經存在於 users 集合中
+          const userDocRef = db.collection('users').doc(finalAccountId);
+          const userDocSnap = await userDocRef.get();
+
+          if (!userDocSnap.exists) {
+            // 🌟 嚴格使用您註冊時輸入的真實 accountId 建立會員資料
+            await userDocRef.set({
+              accountId: finalAccountId,
               email: email,
               storeCredit: 0,
               createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
           }
 
-          // 2. 更新驗證狀態並刪除驗證碼
+          // 清除驗證紀錄
           await docRef.delete();
 
           setStatus('success');
-          setMessage('✨ 電子郵件驗證成功！會員資料已建立，您現在可以回到首頁登入。');
+          setMessage(`✨ 電子郵件驗證成功！會員帳號 (${finalAccountId}) 已建立，您現在可以回到首頁登入。`);
         } else {
           setStatus('error');
           setMessage('❌ 驗證碼不正確或已失效。');
@@ -68,7 +70,7 @@ function VerifyContent() {
     }
 
     verify();
-  }, [email, code]);
+  }, [email, code, urlAccountId]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
