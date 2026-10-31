@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { HiOutlineUser } from "react-icons/hi";
 
 interface Product {
   id: string;
@@ -40,6 +41,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all'); // 🌟 當前選中的類別
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -135,7 +137,6 @@ export default function Home() {
             setCurrentAccountId(accountId);
             setUserStoreCredit(doc.data().storeCredit || 0);
 
-            // 🌟 即時監聽當前登入會員的收藏清單狀態
             db.collection("users").doc(accountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
@@ -168,23 +169,41 @@ export default function Home() {
     };
   }, []);
 
+  // 🌟 綜合篩選邏輯（同時支援關鍵字搜尋與類別快速選單）
+  const filterProducts = (keyword: string, category: string) => {
+    let result = products;
+
+    // 類別篩選
+    if (category !== 'all') {
+      result = result.filter(p => p.category && p.category.trim() === category);
+    }
+
+    // 關鍵字搜尋篩選
+    const lower = keyword.trim().toLowerCase();
+    if (lower) {
+      result = result.filter(p => {
+        const nameMatch = p.name && p.name.toLowerCase().includes(lower);
+        const catMatch = p.category && p.category.toLowerCase().includes(lower);
+        return nameMatch || catMatch;
+      });
+    }
+
+    setFilteredProducts(result);
+  };
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const keyword = e.target.value;
     setSearchKeyword(keyword);
-    const lower = keyword.trim().toLowerCase();
-
-    if (!lower) {
-      setFilteredProducts(products);
-      return;
-    }
-
-    const filtered = products.filter(p => {
-      const nameMatch = p.name && p.name.toLowerCase().includes(lower);
-      const catMatch = p.category && p.category.toLowerCase().includes(lower);
-      return nameMatch || catMatch;
-    });
-    setFilteredProducts(filtered);
+    filterProducts(keyword, selectedCategory);
   };
+
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    filterProducts(searchKeyword, category);
+  };
+
+  // 取得所有不重複的商品類別清單
+  const categories = ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -227,7 +246,6 @@ export default function Home() {
     saveCartToStorage(updated);
   };
 
-  // 計算小計、折扣券與購物金折抵邏輯
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
   const calculateDiscount = () => {
@@ -252,8 +270,6 @@ export default function Home() {
 
   const discountAmount = calculateDiscount();
   const subtotalAfterCoupon = Math.max(0, currentSubtotal - discountAmount);
-  
-  // 購物金折抵計算
   const creditToDeduct = useCredit ? Math.min(subtotalAfterCoupon, userStoreCredit) : 0;
   const finalTotal = Math.max(0, subtotalAfterCoupon - creditToDeduct);
 
@@ -285,7 +301,6 @@ export default function Home() {
     }
   };
 
-  // 🌟 切換愛心收藏狀態 (Toggle Favorite)
   const handleToggleFavorite = async (productId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -414,7 +429,6 @@ export default function Home() {
 
       await db.collection("orders").doc(customOrderId).set(orderData);
 
-      // 1. 扣減優惠券次數（僅針對「有限次數 counts」類型的優惠券扣減）
       if (selectedCoupon && selectedCoupon.conditionType === 'counts') {
         try {
           const couponRef = db.collection("coupons").doc(selectedCoupon.code);
@@ -432,7 +446,6 @@ export default function Home() {
         }
       }
 
-      // 2. 扣減會員購物金並新增 Log
       if (useCredit && creditToDeduct > 0 && currentAccountId && currentUser) {
         try {
           const userRef = db.collection("users").doc(currentAccountId);
@@ -504,6 +517,7 @@ export default function Home() {
               }
             }}
           >
+            
             {currentUser ? `👤 會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
             {currentUser && (
               <span 
@@ -527,6 +541,23 @@ export default function Home() {
           </div>
         </div>
       </nav>
+
+      {/* 🌟 流動版專屬：固定於導覽列下方的向下延長主選單 (商品類別快速列) */}
+      <div className="fixed top-18.75 left-0 w-full bg-white/95 backdrop-blur-md border-b border-[#f0f0f0] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex items-center gap-2 md:justify-center">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => handleCategorySelect(cat)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer shrink-0 ${
+              selectedCategory === cat 
+                ? 'bg-[#111111] text-white shadow-xs' 
+                : 'bg-[#f5f5f5] text-[#666666] hover:bg-[#eeeeee]'
+            }`}
+          >
+            {cat === 'all' ? '✨ 全部商品' : cat}
+          </button>
+        ))}
+      </div>
 
       {/* 背景遮罩 */}
       <div className={`fixed inset-0 bg-white/60 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
@@ -566,8 +597,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 頂部 Hero 與搜尋 */}
-      <div className="pt-25 px-[4%] max-w-350 mx-auto">
+      {/* 頂部 Hero 與搜尋 (因上方多加了一行主選單，此處適度增加 pt 距離確保不被遮擋) */}
+      <div className="pt-34 px-[4%] max-w-350 mx-auto">
         <header className="h-[35vh] bg-[#FEF9C3] rounded-2xl flex flex-col justify-center items-center text-center px-5">
           <h1 className="text-[36px] font-semibold tracking-[4px] mb-3.5">日常的美好，源於細節</h1>
           <p className="text-[14px] text-[#555] tracking-[2px]">輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
@@ -604,7 +635,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 🌟 愛心收藏按鈕 */}
+                  {/* 愛心收藏按鈕 */}
                   <button 
                     onClick={(e) => handleToggleFavorite(p.id, e)}
                     className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-sm transition hover:scale-110 cursor-pointer"
@@ -724,7 +755,6 @@ export default function Home() {
               </select>
             </div>
 
-            {/* 購物金勾選折抵 (僅登入時顯示) */}
             {currentUser && userStoreCredit > 0 && (
               <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200 rounded-lg flex items-center justify-between text-xs">
                 <label className="flex items-center gap-2 cursor-pointer font-medium text-stone-800">
@@ -794,7 +824,6 @@ export default function Home() {
               <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111] focus:ring-2 focus:ring-black/10" placeholder="請輸入完整收件地址" required />
             </div>
 
-            {/* 結帳明細摘要 */}
             <div className="bg-[#f9f9f8] p-3.5 rounded-lg mb-5 text-[13px]">
               <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
               {discountAmount > 0 && (
