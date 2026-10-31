@@ -31,7 +31,7 @@ interface Coupon {
   discountType: 'fixed' | 'percent';
   discountValue: number;
   usesLeft: number;
-  targetAccountId?: string | null; // 🌟 專屬會員 ID 欄位
+  targetAccountId?: string | null;
   conditionType?: 'infinite' | 'counts' | 'periods';
   startTime?: string | null;
   endTime?: string | null;
@@ -65,11 +65,13 @@ export default function Home() {
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
-  // 會員表單與完整資料
+  // 會員表單與完整資料 (🌟 增加步驟控制：step 1 填寫資料，step 2 輸入驗證碼)
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [authAccountId, setAuthAccountId] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [inputVerificationCode, setInputVerificationCode] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentAccountId, setCurrentAccountId] = useState('');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -81,7 +83,7 @@ export default function Home() {
   // 圖片輪播
   const [sliderIndexes, setSliderIndexes] = useState<{ [key: string]: number }>({});
   
-  // 結帳表單狀態 (🌟 自動填寫會員已知資料)
+  // 結帳表單狀態
   const [shippingName, setShippingName] = useState('');
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
@@ -111,21 +113,21 @@ export default function Home() {
     });
 
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
-      setCurrentUser(user);
-      let activeAccountId = '';
+      let loggedInAccountId = ''; 
       
       if (user) {
+        setCurrentUser(user);
         try {
           const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
           if (!querySnapshot.empty) {
             const doc = querySnapshot.docs[0];
-            activeAccountId = doc.id;
+            loggedInAccountId = doc.id;
             const userData = doc.data() as UserProfile;
-            setCurrentAccountId(activeAccountId);
+            setCurrentAccountId(loggedInAccountId);
             setUserStoreCredit(userData.storeCredit || 0);
             setUserProfile(userData);
 
-            db.collection("users").doc(activeAccountId).collection("favorites").onSnapshot((favSnap) => {
+            db.collection("users").doc(loggedInAccountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
                 favMap[fDoc.id] = true;
@@ -143,13 +145,14 @@ export default function Home() {
           setUserProfile(null);
         }
       } else {
+        setCurrentUser(null);
         setCurrentAccountId('');
         setUserStoreCredit(0);
         setUserProfile(null);
         setUserFavorites({});
       }
 
-      // 🌟 即時監聽優惠券，並過濾掉其他會員專屬的優惠券
+      // 優惠券即時監聽與過濾（排除其他人專屬優惠券）
       const unsubscribeCoupons = db.collection("coupons")
         .where("usesLeft", ">", 0)
         .onSnapshot((snapshot) => {
@@ -160,9 +163,7 @@ export default function Home() {
             const { id, ...data } = doc.data() as any;
             const coupon = { id: doc.id, ...data } as Coupon;
 
-            // 檢查是否為該會員可使用的優惠券：
-            // 1. 若 coupon.targetAccountId 存在，且不等於當前登入者的 accountId，則跳過 (排除其他人專屬)
-            if (coupon.targetAccountId && coupon.targetAccountId.trim() !== '' && coupon.targetAccountId !== activeAccountId) {
+            if (coupon.targetAccountId && coupon.targetAccountId.trim() !== '' && coupon.targetAccountId !== loggedInAccountId) {
               return; 
             }
 
@@ -186,18 +187,8 @@ export default function Home() {
       };
     });
 
-    const unsubscribeProductsQuery = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-      const list: Product[] = [];
-      snapshot.forEach((doc) => {
-        const { id, ...data } = doc.data() as any;
-        list.push({ id: doc.id, ...data });
-      });
-      setProducts(list);
-      setFilteredProducts(list);
-    });
-
     return () => {
-      unsubscribeProductsQuery();
+      unsubscribeProducts();
       unsubscribeAuth();
     };
   }, []);
@@ -355,34 +346,72 @@ export default function Home() {
     }
   };
 
+  // 🌟 處理註冊與登入（包含透過 Resend 發送 6 位數驗證碼與驗證流程）
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isRegisterMode) {
-        const docRef = db.collection("users").doc(authAccountId);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-          alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
-          return;
+        if (registerStep === 1) {
+          // 檢查帳戶 ID 是否已被註冊
+          const docRef = db.collection("users").doc(authAccountId);
+          const docSnap = await docRef.get();
+          if (docSnap.exists) {
+            alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
+            return;
+          }
+
+          // 呼叫 API 透過 Resend 發送 6 位數驗證碼
+          const res = await fetch('/api/send-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: authEmail, accountId: authAccountId })
+          });
+          const data = await res.json();
+
+          if (!data.success) {
+            alert('驗證碼發送失敗： ' + (data.error?.message || '未知錯誤'));
+            return;
+          }
+
+          alert('✨ 驗證信已發送至您的信箱，請查看信中的 6 位數驗證碼或點擊按鈕完成驗證！');
+          setRegisterStep(2); // 進入輸入驗證碼步驟
+        } else {
+          // 步驟 2：驗證使用者輸入的 6 位數驗證碼
+          const verifDoc = await db.collection("verifications").doc(authEmail).get();
+          if (!verifDoc.exists) {
+            alert('找不到此信箱的驗證紀錄，請重新發送。');
+            setRegisterStep(1);
+            return;
+          }
+
+          const serverCode = verifDoc.data()?.code;
+          if (serverCode !== inputVerificationCode.trim()) {
+            alert('❌ 驗證碼錯誤，請重新輸入！');
+            return;
+          }
+
+          // 驗證碼正確，正式建立 Firebase Auth 帳戶
+          const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+
+          // 寫入用戶資料到 Firestore
+          await db.collection("users").doc(authAccountId).set({
+            accountId: authAccountId,
+            email: authEmail,
+            uid: userCred.user?.uid,
+            storeCredit: 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          // 清除驗證紀錄
+          await db.collection("verifications").doc(authEmail).delete();
+
+          alert('🎉 註冊成功並已完成驗證！');
+          setIsRegisterMode(false);
+          setRegisterStep(1);
+          setIsAuthOpen(false);
         }
-
-        const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
-        
-        if (userCred.user) {
-          await userCred.user.sendEmailVerification();
-        }
-
-        await docRef.set({
-          accountId: authAccountId,
-          email: authEmail,
-          uid: userCred.user?.uid,
-          storeCredit: 0,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        alert('✨ 註冊成功！驗證郵件已發送至您的信箱，請前往點擊驗證連結以啟用完整權限。');
-        setIsAuthOpen(false);
       } else {
+        // 一般登入邏輯
         const docRef = db.collection("users").doc(authAccountId);
         const docSnap = await docRef.get();
         if (!docSnap.exists) {
@@ -391,6 +420,7 @@ export default function Home() {
         }
         const email = docSnap.data()?.email;
         await auth.signInWithEmailAndPassword(email, authPassword);
+        
         showToast('登入成功！');
         setIsAuthOpen(false);
       }
@@ -577,32 +607,54 @@ export default function Home() {
 
       <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isAuthOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
         <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
-          <h2 className="text-[18px] font-semibold">{isRegisterMode ? '註冊新會員 (含 Email 驗證)' : '會員登入'}</h2>
+          <h2 className="text-[18px] font-semibold">
+            {isRegisterMode ? (registerStep === 1 ? '註冊新會員 (步驟 1/2)' : '輸入驗證碼 (步驟 2/2)') : '會員登入'}
+          </h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsAuthOpen(false)}>&times;</button>
         </div>
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleAuthSubmit}>
-            <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#555]">帳戶 ID</label>
-              <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="例如：john123" required />
-            </div>
-            {isRegisterMode && (
+            {isRegisterMode && registerStep === 2 ? (
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (將寄送驗證信)</label>
-                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
+                <label className="block text-[13px] font-semibold mb-2 text-[#555]">請輸入信箱收到的 6 位數驗證碼</label>
+                <input 
+                  type="text" 
+                  value={inputVerificationCode} 
+                  onChange={(e) => setInputVerificationCode(e.target.value)} 
+                  className="w-full p-3 border border-[#ddd] rounded-lg text-[20px] tracking-[8px] text-center outline-none transition focus:border-[#111]" 
+                  placeholder="000000" 
+                  maxLength={6} 
+                  required 
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">驗證碼已寄至：{authEmail}</p>
               </div>
+            ) : (
+              <>
+                <div className="mb-5">
+                  <label className="block text-[13px] font-semibold mb-2 text-[#555]">帳戶 ID</label>
+                  <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="例如：john123" required />
+                </div>
+                {isRegisterMode && (
+                  <div className="mb-5">
+                    <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (將接收驗證碼與連結)</label>
+                    <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
+                  </div>
+                )}
+                <div className="mb-5">
+                  <label className="block text-[13px] font-semibold mb-2 text-[#555]">密碼 (至少 6 位數)</label>
+                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入密碼" required minLength={6} />
+                </div>
+              </>
             )}
-            <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#555]">密碼 (至少 6 位數)</label>
-              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入密碼" required minLength={6} />
-            </div>
+
             <button type="submit" className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
-              {isRegisterMode ? '立即註冊並發送驗證信' : '登入系統'}
+              {isRegisterMode ? (registerStep === 1 ? '下一步：發送 6 位數驗證碼' : '確認驗證並完成註冊') : '登入系統'}
             </button>
           </form>
+
           <div className="text-center mt-4 text-[13px]">
             <span className="text-[#888]">{isRegisterMode ? '已經有帳號了？' : '還沒有帳號？'}</span>
-            <button onClick={() => setIsRegisterMode(!isRegisterMode)} className="text-[#111] font-semibold underline ml-1.5 bg-none border-none cursor-pointer">
+            <button onClick={() => { setIsRegisterMode(!isRegisterMode); setRegisterStep(1); }} className="text-[#111] font-semibold underline ml-1.5 bg-none border-none cursor-pointer">
               {isRegisterMode ? '點此登入' : '點此註冊'}
             </button>
           </div>
@@ -721,7 +773,7 @@ export default function Home() {
         {cart.length > 0 && (
           <div className="p-6.25 border-t border-[#f0f0f0] bg-[#fafafa]">
             <div className="mb-3">
-              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券 (已自動過濾其他人專屬券)</label>
+              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券</label>
               <select 
                 className="w-full p-2.5 bg-white border border-[#ddd] rounded-lg text-[13px] outline-none cursor-pointer"
                 value={selectedCoupon ? selectedCoupon.code : ''}
@@ -840,7 +892,7 @@ export default function Home() {
             </div>
 
             <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
-              {isPaying ? '付款處理中...' : `確認付款 HKD $${finalTotal.toFixed(1)}`}
+              {isPaying ? '付款處理中...' : `確認付款 HKD ${finalTotal.toFixed(1)}`}
             </button>
           </form>
         </div>
