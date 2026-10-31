@@ -312,7 +312,7 @@ export default function AdminAddProductPage() {
         </form>
       </div>
 
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-3000 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-3000 transition-transform duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         ✅ 商品上架成功！雲端資料庫已同步。
       </div>
     </>

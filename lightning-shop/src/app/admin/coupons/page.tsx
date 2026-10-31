@@ -85,6 +85,11 @@ export default function AdminCouponsPage() {
       return;
     }
 
+    if (conditionType === 'counts' && (!startTime || !endTime)) {
+      alert('次數優惠必須填寫開始時間與完結時間！');
+      return;
+    }
+
     // 🌟 永久有效與期間優惠皆設定為無限次數 (99999)
     const finalUses = (conditionType === 'infinite' || conditionType === 'periods') ? 99999 : Number(usesLeft) || 1;
 
@@ -98,8 +103,8 @@ export default function AdminCouponsPage() {
         discountValue: Number(discountValue),
         usesLeft: finalUses,
         conditionType,
-        startTime: conditionType === 'periods' ? startTime : null,
-        endTime: conditionType === 'periods' ? endTime : null,
+        startTime: conditionType === 'periods' || conditionType === 'counts' ? startTime : null,
+        endTime: conditionType === 'periods' || conditionType === 'counts' ? endTime : null,
         targetAccountId: targetAccountId.trim() ? targetAccountId.trim() : null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -199,7 +204,7 @@ export default function AdminCouponsPage() {
                 style={{ accentColor: '#d4a373' }}
                 className="py-3 px-4 border border-[#e5e5e5] rounded-lg text-sm outline-none bg-white focus:border-[#d4a373] transition disabled:bg-stone-100 disabled:text-stone-400"
                 required={conditionType === 'periods'}
-                disabled={conditionType !== 'periods'}
+                disabled={conditionType === 'infinite'}
               />
             </div>
 
@@ -212,7 +217,7 @@ export default function AdminCouponsPage() {
                 style={{ accentColor: '#d4a373' }}
                 className="py-3 px-4 border border-[#e5e5e5] rounded-lg text-sm outline-none bg-white focus:border-[#d4a373] transition disabled:bg-stone-100 disabled:text-stone-400"
                 required={conditionType === 'periods'}
-                disabled={conditionType !== 'periods'}
+                disabled={conditionType === 'infinite'}
               />
             </div>
           </div>
@@ -257,7 +262,7 @@ export default function AdminCouponsPage() {
                 <th className="pb-3 font-semibold">有效條件 / 狀態</th>
                 <th className="pb-3 font-semibold">說明</th>
                 <th className="pb-3 font-semibold">折扣內容</th>
-                <th className="pb-3 font-semibold">剩餘次數</th>
+                <th className="pb-3 font-semibold">可用次數</th>
                 <th className="pb-3 font-semibold text-right">操作</th>
               </tr>
             </thead>
@@ -267,7 +272,7 @@ export default function AdminCouponsPage() {
               ) : (
                 coupons.map(c => {
                   const now = new Date().getTime();
-                  const isExpired = c.conditionType === 'periods' && c.endTime ? new Date(c.endTime).getTime() < now : false;
+                  const isExpired = (c.conditionType === 'periods' || c.conditionType === 'counts') && c.endTime ? new Date(c.endTime).getTime() < now : false;
 
                   return (
                     <tr key={c.id} className="border-b border-[#f4f4f2] hover:bg-[#fafaf9]">
@@ -292,7 +297,14 @@ export default function AdminCouponsPage() {
                             <span className="text-[10px] text-stone-400">{c.startTime?.replace('T', ' ')} ~ {c.endTime?.replace('T', ' ')}</span>
                           </div>
                         ) : (
-                          <span className="text-stone-600 font-medium">有限次數</span>
+                          <div>
+                            {isExpired ? (
+                              <span className="text-red-500 font-bold block">🔴 已過期</span>
+                            ) : (
+                              <span className="text-blue-600 font-medium block">🟢 有效限期內 + 有限次數</span>
+                            )}
+                            <span className="text-[10px] text-stone-400">{c.startTime?.replace('T', ' ')} ~ {c.endTime?.replace('T', ' ')}</span>
+                          </div>
                         )}
                       </td>
                       <td className="py-3.5 text-[#333333]">{c.discountText}</td>
@@ -312,7 +324,7 @@ export default function AdminCouponsPage() {
         </div>
       </div>
 
-      <div className={`fixed bottom-8 left-0 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-3000 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-3000 transition-transform duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMsg}
       </div>
     </>

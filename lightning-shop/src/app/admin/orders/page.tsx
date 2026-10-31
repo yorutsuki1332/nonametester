@@ -394,7 +394,7 @@ export default function AdminOrdersListPage() {
       )}
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-0 left-1/2 -translate-x-1/2 bg-[#333] text-white px-6.25 py-3 rounded-[30px] text-[13px] font-medium z-3000 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[200%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333] text-white px-6.25 py-3 rounded-[30px] text-[13px] font-medium z-3000 transition-transform duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMsg}
       </div>
     </>

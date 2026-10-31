@@ -47,11 +47,12 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
-  // 折扣券與購物金狀態
+  // 折扣券、購物金與收藏狀態
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [userStoreCredit, setUserStoreCredit] = useState<number>(0);
   const [useCredit, setUseCredit] = useState<boolean>(false);
+  const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
   // 會員表單
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -130,19 +131,33 @@ export default function Home() {
           const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
           if (!querySnapshot.empty) {
             const doc = querySnapshot.docs[0];
-            setCurrentAccountId(doc.id);
+            const accountId = doc.id;
+            setCurrentAccountId(accountId);
             setUserStoreCredit(doc.data().storeCredit || 0);
+
+            // 🌟 即時監聽當前登入會員的收藏清單狀態
+            db.collection("users").doc(accountId).collection("favorites").onSnapshot((favSnap) => {
+              const favMap: { [productId: string]: boolean } = {};
+              favSnap.forEach(fDoc => {
+                favMap[fDoc.id] = true;
+              });
+              setUserFavorites(favMap);
+            });
+
           } else {
             setCurrentAccountId('會員');
             setUserStoreCredit(0);
+            setUserFavorites({});
           }
         } catch (e) {
           setCurrentAccountId('會員');
           setUserStoreCredit(0);
+          setUserFavorites({});
         }
       } else {
         setCurrentAccountId('');
         setUserStoreCredit(0);
+        setUserFavorites({});
       }
     });
 
@@ -270,6 +285,32 @@ export default function Home() {
     }
   };
 
+  // 🌟 切換愛心收藏狀態 (Toggle Favorite)
+  const handleToggleFavorite = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!currentUser || !currentAccountId) {
+      alert('請先登入會員以使用收藏功能！');
+      setIsAuthOpen(true);
+      return;
+    }
+
+    const favRef = db.collection("users").doc(currentAccountId).collection("favorites").doc(productId);
+    const doc = await favRef.get();
+
+    if (doc.exists) {
+      await favRef.delete();
+      showToast('已取消收藏');
+    } else {
+      await favRef.set({
+        productId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      showToast('❤️ 已加入我的收藏');
+    }
+  };
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -373,7 +414,7 @@ export default function Home() {
 
       await db.collection("orders").doc(customOrderId).set(orderData);
 
-      // 🌟 1. 扣減優惠券次數（僅針對「有限次數 counts」類型的優惠券扣減，期間優惠與永久有效不扣減）
+      // 1. 扣減優惠券次數（僅針對「有限次數 counts」類型的優惠券扣減）
       if (selectedCoupon && selectedCoupon.conditionType === 'counts') {
         try {
           const couponRef = db.collection("coupons").doc(selectedCoupon.code);
@@ -553,6 +594,7 @@ export default function Home() {
               const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
               const hasImages = validImages.length > 0;
               const activeIdx = sliderIndexes[p.id] || 0;
+              const isFavorited = !!userFavorites[p.id];
 
               return (
                 <div key={p.id} className="bg-white transition duration-400 flex flex-col rounded-[10px] relative hover:-translate-y-2 group">
@@ -561,6 +603,17 @@ export default function Home() {
                       {p.tag}
                     </div>
                   )}
+
+                  {/* 🌟 愛心收藏按鈕 */}
+                  <button 
+                    onClick={(e) => handleToggleFavorite(p.id, e)}
+                    className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-sm transition hover:scale-110 cursor-pointer"
+                    title={isFavorited ? '取消收藏' : '加入收藏'}
+                  >
+                    <span className={`text-[16px] transition ${isFavorited ? 'text-red-500 scale-110' : 'text-stone-400 hover:text-stone-600'}`}>
+                      {isFavorited ? '♥' : '♡'}
+                    </span>
+                  </button>
 
                   <Link href={`/product/${p.id}`} className="no-underline text-inherit block grow">
                     <div 
@@ -775,7 +828,7 @@ export default function Home() {
       </div>
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-0 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-400 ${isToastShow ? 'translate-y-0' : 'translate-y-[150%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
 

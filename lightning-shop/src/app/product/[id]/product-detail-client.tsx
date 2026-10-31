@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { db, auth } from '@/lib/firebase';
+import firebase from 'firebase/compat/app';
 
 interface Product {
   id: string;
@@ -15,6 +17,7 @@ interface Product {
 }
 
 export default function ProductDetailClient({ 
+  initialId,
   initialProduct 
 }: { 
   initialId: string; 
@@ -27,8 +30,77 @@ export default function ProductDetailClient({
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [navSearch, setNavSearch] = useState('');
 
+  // 會員與收藏狀態
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentAccountId, setCurrentAccountId] = useState('');
+  const [isFavorited, setIsFavorited] = useState(false);
+
+  // 吐司通知狀態
+  const [toastMessage, setToastMessage] = useState('');
+  const [isToastShow, setIsToastShow] = useState(false);
+
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setIsToastShow(true);
+    setTimeout(() => setIsToastShow(false), 2500);
+  };
+
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      setCurrentUser(user);
+      if (user) {
+        try {
+          const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
+            const accountId = userDoc.id;
+            setCurrentAccountId(accountId);
+
+            // 即時監聽該商品的收藏狀態
+            if (initialId) {
+              db.collection("users").doc(accountId).collection("favorites").doc(initialId)
+                .onSnapshot((favDoc) => {
+                  setIsFavorited(favDoc.exists);
+                });
+            }
+          }
+        } catch (e) {
+          console.error("載入會員收藏狀態失敗", e);
+        }
+      } else {
+        setCurrentAccountId('');
+        setIsFavorited(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, [initialId]);
+
+  // 🌟 切換愛心收藏狀態
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !currentAccountId) {
+      alert('請先登入會員以使用收藏功能！');
+      return;
+    }
+    if (!initialId) return;
+
+    const favRef = db.collection("users").doc(currentAccountId).collection("favorites").doc(initialId);
+    const doc = await favRef.get();
+
+    if (doc.exists) {
+      await favRef.delete();
+      showToast('已取消收藏');
+    } else {
+      await favRef.set({
+        productId: initialId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      showToast('❤️ 已加入我的收藏');
+    }
+  };
 
   const handleNavSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -80,7 +152,10 @@ export default function ProductDetailClient({
       cart.push({ id: product.id, name: product.name, price: Number(product.price), quantity });
     }
     localStorage.setItem('lightning_life_cart', JSON.stringify(cart));
-    router.push('/');
+    showToast(`已將「${product.name}」放入購物車`);
+    setTimeout(() => {
+      router.push('/');
+    }, 1000);
   };
 
   if (!product) {
@@ -99,14 +174,12 @@ export default function ProductDetailClient({
 
   return (
     <div className="bg-white text-[#333333] min-h-screen font-sans">
-      {/* 導覽列：手機版自動改為上下堆疊，電腦版維持左右橫向 */}
+      {/* 導覽列 */}
       <nav className="fixed top-0 left-0 w-full bg-white/98 backdrop-blur-sm flex flex-col md:flex-row justify-between items-center py-3 md:py-0 px-[5%] z-1000 border-b border-[#f0f0f0] gap-3 md:h-18.75">
         <div className="w-full md:w-auto flex justify-between items-center">
           <Link href="/" className="text-[20px] font-bold tracking-[2px] text-[#333] no-underline">
             LIGHTNING
           </Link>
-          
-          {/* 手機版顯示在右側的返回首頁按鈕 */}
           <div className="flex md:hidden items-center">
             <Link href="/" className="flex items-center gap-1.5 text-[13px] font-medium text-[#333] py-1.5 px-3 rounded-[20px] bg-[#fafafa] border border-[#f0f0f0] no-underline whitespace-nowrap">
               <span>←</span> 返回首頁
@@ -114,7 +187,6 @@ export default function ProductDetailClient({
           </div>
         </div>
         
-        {/* 搜尋框：手機版獨佔一行，電腦版置中 */}
         <div className="w-full md:grow md:max-w-100 md:min-w-37.5">
           <input 
             type="text" 
@@ -126,7 +198,6 @@ export default function ProductDetailClient({
           />
         </div>
 
-        {/* 電腦版顯示的右側按鈕群組 */}
         <div className="hidden md:flex items-center gap-3.75 shrink-0">
           <Link href="/" className="flex items-center gap-1.5 text-[13px] font-medium cursor-pointer text-[#333] py-2 px-3.5 rounded-[20px] bg-[#fafafa] border border-[#f0f0f0] no-underline transition hover:bg-[#FEF9C3] hover:border-[#e5e5e5] whitespace-nowrap">
             <span>←</span> 返回首頁
@@ -134,7 +205,7 @@ export default function ProductDetailClient({
         </div>
       </nav>
 
-      {/* 主內容區：以確切的 pt-[105px] 完美接合固定導覽列 */}
+      {/* 主內容區 */}
       <main className="max-w-275 mx-auto pt-33.75 md:pt-26.25 pb-15 px-[5%] grid grid-cols-1 md:grid-cols-2 gap-10">
         {/* 圖片展示區 */}
         {hasImages ? (
@@ -203,10 +274,25 @@ export default function ProductDetailClient({
               首頁
             </button> / {product.category} / {product.name}
           </div>
-          <h1 className="text-[24px] md:text-[28px] font-semibold mb-3 leading-[1.3]">{product.name}</h1>
+
+          {/* 🌟 標題與愛心收藏按鈕 */}
+          <div className="flex justify-between items-start gap-4 mb-3">
+            <h1 className="text-[24px] md:text-[28px] font-semibold leading-[1.3]">{product.name}</h1>
+            <button 
+              type="button"
+              onClick={handleToggleFavorite}
+              className="w-9 h-9 bg-stone-100 rounded-full flex items-center justify-center shrink-0 border border-stone-200 transition hover:scale-110 cursor-pointer shadow-xs"
+              title={isFavorited ? '取消收藏' : '加入收藏'}
+            >
+              <span className={`text-[16px] transition ${isFavorited ? 'text-red-500 scale-110' : 'text-stone-400 hover:text-stone-600'}`}>
+                {isFavorited ? '♥' : '♡'}
+              </span>
+            </button>
+          </div>
+
           <div className="text-[20px] md:text-[22px] font-semibold text-[#111] mb-3.75">HKD {Number(product.price).toFixed(1)}</div>
           
-          <div className="text-[14px] text-[#555] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2 wrap-break-word [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#ddd] [&::-webkit-scrollbar-thumb]:rounded-full">
+          <div className="text-[14px] text-[#555] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2">
             {descText}
           </div>
           
@@ -226,6 +312,11 @@ export default function ProductDetailClient({
           </div>
         </div>
       </main>
+
+      {/* 吐司通知 */}
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-5000 transition-transform duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
+        {toastMessage}
+      </div>
     </div>
   );
 }

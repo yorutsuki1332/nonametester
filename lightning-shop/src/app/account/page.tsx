@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
@@ -14,7 +15,7 @@ interface UserProfile {
   phone?: string;
   address?: string;
   totalSpent?: number;
-  storeCredit?: number; // 購物金餘額
+  storeCredit?: number;
 }
 
 interface Order {
@@ -32,7 +33,7 @@ interface Order {
   address?: string;
 }
 
-// 優惠券介面
+// 優惠券介面 (新增期間欄位)
 interface Coupon {
   id: string;
   code: string;
@@ -40,9 +41,11 @@ interface Coupon {
   minSpend: number;
   usesLeft: number;
   targetAccountId?: string | null;
+  conditionType?: 'infinite' | 'counts' | 'periods';
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
-// 購物金變動紀錄介面
 interface CreditLog {
   id: string;
   type: 'grant' | 'use';
@@ -51,34 +54,48 @@ interface CreditLog {
   createdAt: any;
 }
 
+interface FavoriteItem {
+  id: string;
+  name: string;
+  price: number;
+  images?: string[];
+  category?: string;
+}
+
 export default function AccountPage() {
   const router = useRouter();
 
-  // 狀態管理
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'credits' | 'level' | 'profile'>('orders');
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  
+  const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'credits' | 'favorites' | 'level' | 'profile'>('orders');
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'shipped' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
 
-  // 個人資料編輯狀態
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // 複製優惠碼狀態
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isToastShow, setIsToastShow] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setIsToastShow(true);
+    setTimeout(() => setIsToastShow(false), 2500);
+  };
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setCurrentUser(user);
         try {
-          // 1. 取得用戶 Profile 資料
           const userQuery = await db.collection("users").where("uid", "==", user.uid).get();
           let docId = '';
           if (!userQuery.empty) {
@@ -93,22 +110,39 @@ export default function AccountPage() {
             setProfile({ accountId: '會員', email: user.email || '' });
           }
 
-          // 2. 即時訂閱優惠券（過濾出：全站通用 或 指定給當前登入會員的優惠券）
+          // 🌟 2. 即時訂閱優惠券：過濾全站通用/指定會員，並自動隱藏未生效與已過期的期間優惠券
           const unsubscribeCoupons = db.collection("coupons")
             .where("usesLeft", ">", 0)
             .onSnapshot((snapshot) => {
               const list: Coupon[] = [];
+              const now = new Date().getTime();
+
               snapshot.forEach((doc) => {
-                const { id, ...data } = doc.data() as any; // 避免 id 重複指定衝突
-                if (!data.targetAccountId || data.targetAccountId === docId) {
-                  list.push({ id: doc.id, ...data });
+                const { id, ...data } = doc.data() as any;
+                const coupon = { id: doc.id, ...data } as Coupon;
+
+                // 檢查是否為當前用戶的優惠券 (全站通用 或 指定給當前會員)
+                const isTargetUser = !coupon.targetAccountId || coupon.targetAccountId === docId;
+
+                if (isTargetUser) {
+                  // 若為期間優惠券，檢查是否已過期或未開始
+                  if ((coupon.conditionType === 'periods' || coupon.conditionType === 'counts') && coupon.startTime && coupon.endTime) {
+                    const start = new Date(coupon.startTime).getTime();
+                    const end = new Date(coupon.endTime).getTime();
+                    if (now >= start && now <= end) {
+                      list.push(coupon);
+                    }
+                  } else {
+                    list.push(coupon);
+                  }
                 }
               });
               setCoupons(list);
             });
 
-          // 3. 即時訂閱購物金紀錄 (credit_logs)
           let unsubscribeCreditLogs = () => {};
+          let unsubscribeFavorites = () => {};
+
           if (docId) {
             unsubscribeCreditLogs = db.collection("users").doc(docId).collection("credit_logs")
               .orderBy("createdAt", "desc")
@@ -120,9 +154,28 @@ export default function AccountPage() {
                 });
                 setCreditLogs(logs);
               });
+
+            unsubscribeFavorites = db.collection("users").doc(docId).collection("favorites")
+              .onSnapshot(async (favSnap) => {
+                const favProductIds = favSnap.docs.map(doc => doc.id);
+                if (favProductIds.length === 0) {
+                  setFavorites([]);
+                  return;
+                }
+
+                const productPromises = favProductIds.map(id => db.collection("products").doc(id).get());
+                const productDocs = await Promise.all(productPromises);
+                
+                const favList: FavoriteItem[] = [];
+                productDocs.forEach(pDoc => {
+                  if (pDoc.exists) {
+                    favList.push({ id: pDoc.id, ...pDoc.data() } as FavoriteItem);
+                  }
+                });
+                setFavorites(favList);
+              });
           }
 
-          // 4. 訂閱該用戶訂單紀錄
           const ordersQuery = db.collection("orders")
             .where("email", "==", user.email)
             .orderBy("createdAt", "desc");
@@ -144,6 +197,7 @@ export default function AccountPage() {
             unsubscribeOrders();
             unsubscribeCreditLogs();
             unsubscribeCoupons();
+            unsubscribeFavorites();
           };
 
         } catch (error) {
@@ -158,10 +212,8 @@ export default function AccountPage() {
     return () => unsubscribeAuth();
   }, [router]);
 
-  // 計算累計消費金額
   const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
 
-  // 會員等級判斷邏輯
   const getMemberTier = (spent: number) => {
     if (spent >= 3000) return { tier: '鑽石會員 Diamond', color: 'bg-stone-900 text-amber-200', nextTier: '已達最高等級', progress: 100, target: 3000 };
     if (spent >= 1000) return { tier: '金卡會員 Gold', color: 'bg-[#FEF9C3] text-stone-800', nextTier: '鑽石會員', progress: Math.min(100, (spent / 3000) * 100), target: 3000 };
@@ -170,7 +222,6 @@ export default function AccountPage() {
 
   const currentTier = getMemberTier(totalSpent);
 
-  // 儲存個人資料
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.accountId) return;
@@ -185,7 +236,7 @@ export default function AccountPage() {
       });
 
       setProfile(prev => prev ? { ...prev, name: editName, phone: editPhone, address: editAddress } : null);
-      alert('✅ 個人資料已成功更新！');
+      showToast('✅ 個人資料已成功更新！');
     } catch (error: any) {
       alert('更新失敗：' + error.message);
     } finally {
@@ -193,11 +244,20 @@ export default function AccountPage() {
     }
   };
 
-  // 複製優惠碼
   const copyCouponCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const handleRemoveFavorite = async (productId: string) => {
+    if (!profile?.accountId) return;
+    try {
+      await db.collection("users").doc(profile.accountId).collection("favorites").doc(productId).delete();
+      showToast('已移除該收藏商品');
+    } catch (err: any) {
+      alert('移除失敗：' + err.message);
+    }
   };
 
   const getStatusBadge = (status: Order['status']) => {
@@ -301,18 +361,19 @@ export default function AccountPage() {
         </div>
 
         {/* 分頁 Tab 切換 */}
-        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-6">
+        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-1.5">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
             { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
             { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
+            { id: 'favorites', label: '❤️ 我的收藏', count: favorites.length },
             { id: 'level', label: '👑 會員等級權益' },
             { id: 'profile', label: '⚙️ 個人資料設定' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-3.5 px-2 text-sm font-medium border-b-2 whitespace-nowrap transition flex items-center gap-2 ${
+              className={`pb-3.5 px-2 text-sm font-medium border-b-2 whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
                 activeTab === tab.id
                   ? 'border-stone-900 text-stone-900 font-semibold'
                   : 'border-transparent text-stone-500 hover:text-stone-800'
@@ -343,7 +404,7 @@ export default function AccountPage() {
                 <button
                   key={f.id}
                   onClick={() => setOrderFilter(f.id as any)}
-                  className={`px-3.5 py-1.5 text-xs rounded-lg transition border ${
+                  className={`px-3.5 py-1.5 text-xs rounded-lg transition border cursor-pointer ${
                     orderFilter === f.id
                       ? 'bg-[#FEF9C3] border-amber-300 text-stone-900 font-semibold'
                       : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
@@ -358,7 +419,7 @@ export default function AccountPage() {
               <div className="text-center py-16 bg-stone-50 rounded-2xl border border-dashed border-stone-200">
                 <span className="text-4xl block mb-3">🛒</span>
                 <p className="text-stone-500 text-sm mb-4">目前沒有相關的訂單記錄</p>
-                <Link href="/" className="inline-block bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-stone-800 transition">
+                <Link href="/" className="inline-block bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-stone-800 transition no-underline">
                   立即前往選購商品
                 </Link>
               </div>
@@ -433,7 +494,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 2: 優惠卷 */}
+        {/* 🌟 TAB 2: 優惠卷 (顯示使用期限提示) */}
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {coupons.length === 0 ? (
@@ -442,37 +503,56 @@ export default function AccountPage() {
                 <p className="text-stone-500 text-xs">目前沒有可用的專屬優惠券</p>
               </div>
             ) : (
-              coupons.map(coupon => (
-                <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden bg-white shadow-sm hover:shadow-md transition">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
-                        {coupon.discountText}
-                      </span>
-                      <p className="text-xs text-stone-500">
-                        {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
-                      </p>
+              coupons.map(coupon => {
+                const isPeriod = coupon.conditionType === 'periods' || coupon.conditionType === 'counts';
+                return (
+                  <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden sm:content-between bg-white shadow-sm hover:shadow-md transition">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
+                          {coupon.discountText}
+                        </span>
+                        <p className="text-xs text-stone-500">
+                          {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
+                        </p>
+                      </div>
+                      {coupon.targetAccountId ? (
+                        <span className="text-[10px] bg-stone-900 text-amber-200 px-2 py-0.5 rounded font-mono">專屬發放</span>
+                      ) : isPeriod ? (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">期間限時</span>
+                      ) : null}
                     </div>
-                    {coupon.targetAccountId && (
-                      <span className="text-[10px] bg-stone-900 text-amber-200 px-2 py-0.5 rounded font-mono">專屬發放</span>
+
+                    {isPeriod && coupon.endTime && (
+                      <div className="text-[11px] text-blue-600 mb-3 bg-blue-50/60 p-2 rounded-lg font-mono">
+                        有效期限至：{coupon.endTime.replace('T', ' ')}
+                      </div>
                     )}
-                  </div>
 
-                  <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
-                    <div>
-                      <span className="text-[10px] text-stone-400 block">折扣代碼 (剩餘 {coupon.usesLeft} 次)</span>
-                      <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
+                    {!isPeriod && (
+                      <div className="text-[11px] text-yellow-600 mb-3 bg-yellow-50/60 p-2 rounded-lg font-mono">
+                        無有效期限
+                      </div> 
+                    )}
+
+                    <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
+                      <div>
+                        <span className="text-[10px] text-stone-400 block">
+                          折扣代碼 ({isPeriod ? '期間不限次數' : `剩餘 ${coupon.usesLeft} 次`})
+                        </span>
+                        <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
+                      </div>
+
+                      <button
+                        onClick={() => copyCouponCode(coupon.code)}
+                        className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
+                      >
+                        {copiedCode === coupon.code ? '✅ 已複製' : '複製代碼'}
+                      </button>
                     </div>
-
-                    <button
-                      onClick={() => copyCouponCode(coupon.code)}
-                      className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
-                    >
-                      {copiedCode === coupon.code ? '✅ 已複製' : '複製代碼'}
-                    </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -518,7 +598,61 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 4: 會員等級權益 */}
+        {/* TAB 4: 我的收藏 */}
+        {activeTab === 'favorites' && (
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold text-stone-800 text-base mb-2">❤️ 我的收藏清單 ({favorites.length})</h3>
+            <p className="text-xs text-stone-500 mb-6">您隨手心動關注的商品，隨時可直接前往購買。</p>
+
+            {favorites.length === 0 ? (
+              <div className="text-center py-16 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+                <span className="text-4xl block mb-3">💔</span>
+                <p className="text-stone-500 text-sm mb-4">目前尚未收藏任何商品喔</p>
+                <Link href="/" className="inline-block bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-stone-800 transition no-underline">
+                  前往首頁挑選商品
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {favorites.map(item => {
+                  const hasImg = item.images && item.images.length > 0 && item.images[0].trim() !== '';
+                  return (
+                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-stone-200 bg-stone-50/50 items-center hover:border-amber-300 transition">
+                      <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden border border-stone-200 shrink-0 flex items-center justify-center">
+                        {hasImg ? (
+                          <Image src={item.images![0]} alt={item.name} fill className="object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-stone-400">NO IMAGE</span>
+                        )}
+                      </div>
+                      <div className="grow min-w-0">
+                        <Link href={`/product/${item.id}`} className="text-sm font-medium text-stone-900 hover:underline truncate block mb-1 no-underline">
+                          {item.name}
+                        </Link>
+                        <div className="text-xs font-bold font-mono text-amber-900 mb-3">
+                          HKD ${Number(item.price).toFixed(1)}
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href={`/product/${item.id}`} className="text-xs bg-stone-900 text-white px-3 py-1.5 rounded-lg hover:bg-stone-800 transition no-underline">
+                            查看商品
+                          </Link>
+                          <button 
+                            onClick={() => handleRemoveFavorite(item.id)}
+                            className="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                          >
+                            移除收藏
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: 會員等級權益 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
             <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6">
@@ -553,7 +687,7 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 5: 個人資料設定 */}
+        {/* TAB 6: 個人資料設定 */}
         {activeTab === 'profile' && (
           <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-stone-800 text-base mb-6">修改基本聯絡與預設收件資料</h3>
@@ -613,6 +747,11 @@ export default function AccountPage() {
           </div>
         )}
       </main>
+
+      {/* 吐司通知 */}
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
+        {toastMessage}
+      </div>
     </div>
   );
 }
