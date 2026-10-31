@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
+import firebase from 'firebase/compat/app';
 import Link from 'next/link';
 
 function VerifyContent() {
@@ -32,12 +33,30 @@ function VerifyContent() {
           return;
         }
 
-        const serverCode = docSnap.data()?.code;
+        const verificationData = docSnap.data();
+        const serverCode = verificationData?.code;
+
         if (serverCode === code) {
-          // 標記為已驗證或清除紀錄
-          await docRef.update({ verified: true });
+          // 1. 檢查 users 集合是否已經有以 email 對應或用信箱尋找的帳戶，若無則自動建立預設 users 文件
+          // 由於驗證時我們知道 email，可以去 Auth 或是透過查詢找尋，或者以 email 前綴作為預設 accountId
+          const usersSnap = await db.collection('users').where('email', '==', email).get();
+          
+          if (usersSnap.empty) {
+            // 如果 users 裡還沒有該信箱的資料，自動幫他建立一筆（以 email @ 前面作為 accountId 或臨時 ID）
+            const defaultAccountId = email.split('@')[0] + '_' + Math.floor(100 + Math.random() * 900);
+            await db.collection('users').doc(defaultAccountId).set({
+              accountId: defaultAccountId,
+              email: email,
+              storeCredit: 0,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          }
+
+          // 2. 更新驗證狀態並刪除驗證碼
+          await docRef.delete();
+
           setStatus('success');
-          setMessage('✨ 電子郵件驗證成功！您現在可以回到首頁進行登入。');
+          setMessage('✨ 電子郵件驗證成功！會員資料已建立，您現在可以回到首頁登入。');
         } else {
           setStatus('error');
           setMessage('❌ 驗證碼不正確或已失效。');
@@ -63,7 +82,7 @@ function VerifyContent() {
               <p className="text-emerald-600 font-medium">{message}</p>
               <button 
                 onClick={() => router.push('/')}
-                className="w-full bg-[#111] text-white py-3 rounded-lg font-medium hover:bg-[#333] transition"
+                className="w-full bg-[#111] text-white py-3 rounded-lg font-medium hover:bg-[#333] transition cursor-pointer"
               >
                 前往首頁登入
               </button>
