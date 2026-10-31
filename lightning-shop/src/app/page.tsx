@@ -31,6 +31,9 @@ interface Coupon {
   discountType: 'fixed' | 'percent';
   discountValue: number;
   usesLeft: number;
+  conditionType?: 'infinite' | 'counts' | 'periods';
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export default function Home() {
@@ -87,18 +90,33 @@ export default function Home() {
     const unsubscribeProducts = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Product[] = [];
       snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as Product);
+        const { id, ...data } = doc.data() as any;
+        list.push({ id: doc.id, ...data });
       });
       setProducts(list);
       setFilteredProducts(list);
     });
 
+    // 前台優惠券即時監聽：自動過濾掉未生效或已過期的期間優惠券
     const unsubscribeCoupons = db.collection("coupons")
       .where("usesLeft", ">", 0)
       .onSnapshot((snapshot) => {
         const list: Coupon[] = [];
+        const now = new Date().getTime();
+
         snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as Coupon);
+          const { id, ...data } = doc.data() as any;
+          const coupon = { id: doc.id, ...data } as Coupon;
+
+          if (coupon.conditionType === 'periods' && coupon.startTime && coupon.endTime) {
+            const start = new Date(coupon.startTime).getTime();
+            const end = new Date(coupon.endTime).getTime();
+            if (now >= start && now <= end) {
+              list.push(coupon);
+            }
+          } else {
+            list.push(coupon);
+          }
         });
         setAvailableCoupons(list);
       }, (err) => {
@@ -124,7 +142,6 @@ export default function Home() {
         }
       } else {
         setCurrentAccountId('');
-        setUserStoreCredit(0);
         setUserStoreCredit(0);
       }
     });
@@ -195,11 +212,19 @@ export default function Home() {
     saveCartToStorage(updated);
   };
 
-  // 🌟 計算小計、折扣券與購物金折抵邏輯
+  // 計算小計、折扣券與購物金折抵邏輯
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
   const calculateDiscount = () => {
     if (!selectedCoupon) return 0;
+    
+    if (selectedCoupon.conditionType === 'periods' && selectedCoupon.startTime && selectedCoupon.endTime) {
+      const now = new Date().getTime();
+      const start = new Date(selectedCoupon.startTime).getTime();
+      const end = new Date(selectedCoupon.endTime).getTime();
+      if (now < start || now > end) return 0;
+    }
+
     if (currentSubtotal < selectedCoupon.minSpend) return 0;
     
     if (selectedCoupon.discountType === 'fixed') {
@@ -310,6 +335,11 @@ export default function Home() {
     e.preventDefault();
     if (cart.length === 0) return alert('購物車是空的！');
 
+    if (selectedCoupon && calculateDiscount() === 0 && selectedCoupon.discountValue > 0) {
+      alert('您選擇的優惠券已過期或不符合條件，請重新選擇！');
+      return;
+    }
+
     setIsPaying(true);
     try {
       const now = new Date();
@@ -343,8 +373,8 @@ export default function Home() {
 
       await db.collection("orders").doc(customOrderId).set(orderData);
 
-      // 1. 扣減優惠券次數
-      if (selectedCoupon) {
+      // 🌟 1. 扣減優惠券次數（僅針對「有限次數 counts」類型的優惠券扣減，期間優惠與永久有效不扣減）
+      if (selectedCoupon && selectedCoupon.conditionType === 'counts') {
         try {
           const couponRef = db.collection("coupons").doc(selectedCoupon.code);
           const couponDoc = await couponRef.get();
@@ -631,9 +661,10 @@ export default function Home() {
                 <option value="">-- 不使用折扣券 --</option>
                 {availableCoupons.map(coupon => {
                   const isEligible = currentSubtotal >= coupon.minSpend;
+                  const isPeriod = coupon.conditionType === 'periods';
                   return (
                     <option key={coupon.id} value={coupon.code} disabled={!isEligible}>
-                      {coupon.discountText} (剩餘 {coupon.usesLeft} 次) {!isEligible ? `[滿 $${coupon.minSpend} 可用]` : ''}
+                      {coupon.discountText} ({isPeriod ? '期間不限次數' : `剩餘 ${coupon.usesLeft} 次`}) {!isEligible ? `[滿 $${coupon.minSpend} 可用]` : ''}
                     </option>
                   );
                 })}

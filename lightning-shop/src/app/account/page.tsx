@@ -14,7 +14,7 @@ interface UserProfile {
   phone?: string;
   address?: string;
   totalSpent?: number;
-  storeCredit?: number; // 🌟 購物金餘額
+  storeCredit?: number; // 購物金餘額
 }
 
 interface Order {
@@ -32,17 +32,17 @@ interface Order {
   address?: string;
 }
 
+// 優惠券介面
 interface Coupon {
   id: string;
   code: string;
   discountText: string;
   minSpend: number;
-  expireDate: string;
   usesLeft: number;
-  isUsed: boolean;
+  targetAccountId?: string | null;
 }
 
-// 🌟 購物金變動紀錄介面
+// 購物金變動紀錄介面
 interface CreditLog {
   id: string;
   type: 'grant' | 'use';
@@ -58,7 +58,8 @@ export default function AccountPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]); // 🌟 購物金紀錄
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'credits' | 'level' | 'profile'>('orders');
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'shipped' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
@@ -72,21 +73,14 @@ export default function AccountPage() {
   // 複製優惠碼狀態
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // 優惠券資料 (可用次數預設為 1 次)
-  const [coupons] = useState<Coupon[]>([
-    { id: '1', code: 'LIGHTNING100', discountText: 'HKD $100 折價券', minSpend: 500, expireDate: '2026-12-31', usesLeft: 1, isUsed: false },
-    { id: '2', code: 'WELCOMEVIP', discountText: '全館 9 折 VIP 專屬券', minSpend: 0, expireDate: '2026-11-30', usesLeft: 1, isUsed: false },
-    { id: '3', code: 'FREESHIP', discountText: '免運費優惠券', minSpend: 200, expireDate: '2026-10-15', usesLeft: 0, isUsed: true },
-  ]);
-
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setCurrentUser(user);
         try {
-          // 取得用戶 Profile 資料
+          // 1. 取得用戶 Profile 資料
           const userQuery = await db.collection("users").where("uid", "==", user.uid).get();
-          let docId = '會員';
+          let docId = '';
           if (!userQuery.empty) {
             const userDoc = userQuery.docs[0];
             const userData = userDoc.data() as UserProfile;
@@ -99,21 +93,36 @@ export default function AccountPage() {
             setProfile({ accountId: '會員', email: user.email || '' });
           }
 
-          // 🌟 即時訂閱該會員的購物金變動紀錄 (credit_logs)
+          // 2. 即時訂閱優惠券（過濾出：全站通用 或 指定給當前登入會員的優惠券）
+          const unsubscribeCoupons = db.collection("coupons")
+            .where("usesLeft", ">", 0)
+            .onSnapshot((snapshot) => {
+              const list: Coupon[] = [];
+              snapshot.forEach((doc) => {
+                const { id, ...data } = doc.data() as any; // 避免 id 重複指定衝突
+                if (!data.targetAccountId || data.targetAccountId === docId) {
+                  list.push({ id: doc.id, ...data });
+                }
+              });
+              setCoupons(list);
+            });
+
+          // 3. 即時訂閱購物金紀錄 (credit_logs)
           let unsubscribeCreditLogs = () => {};
-          if (docId && docId !== '會員') {
+          if (docId) {
             unsubscribeCreditLogs = db.collection("users").doc(docId).collection("credit_logs")
               .orderBy("createdAt", "desc")
               .onSnapshot((snapshot) => {
                 const logs: CreditLog[] = [];
                 snapshot.forEach((doc) => {
-                  logs.push({ id: doc.id, ...doc.data() } as CreditLog);
+                  const { id, ...data } = doc.data() as any;
+                  logs.push({ id: doc.id, ...data });
                 });
                 setCreditLogs(logs);
               });
           }
 
-          // 訂閱該用戶訂單
+          // 4. 訂閱該用戶訂單紀錄
           const ordersQuery = db.collection("orders")
             .where("email", "==", user.email)
             .orderBy("createdAt", "desc");
@@ -121,7 +130,8 @@ export default function AccountPage() {
           const unsubscribeOrders = ordersQuery.onSnapshot((snapshot) => {
             const list: Order[] = [];
             snapshot.forEach((doc) => {
-              list.push({ id: doc.id, ...doc.data() } as Order);
+              const { id, ...data } = doc.data() as any;
+              list.push({ id: doc.id, ...data });
             });
             setOrders(list);
             setLoading(false);
@@ -133,6 +143,7 @@ export default function AccountPage() {
           return () => {
             unsubscribeOrders();
             unsubscribeCreditLogs();
+            unsubscribeCoupons();
           };
 
         } catch (error) {
@@ -240,7 +251,6 @@ export default function AccountPage() {
       </nav>
 
       <main className="max-w-4xl mx-auto pt-28 px-4 sm:px-6">
-        {/* 會員頂部名牌卡片 (含購物金顯示) */}
         <div className="bg-linear-to-r from-stone-900 via-stone-800 to-stone-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-40 h-40 bg-[#FEF9C3]/10 rounded-full blur-2xl pointer-events-none" />
           
@@ -260,7 +270,6 @@ export default function AccountPage() {
             </div>
 
             <div className="flex gap-3">
-              {/* 🌟 購物金卡片 */}
               <div className="bg-amber-500/20 border border-amber-400/30 p-3.5 rounded-xl text-right min-w-32">
                 <span className="text-xs text-amber-200 block mb-1">可用購物金</span>
                 <span className="text-xl font-bold font-mono text-amber-300">HKD ${profile?.storeCredit || 0}</span>
@@ -295,7 +304,7 @@ export default function AccountPage() {
         <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-6">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
-            { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.filter(c => !c.isUsed && c.usesLeft > 0).length },
+            { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
             { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
             { id: 'level', label: '👑 會員等級權益' },
             { id: 'profile', label: '⚙️ 個人資料設定' }
@@ -427,51 +436,48 @@ export default function AccountPage() {
         {/* TAB 2: 優惠卷 */}
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {coupons.map(coupon => (
-              <div 
-                key={coupon.id} 
-                className={`border rounded-2xl p-5 relative overflow-hidden transition ${
-                  coupon.isUsed || coupon.usesLeft <= 0 
-                    ? 'bg-stone-50 border-stone-200 opacity-60' 
-                    : 'bg-white border-amber-200 shadow-sm hover:shadow-md'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
-                      {coupon.discountText}
-                    </span>
-                    <p className="text-xs text-stone-500">
-                      {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
-                    </p>
-                  </div>
-                  {(coupon.isUsed || coupon.usesLeft <= 0) && (
-                    <span className="text-xs bg-stone-200 text-stone-600 px-2 py-0.5 rounded">已耗盡/已使用</span>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
-                  <div>
-                    <span className="text-[10px] text-stone-400 block">折扣代碼 (剩餘 {coupon.usesLeft} 次)</span>
-                    <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
+            {coupons.length === 0 ? (
+              <div className="col-span-full text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+                <span className="text-3xl block mb-2">🎟️</span>
+                <p className="text-stone-500 text-xs">目前沒有可用的專屬優惠券</p>
+              </div>
+            ) : (
+              coupons.map(coupon => (
+                <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden bg-white shadow-sm hover:shadow-md transition">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
+                        {coupon.discountText}
+                      </span>
+                      <p className="text-xs text-stone-500">
+                        {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
+                      </p>
+                    </div>
+                    {coupon.targetAccountId && (
+                      <span className="text-[10px] bg-stone-900 text-amber-200 px-2 py-0.5 rounded font-mono">專屬發放</span>
+                    )}
                   </div>
 
-                  {!coupon.isUsed && coupon.usesLeft > 0 && (
+                  <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] text-stone-400 block">折扣代碼 (剩餘 {coupon.usesLeft} 次)</span>
+                      <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
+                    </div>
+
                     <button
                       onClick={() => copyCouponCode(coupon.code)}
                       className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
                     >
                       {copiedCode === coupon.code ? '✅ 已複製' : '複製代碼'}
                     </button>
-                  )}
+                  </div>
                 </div>
-                <span className="text-[10px] text-stone-400 block mt-2">有效期限至：{coupon.expireDate}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
-        {/* 🌟 TAB 3: 購物金與補償紀錄 */}
+        {/* TAB 3: 購物金與補償紀錄 */}
         {activeTab === 'credits' && (
           <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-stone-800 text-base mb-2">💰 您的購物金與補償明細</h3>
@@ -538,7 +544,7 @@ export default function AccountPage() {
                 <div className="p-4 bg-stone-900 text-white rounded-xl flex justify-between items-center">
                   <div>
                     <h4 className="font-bold text-amber-200">💎 鑽石會員 Diamond</h4>
-                    <p className="text-xs text-stone-300 mt-1">全館結帳享 9 折最高折扣 | 全全年免運費特權 | 新品優先搶購</p>
+                    <p className="text-xs text-stone-300 mt-1">全館結帳享 9 折最高折扣 | 全年免運費特權 | 新品優先搶購</p>
                   </div>
                   <span className="text-xs font-mono font-semibold text-amber-200">累積滿 HKD $3,000</span>
                 </div>
