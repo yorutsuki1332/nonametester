@@ -175,7 +175,7 @@ export default function AdminCouponsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#333333]">可用總次數 <span className="text-[#ff6b6b] ml-1">*</span></label>
               <input 
