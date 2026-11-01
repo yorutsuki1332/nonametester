@@ -529,8 +529,9 @@ export default function Home() {
       });
 
       const customOrderId = `${prefix}${String(maxIndex + 1).padStart(3, '0')}`;
-
+      
       const orderData = {
+        accountId: currentAccountId || null,
         name: shippingName.trim(),
         email: shippingEmail.trim(),
         address: shippingAddress.trim(),

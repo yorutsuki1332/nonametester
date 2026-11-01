@@ -182,19 +182,28 @@ export default function AccountPage() {
               });
           }
 
-          const ordersQuery = db.collection("orders")
-            .where("email", "==", user.email)
-            .orderBy("createdAt", "desc");
+          // 改為依 accountId (docId) 查詢：
+          let ordersQuery: any = null;
+          if (docId) {
+            ordersQuery = db.collection("orders")
+              .where("accountId", "==", docId)
+              .orderBy("createdAt", "desc");
+          } else {
+            // 備用防呆：若無 docId 則以 email 查詢
+            ordersQuery = db.collection("orders")
+              .where("email", "==", user.email)
+              .orderBy("createdAt", "desc");
+          }
 
-          const unsubscribeOrders = ordersQuery.onSnapshot((snapshot) => {
+          const unsubscribeOrders = ordersQuery.onSnapshot((snapshot: any) => {
             const list: Order[] = [];
-            snapshot.forEach((doc) => {
+            snapshot.forEach((doc: any) => {
               const { id, ...data } = doc.data() as any;
               list.push({ id: doc.id, ...data });
             });
             setOrders(list);
             setLoading(false);
-          }, (err) => {
+          }, (err: any) => {
             console.error("Orders fetch error:", err);
             setLoading(false);
           });
