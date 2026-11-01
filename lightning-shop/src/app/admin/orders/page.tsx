@@ -152,8 +152,8 @@ export default function AdminOrdersListPage() {
   return (
     <>
       <div className="mb-6.25">
-        <h1 className="text-[24px] font-semibold mb-1">訂單管理</h1>
-        <p className="text-[#888888] text-[14px]">依四階段嚴格控管訂單流程。請點擊「檢視詳情」進行步驟操作。</p>
+        <h1 className="text-[24px] font-serif font-semibold mb-1 text-[#382E2B]">訂單管理</h1>
+        <p className="text-[#7A6E65] text-[14px]">依四階段嚴格控管訂單流程。請點擊「檢視詳情」進行步驟操作。</p>
       </div>
 
       <div className="mb-6.25">
@@ -161,69 +161,69 @@ export default function AdminOrdersListPage() {
           type="text" 
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full max-w-100 p-[12px_18px] border border-[#e5e5e5] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] transition"
+          className="w-full max-w-100 p-[12px_18px] border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48] transition"
           placeholder="🔍 搜尋訂單 ID、收件人或信箱..." 
         />
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-[#e5e5e5] w-full">
+      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full">
         <table className="w-full border-collapse text-left text-[14px]">
-          <thead className="hidden md:table-header-group">
-            <tr>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">訂單 ID</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">收件人</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">電子郵件</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">總金額 (HKD)</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">狀態</th>
-              <th className="p-3.75 border-b-2 border-[#e5e5e5] text-[#888] font-semibold text-[16px]">操作</th>
+          <thead className="hidden md:table-header-group md:overflow-x-scroll no-scrollbar">
+            <tr className= "md:overflow-auto-hidden">
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">訂單 ID</th>
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">收件人</th>
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">電子郵件</th>
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">總金額 (HKD)</th>
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">狀態</th>
+              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">操作</th>
             </tr>
           </thead>
           <tbody>
             {allList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#888] py-7.5">目前尚無任何訂單紀錄</td></tr>
+              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何訂單紀錄</td></tr>
             ) : filteredList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#888] py-7.5">沒有找到符合條件的訂單</td></tr>
+              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的訂單</td></tr>
             ) : (
               filteredList.map(o => {
                 const status = o.status || 'pending';
                 const badgeClass = status === 'completed' 
-                  ? 'bg-[#8bfc9a] text-[#333]' 
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
                   : status === 'shipping'
-                  ? 'bg-[#bae6fd] text-[#0369a1]'
+                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
                   : status === 'preparing'
-                  ? 'bg-[#fef08a] text-[#854d0e]'
+                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
                   : status === 'paid'
-                  ? 'bg-[#e9d5ff] text-[#6b21a8]'
+                  ? 'bg-purple-50 text-purple-800 border border-purple-200'
                   : status === 'cancelled' 
-                  ? 'bg-[#ff8585] text-white' 
-                  : 'bg-[#FEF9C3] text-[#333]';
+                  ? 'bg-rose-50 text-rose-800 border border-rose-200' 
+                  : 'bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF]';
 
                 return (
-                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#e5e5e5] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-sm md:shadow-none hover:bg-[#fafafa]">
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
-                      <span className="md:hidden text-[#888] text-[12px] font-semibold">訂單 ID</span>
+                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2]">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">訂單 ID</span>
                       {o.id}
                     </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle font-medium">
-                      <span className="md:hidden text-[#888] text-[12px] font-semibold">收件人</span>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">收件人</span>
                       {o.name || '未提供'}
                     </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle">
-                      <span className="md:hidden text-[#888] text-[12px] font-semibold">電子郵件</span>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">電子郵件</span>
                       {o.email || '未提供'}
                     </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle md:w-32.5">
-                      <span className="md:hidden text-[#888] text-[12px] font-semibold">總金額</span>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle md:w-32.5 font-mono text-[#382E2B]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">總金額</span>
                       HKD {Number(o.total || 0).toFixed(1)}
                     </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#e5e5e5] md:align-middle">
-                      <span className="md:hidden text-[#888] text-[12px] font-semibold">狀態</span>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">狀態</span>
                       <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${badgeClass}`}>
                         {getStatusLabel(status)}
                       </span>
                     </td>
-                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#e5e5e5] md:border-b md:border-[#e5e5e5] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
-                      <button className="w-full md:w-auto bg-[#111] text-white border-none p-2.5 md:p-[6px_14px] rounded-md md:rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#333] transition" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
+                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
+                      <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
                     </td>
                   </tr>
                 );
@@ -236,53 +236,53 @@ export default function AdminOrdersListPage() {
       {/* 訂單詳情 Modal */}
       {isDetailOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={closeOrderModal} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-2xl z-2500 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
-              <h2 className="text-[18px] font-semibold">訂單詳細資訊</h2>
-              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={closeOrderModal}>&times;</button>
+          <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={closeOrderModal} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-2xl z-2500 flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+              <h2 className="text-[18px] font-serif font-semibold text-[#382E2B]">訂單詳細資訊</h2>
+              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#7A6E65]" onClick={closeOrderModal}>&times;</button>
             </div>
             <div className="p-6 overflow-y-auto">
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件人姓名</label>
-                <input type="text" value={selectedOrder.name || ''} readOnly className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none bg-white" />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
+                <input type="text" value={selectedOrder.name || ''} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
               </div>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件</label>
-                <input type="text" value={selectedOrder.email || ''} readOnly className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none bg-white" />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件</label>
+                <input type="text" value={selectedOrder.email || ''} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
               </div>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件地址</label>
-                <input type="text" value={selectedOrder.address || ''} readOnly className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none bg-white" />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
+                <input type="text" value={selectedOrder.address || ''} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
               </div>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">訂單總金額 (HKD)</label>
-                <input type="text" value={`HKD ${Number(selectedOrder.total || 0).toFixed(1)}`} readOnly className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none bg-white" />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">訂單總金額 (HKD)</label>
+                <input type="text" value={`HKD ${Number(selectedOrder.total || 0).toFixed(1)}`} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white font-mono" />
               </div>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">購買商品明細</label>
-                <div className="bg-[#f9f9f9] p-3 rounded-lg text-[13px] max-h-37.5 overflow-y-auto border border-[#ddd]">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">購買選品明細</label>
+                <div className="bg-white p-3 rounded-lg text-[13px] max-h-37.5 overflow-y-auto border border-[#EBE5DF]">
                   {selectedOrder.items && selectedOrder.items.length > 0 ? (
                     selectedOrder.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between mb-1.5 border-b border-dashed border-[#eee] pb-1.5">
-                        <span><span className="font-semibold pr-1.5">[{item.id}]</span>{item.name} × {item.quantity}</span>
-                        <span>HKD {Number(item.price * item.quantity).toFixed(1)}</span>
+                      <div key={idx} className="flex justify-between mb-1.5 border-b border-dashed border-[#EBE5DF] pb-1.5">
+                        <span><span className="font-semibold pr-1.5 text-[#B35B48]">[{item.id}]</span>{item.name} × {item.quantity}</span>
+                        <span className="font-mono">HKD {Number(item.price * item.quantity).toFixed(1)}</span>
                       </div>
                     ))
                   ) : (
-                    <span className="text-[#888]">無商品明細</span>
+                    <span className="text-[#7A6E65]">無選品明細</span>
                   )}
                 </div>
               </div>
 
-              {/* 嚴格依階段控制的操作按鈕區塊 */}
+              {/* 操作按鈕區塊 */}
               <div className="flex flex-col gap-2.5 mt-4">
                 {(!selectedOrder.status || selectedOrder.status === 'pending') && (
                   <>
-                    <button type="button" onClick={() => openStatusConfirmModal('paid')} className="w-full bg-[#7c3aed] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#6d28d9] transition">
+                    <button type="button" onClick={() => openStatusConfirmModal('paid')} className="w-full bg-[#382E2B] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#4E403B] transition shadow-xs">
                       第一步：已確認付款
                     </button>
-                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-[#ff6b6b] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition mt-1">
+                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-rose-700 text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition mt-1 shadow-xs">
                       取消訂單
                     </button>
                   </>
@@ -290,10 +290,10 @@ export default function AdminOrdersListPage() {
 
                 {selectedOrder.status === 'paid' && (
                   <>
-                    <button type="button" onClick={() => openStatusConfirmModal('preparing')} className="w-full bg-[#ca8a04] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#a16207] transition">
+                    <button type="button" onClick={() => openStatusConfirmModal('preparing')} className="w-full bg-[#C28C7A] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#B35B48] transition shadow-xs">
                       第二步：已完成備貨
                     </button>
-                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-[#ff6b6b] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition mt-1">
+                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-rose-700 text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition mt-1 shadow-xs">
                       取消訂單
                     </button>
                   </>
@@ -301,10 +301,10 @@ export default function AdminOrdersListPage() {
 
                 {selectedOrder.status === 'preparing' && (
                   <>
-                    <button type="button" onClick={() => openStatusConfirmModal('shipping')} className="w-full bg-[#0284c7] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#0369a1] transition">
+                    <button type="button" onClick={() => openStatusConfirmModal('shipping')} className="w-full bg-[#B35B48] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#9B4C3A] transition shadow-xs">
                       第三步：已完成發貨
                     </button>
-                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-[#ff6b6b] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition mt-1">
+                    <button type="button" onClick={openDeleteConfirmModal} className="w-full bg-rose-700 text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition mt-1 shadow-xs">
                       取消訂單
                     </button>
                   </>
@@ -312,23 +312,23 @@ export default function AdminOrdersListPage() {
 
                 {selectedOrder.status === 'shipping' && (
                   <>
-                    <button type="button" onClick={() => openStatusConfirmModal('completed')} className="w-full bg-[#2b8a3e] text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-[#236c31] transition">
+                    <button type="button" onClick={() => openStatusConfirmModal('completed')} className="w-full bg-emerald-700 text-white p-3.5 rounded-lg font-semibold cursor-pointer hover:bg-emerald-800 transition shadow-xs">
                       第四步：已完成訂單
                     </button>
-                    <button type="button" disabled className="w-full bg-stone-100 text-stone-400 border border-stone-200 p-3.5 rounded-lg font-semibold cursor-not-allowed transition mt-1">
+                    <button type="button" disabled className="w-full bg-[#F4F0EA] text-[#8C7B70] border border-[#EBE5DF] p-3.5 rounded-lg font-semibold cursor-not-allowed transition mt-1">
                       訂單不可取消
                     </button>
                   </>
                 )}
 
                 {selectedOrder.status === 'completed' && (
-                  <div className="text-center py-4 text-emerald-700 bg-emerald-50 rounded-lg font-semibold text-sm border border-emerald-200">
+                  <div className="text-center py-4 text-emerald-800 bg-emerald-50 rounded-lg font-semibold text-sm border border-emerald-200">
                     此訂單已全部完成，無可用操作
                   </div>
                 )}
 
                 {selectedOrder.status === 'cancelled' && (
-                  <div className="text-center py-4 text-rose-700 bg-rose-50 rounded-lg font-semibold text-sm border border-rose-200">
+                  <div className="text-center py-4 text-rose-800 bg-rose-50 rounded-lg font-semibold text-sm border border-rose-200">
                     此訂單已取消
                   </div>
                 )}
@@ -341,16 +341,16 @@ export default function AdminOrdersListPage() {
       {/* 狀態更新確認 Modal */}
       {isConfirmOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={() => setIsConfirmOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-white rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
-              <h2 className="text-[18px] font-semibold">確認變更訂單進度</h2>
-              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsConfirmOpen(false)}>&times;</button>
+          <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={() => setIsConfirmOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+              <h2 className="text-[18px] font-serif font-semibold text-[#382E2B]">確認變更訂單進度</h2>
+              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#7A6E65]" onClick={() => setIsConfirmOpen(false)}>&times;</button>
             </div>
             <div className="p-6">
-              <p className="text-[14px] text-[#555] mb-6.25 leading-relaxed">
+              <p className="text-[14px] text-[#6E6058] mb-6.25 leading-relaxed">
                 確定要將收件人「{selectedOrder.name || '未提供'}」的訂單狀態推進至：
-                <span className="font-bold text-black px-1">
+                <span className="font-bold text-[#382E2B] px-1">
                   {targetStatus === 'paid' && '「已確認付款」'}
                   {targetStatus === 'preparing' && '「已完成備貨」'}
                   {targetStatus === 'shipping' && '「已完成發貨」'}
@@ -358,10 +358,10 @@ export default function AdminOrdersListPage() {
                 </span>
                 嗎？
               </p>
-              <button type="button" onClick={executeUpdateStatus} className="w-full bg-[#111] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#333] transition">
+              <button type="button" onClick={executeUpdateStatus} className="w-full bg-[#B35B48] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#9B4C3A] transition shadow-xs">
                 確認執行
               </button>
-              <button type="button" onClick={() => setIsConfirmOpen(false)} className="w-full bg-[#f5f5f5] text-[#333] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#eee] transition mt-2.5">
+              <button type="button" onClick={() => setIsConfirmOpen(false)} className="w-full bg-[#F4F0EA] text-[#382E2B] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#EBE5DF] transition mt-2.5">
                 返回
               </button>
             </div>
@@ -372,20 +372,20 @@ export default function AdminOrdersListPage() {
       {/* 取消訂單確認 Modal */}
       {isCancelOpen && selectedOrder && (
         <>
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-1500" onClick={() => setIsCancelOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-white rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-[#e5e5e5] flex justify-between items-center bg-[#fafafa]">
-              <h2 className="text-[18px] font-semibold">確認取消訂單</h2>
-              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCancelOpen(false)}>&times;</button>
+          <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={() => setIsCancelOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-125 bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+              <h2 className="text-[18px] font-serif font-semibold text-rose-700">確認取消訂單</h2>
+              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#7A6E65]" onClick={() => setIsCancelOpen(false)}>&times;</button>
             </div>
             <div className="p-6">
-              <p className="text-[14px] text-[#555] mb-6.25 leading-relaxed">
+              <p className="text-[14px] text-[#6E6058] mb-6.25 leading-relaxed">
                 確定要將收件人「{selectedOrder.name || '未提供'}」的這筆訂單標記為取消嗎？
               </p>
-              <button type="button" onClick={executeDeleteOrder} className="w-full bg-[#ff6b6b] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#fa5252] transition">
+              <button type="button" onClick={executeDeleteOrder} className="w-full bg-rose-700 text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition shadow-xs">
                 確認取消
               </button>
-              <button type="button" onClick={() => setIsCancelOpen(false)} className="w-full bg-[#f5f5f5] text-[#333] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#eee] transition mt-2.5">
+              <button type="button" onClick={() => setIsCancelOpen(false)} className="w-full bg-[#F4F0EA] text-[#382E2B] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#EBE5DF] transition mt-2.5">
                 返回
               </button>
             </div>
@@ -394,7 +394,7 @@ export default function AdminOrdersListPage() {
       )}
 
       {/* 吐司通知 */}
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333] text-white px-6.25 py-3 rounded-[30px] text-[13px] font-medium z-3000 transition-transform duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-3000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMsg}
       </div>
     </>

@@ -7,12 +7,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#f9f9f8] text-[#333333]">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#FAF7F2] text-[#382E2B]">
       {/* 側邊導覽列：手機版為上方橫向導覽，電腦版為左側固定 260px */}
-      <aside className="w-full md:w-65 bg-white border-b md:border-b-0 md:border-r border-[#e5e5e5] px-4 py-3 md:py-7.5 flex flex-col md:fixed md:h-screen z-100 shrink-0">
-        <div className="text-[16px] text-center md:text-left md:text-[20px] font-bold tracking-[2px] mb-3 md:mb-12.5 text-[#333333] px-2.5">
-          LIGHTNING 
-          <span className="text-[#888888] text-[12px] md:block inline-block ml-2 md:ml-0 mt-1.25 tracking-[1px] font-medium">
+      <aside className="w-full md:w-65 bg-white border-b md:border-b-0 md:border-r border-[#EBE5DF] px-4 py-3 md:py-7.5 flex flex-col md:fixed md:h-screen z-100 shrink-0">
+        <div className="text-[16px] text-center md:text-left md:text-[18px] font-bold tracking-[3px] mb-3 md:mb-12.5 text-[#B35B48] px-2.5 uppercase">
+          VILLA ATELIER
+          <span className="text-[#8C7B70] text-[11px] md:block inline-block ml-2 md:ml-0 mt-1.25 tracking-[1px] font-medium">
             SELLER CENTER
           </span>
         </div>
@@ -23,8 +23,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               📍 上架新商品
@@ -35,8 +35,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/products" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin/products' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               📦 現時上架貨品
@@ -47,8 +47,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/discontinued" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin/discontinued' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               📥 已下架貨品
@@ -59,8 +59,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/orders" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin/orders' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               📝 訂單管理
@@ -71,8 +71,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/coupons" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin/coupons' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               🎟️ 優惠券管理
@@ -83,8 +83,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href="/admin/credits" 
               className={`flex items-center text-[12px] px-2 py-2.5 md:px-3.75 md:py-3 md:text-[14px] font-medium rounded-md transition-all whitespace-nowrap ${
                 pathname === '/admin/credits' 
-                  ? 'bg-[#FEF9C3] text-[#333333] font-semibold' 
-                  : 'max-md:bg-[#f9f9f8] text-[#888888] hover:bg-[#FEF9C3] hover:text-[#333333]'
+                  ? 'bg-[#B35B48] text-white font-semibold' 
+                  : 'max-md:bg-[#FAF7F2] text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B]'
               }`}
             >
               💰 購物金/補償管理
