@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 
-// 介面定義
 interface UserProfile {
   accountId: string;
   email: string;
@@ -85,7 +84,7 @@ export default function AccountPage() {
   const [editAddress, setEditAddress] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // 帳戶註銷確認 Modal 狀態
+  // 帳戶註銷 Modal 狀態
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -222,14 +221,13 @@ export default function AccountPage() {
   const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
 
   const getMemberTier = (spent: number) => {
-    if (spent >= 3000) return { tier: '鑽石會員 Diamond', color: 'bg-stone-900 text-amber-200', nextTier: '已達最高等級', progress: 100, target: 3000 };
-    if (spent >= 1000) return { tier: '金卡會員 Gold', color: 'bg-[#FEF9C3] text-stone-800', nextTier: '鑽石會員', progress: Math.min(100, (spent / 3000) * 100), target: 3000 };
-    return { tier: '銀卡會員 Silver', color: 'bg-stone-100 text-stone-600', nextTier: '金卡會員', progress: Math.min(100, (spent / 1000) * 100), target: 1000 };
+    if (spent >= 3000) return { tier: '鑽石會員 Diamond', color: 'bg-[#B35B48] text-white border border-[#B35B48]', nextTier: '已達最高等級', progress: 100, target: 3000 };
+    if (spent >= 1000) return { tier: '金卡會員 Gold', color: 'bg-[#C28C7A] text-white', nextTier: '鑽石會員', progress: Math.min(100, (spent / 3000) * 100), target: 3000 };
+    return { tier: '銀卡會員 Silver', color: 'bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF]', nextTier: '金卡會員', progress: Math.min(100, (spent / 1000) * 100), target: 1000 };
   };
 
   const currentTier = getMemberTier(totalSpent);
 
-  // 🌟 資料修改確認鍵觸發函數
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.accountId) return;
@@ -262,7 +260,6 @@ export default function AccountPage() {
     }
   };
 
-  // 🌟 帳戶登出方法
   const handleLogout = () => {
     auth.signOut().then(() => {
       showToast('已成功登出帳戶');
@@ -272,7 +269,6 @@ export default function AccountPage() {
     });
   };
 
-  // 🌟 帳戶註銷方法 (刪除 Firestore 資料與 Auth 帳號)
   const handleAccountDeletion = async () => {
     if (deleteConfirmText !== '確認註銷帳戶') {
       alert('請正確輸入「確認註銷帳戶」文字以解鎖註銷程序！');
@@ -283,10 +279,7 @@ export default function AccountPage() {
 
     setIsDeleting(true);
     try {
-      // 1. 刪除資料庫中的使用者紀錄
       await db.collection("users").doc(profile.accountId).delete();
-
-      // 2. 刪除 Firebase Auth 登入帳戶
       await currentUser.delete();
 
       alert('您的帳戶已成功永久註銷。');
@@ -318,17 +311,17 @@ export default function AccountPage() {
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'completed':
-        return <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-medium">已完成訂單</span>;
+        return <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-medium">已完成訂單</span>;
       case 'shipping':
-        return <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-medium">已完成發貨 (配送中)</span>;
+        return <span className="bg-blue-50 text-blue-800 border border-blue-200 px-3 py-1 rounded-full text-xs font-medium">已完成發貨 (配送中)</span>;
       case 'preparing':
-        return <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-xs font-medium">已完成備貨</span>;
+        return <span className="bg-amber-50 text-amber-900 border border-amber-200 px-3 py-1 rounded-full text-xs font-medium">已完成備貨</span>;
       case 'paid':
-        return <span className="bg-purple-50 text-purple-600 px-3 py-1 rounded-full text-xs font-medium">已確認付款</span>;
+        return <span className="bg-purple-50 text-purple-800 border border-purple-200 px-3 py-1 rounded-full text-xs font-medium">已確認付款</span>;
       case 'cancelled':
-        return <span className="bg-rose-50 text-rose-600 px-3 py-1 rounded-full text-xs font-medium">訂單已取消</span>;
+        return <span className="bg-rose-50 text-rose-800 border border-rose-200 px-3 py-1 rounded-full text-xs font-medium">訂單已取消</span>;
       default:
-        return <span className="bg-stone-100 text-stone-600 px-3 py-1 rounded-full text-xs font-medium">待確認付款</span>;
+        return <span className="bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF] px-3 py-1 rounded-full text-xs font-medium">待確認付款</span>;
     }
   };
 
@@ -342,63 +335,65 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex justify-center items-center bg-white text-stone-400">
+      <div className="min-h-screen flex justify-center items-center bg-[#FAF7F2] text-[#8C7B70]">
         <div className="animate-pulse flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-stone-300 border-t-stone-800 rounded-full animate-spin"></div>
-          <span className="text-sm">載入會員資料中...</span>
+          <div className="w-8 h-8 border-2 border-[#EBE5DF] border-t-[#B35B48] rounded-full animate-spin"></div>
+          <span className="text-sm">載入尊榮會員資料中...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white text-[#333333] min-h-screen font-sans pb-20 relative">
-      <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#f0f0f0]">
-        <Link href="/" className="text-[20px] font-bold tracking-[2px] uppercase text-[#333] no-underline">
-          LIGHTNING
+    <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen font-sans pb-20 relative">
+      {/* 導覽列 */}
+      <nav className="fixed top-0 left-0 w-full h-18.75 bg-[#FAF7F2]/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#EBE5DF]">
+        <Link href="/" className="text-[18px] font-bold tracking-[3px] uppercase text-[#B35B48] no-underline">
+          VILLA ATELIER
         </Link>
         <Link 
           href="/" 
-          className="text-[13px] font-medium text-[#333] py-2 px-4 rounded-full bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3] no-underline flex items-center gap-1.5"
+          className="text-[13px] font-medium text-[#382E2B] py-2 px-4 rounded-full bg-[#F4F0EA] border border-[#EBE5DF] transition hover:bg-[#B35B48] hover:text-white no-underline flex items-center gap-1.5"
         >
           <span>←</span> 返回首頁購物
         </Link>
       </nav>
 
       <main className="max-w-4xl mx-auto pt-28 px-4 sm:px-6">
-        <div className="bg-linear-to-r from-stone-900 via-stone-800 to-stone-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-40 h-40 bg-[#FEF9C3]/10 rounded-full blur-2xl pointer-events-none" />
+        {/* 會員尊榮卡片 (強調陶土紅光芒) */}
+        <div className="bg-[#382E2B] text-[#FAF7F2] rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden border border-[#4E403B]">
+          <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-44 h-44 bg-[#B35B48]/25 rounded-full blur-2xl pointer-events-none" />
           
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-semibold tracking-wide">
+                <h1 className="text-2xl font-serif tracking-wide text-[#FAF7F2]">
                   {profile?.name || profile?.accountId || '貴賓會員'}
                 </h1>
                 <span className={`text-xs px-3 py-1 rounded-full font-semibold ${currentTier.color}`}>
                   {currentTier.tier}
                 </span>
               </div>
-              <p className="text-stone-400 text-xs tracking-wider">
-                帳號 ID: <span className="text-stone-200 font-mono">{profile?.accountId}</span> | Email: {profile?.email}
+              <p className="text-[#C4B7AD] text-xs tracking-wider">
+                帳號 ID: <span className="text-[#B35B48] font-mono font-bold">{profile?.accountId}</span> | Email: {profile?.email}
               </p>
             </div>
 
             <div className="flex gap-3">
-              <div className="bg-amber-500/20 border border-amber-400/30 p-3.5 rounded-xl text-right min-w-32">
-                <span className="text-xs text-amber-200 block mb-1">可用購物金</span>
-                <span className="text-xl font-bold font-mono text-amber-300">HKD ${profile?.storeCredit || 0}</span>
+              <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-32">
+                <span className="text-xs text-[#D6C7BC] block mb-1">可用購物金</span>
+                <span className="text-xl font-bold font-mono text-[#B35B48]">HKD ${profile?.storeCredit || 0}</span>
               </div>
               
-              <div className="bg-stone-800/80 backdrop-blur border border-stone-700/50 p-3.5 rounded-xl text-right min-w-36">
-                <span className="text-xs text-stone-400 block mb-1">累積消費金額</span>
-                <span className="text-xl font-bold font-mono text-[#FEF9C3]">HKD ${totalSpent.toLocaleString()}</span>
+              <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-36">
+                <span className="text-xs text-[#D6C7BC] block mb-1">累積消費金額</span>
+                <span className="text-xl font-bold font-mono text-[#FAF7F2]">HKD ${totalSpent.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-stone-700/60 relative z-10">
-            <div className="flex justify-between text-xs text-stone-300 mb-2">
+          <div className="mt-6 pt-6 border-t border-[#4E403B] relative z-10">
+            <div className="flex justify-between text-xs text-[#D6C7BC] mb-2">
               <span>會員權益進度</span>
               <span>
                 {currentTier.nextTier === '已達最高等級' 
@@ -406,17 +401,17 @@ export default function AccountPage() {
                   : `距離 ${currentTier.nextTier} 還差 HKD $${Math.max(0, currentTier.target - totalSpent).toLocaleString()}`}
               </span>
             </div>
-            <div className="w-full bg-stone-700 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-[#27201E] h-2 rounded-full overflow-hidden">
               <div 
-                className="bg-linear-to-r from-amber-200 to-[#FEF9C3] h-full rounded-full transition-all duration-500"
+                className="bg-[#B35B48] h-full rounded-full transition-all duration-500"
                 style={{ width: `${currentTier.progress}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* 分頁 Tab 切換 */}
-        <div className="flex border-b border-stone-200 mb-8 overflow-x-auto no-scrollbar gap-2 sm:gap-0.75">
+        {/* 分頁 Tab */}
+        <div className="flex border-b border-[#EBE5DF] mb-8 overflow-x-auto no-scrollbar gap-2 md:gap-0.5">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
             { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
@@ -430,14 +425,14 @@ export default function AccountPage() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`pb-3.5 px-2 text-sm font-medium border-b-2 whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
                 activeTab === tab.id
-                  ? 'border-stone-900 text-stone-900 font-semibold'
-                  : 'border-transparent text-stone-500 hover:text-stone-800'
+                  ? 'border-[#B35B48] text-[#B35B48] font-semibold'
+                  : 'border-transparent text-[#7A6E65] hover:text-[#382E2B]'
               }`}
             >
               {tab.label}
               {tab.count !== undefined && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  activeTab === tab.id ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'
+                  activeTab === tab.id ? 'bg-[#B35B48] text-white' : 'bg-[#F4F0EA] text-[#6E6058]'
                 }`}>
                   {tab.count}
                 </span>
@@ -446,7 +441,7 @@ export default function AccountPage() {
           ))}
         </div>
 
-        {/* TAB 1: 訂單記錄與進度 */}
+        {/* TAB 1: 訂單記錄 */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
             <div className="flex gap-2 mb-4 overflow-x-auto">
@@ -461,8 +456,8 @@ export default function AccountPage() {
                   onClick={() => setOrderFilter(f.id as any)}
                   className={`px-3.5 py-1.5 text-xs rounded-lg transition border cursor-pointer ${
                     orderFilter === f.id
-                      ? 'bg-[#FEF9C3] border-amber-300 text-stone-900 font-semibold'
-                      : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                      ? 'bg-[#B35B48] text-white font-semibold border-[#B35B48]'
+                      : 'bg-[#F4F0EA] border-[#EBE5DF] text-[#6E6058] hover:bg-[#EBE5DF]'
                   }`}
                 >
                   {f.label}
@@ -471,33 +466,33 @@ export default function AccountPage() {
             </div>
 
             {filteredOrders.length === 0 ? (
-              <div className="text-center py-16 bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+              <div className="text-center py-16 bg-[#F4F0EA] rounded-2xl border border-dashed border-[#EBE5DF]">
                 <span className="text-4xl block mb-3">🛒</span>
-                <p className="text-stone-500 text-sm mb-4">目前沒有相關的訂單記錄</p>
-                <Link href="/" className="inline-block bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-stone-800 transition no-underline">
+                <p className="text-[#7A6E65] text-sm mb-4">目前沒有相關的訂單記錄</p>
+                <Link href="/" className="inline-block bg-[#B35B48] text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-[#9B4C3A] transition no-underline">
                   立即前往選購商品
                 </Link>
               </div>
             ) : (
               filteredOrders.map(order => (
-                <div key={order.id} className="bg-white border border-stone-200 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-stone-100 gap-2">
+                <div key={order.id} className="bg-white border border-[#EBE5DF] rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-[#EBE5DF] gap-2">
                     <div>
-                      <span className="text-xs text-stone-400 block">訂單編號</span>
-                      <span className="font-mono font-bold text-stone-800 text-sm">#{order.id}</span>
+                      <span className="text-xs text-[#8C7B70] block">訂單編號</span>
+                      <span className="font-mono font-bold text-[#382E2B] text-sm">#{order.id}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       {getStatusBadge(order.status)}
-                      <span className="text-xs text-stone-400">
+                      <span className="text-xs text-[#8C7B70]">
                         {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('zh-TW') : '近期的訂單'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="bg-stone-50 p-4 rounded-xl mb-4">
-                    <span className="text-xs font-semibold text-stone-700 block mb-3">物流進度狀態</span>
+                  <div className="bg-[#F4F0EA] p-4 rounded-xl mb-4 border border-[#EBE5DF]">
+                    <span className="text-xs font-semibold text-[#6E6058] block mb-3">物流進度狀態</span>
                     <div className="grid grid-cols-4 text-center text-xs relative">
-                      <div className="absolute top-2.5 left-[12%] right-[12%] h-0.5 bg-stone-200 z-0" />
+                      <div className="absolute top-2.5 left-[12%] right-[12%] h-0.5 bg-[#EBE5DF] z-0" />
                       
                       {[
                         { title: '確認付款', active: order.status === 'paid' || order.status === 'preparing' || order.status === 'shipping' || order.status === 'completed' },
@@ -507,11 +502,11 @@ export default function AccountPage() {
                       ].map((step, idx) => (
                         <div key={idx} className="relative z-10 flex flex-col items-center">
                           <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] mb-1 font-bold ${
-                            step.active ? 'bg-stone-900 text-[#FEF9C3]' : 'bg-stone-200 text-stone-500'
+                            step.active ? 'bg-[#B35B48] text-white' : 'bg-[#EBE5DF] text-[#8C7B70]'
                           }`}>
                             {step.active ? '✓' : idx + 1}
                           </div>
-                          <span className={`text-[11px] ${step.active ? 'text-stone-900 font-medium' : 'text-stone-400'}`}>
+                          <span className={`text-[11px] ${step.active ? 'text-[#382E2B] font-medium' : 'text-[#8C7B70]'}`}>
                             {step.title}
                           </span>
                         </div>
@@ -523,24 +518,24 @@ export default function AccountPage() {
                     {order.items?.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-center text-sm">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-xs font-mono text-stone-400">
+                          <div className="w-10 h-10 bg-[#F4F0EA] rounded-lg flex items-center justify-center text-xs font-mono text-[#8C7B70] border border-[#EBE5DF]">
                             品項
                           </div>
                           <div>
-                            <p className="font-medium text-stone-800">{item.name}</p>
-                            <p className="text-xs text-stone-400">數量: x{item.quantity}</p>
+                            <p className="font-medium text-[#382E2B]">{item.name}</p>
+                            <p className="text-xs text-[#8C7B70]">數量: x{item.quantity}</p>
                           </div>
                         </div>
-                        <span className="font-mono text-stone-700">HKD ${(item.price * item.quantity).toFixed(1)}</span>
+                        <span className="font-mono text-[#B35B48]">HKD ${(item.price * item.quantity).toFixed(1)}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-3 border-t border-stone-100 flex justify-between items-center text-sm">
-                    <span className="text-xs text-stone-500">收件地址: {order.address || '未填寫'}</span>
+                  <div className="pt-3 border-t border-[#EBE5DF] flex justify-between items-center text-sm">
+                    <span className="text-xs text-[#7A6E65]">收件地址: {order.address || '未填寫'}</span>
                     <div className="text-right">
-                      <span className="text-xs text-stone-500 mr-2">總計金額</span>
-                      <span className="font-bold font-mono text-stone-900 text-base">HKD ${order.total?.toFixed(1)}</span>
+                      <span className="text-xs text-[#7A6E65] mr-2">總計金額</span>
+                      <span className="font-bold font-mono text-[#B35B48] text-base">HKD ${order.total?.toFixed(1)}</span>
                     </div>
                   </div>
                 </div>
@@ -553,43 +548,49 @@ export default function AccountPage() {
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {coupons.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+              <div className="col-span-full text-center py-12 bg-[#F4F0EA] rounded-xl border border-dashed border-[#EBE5DF]">
                 <span className="text-3xl block mb-2">🎟️</span>
-                <p className="text-stone-500 text-xs">目前沒有可用的專屬優惠券</p>
+                <p className="text-[#7A6E65] text-xs">目前沒有可用的專屬優惠券</p>
               </div>
             ) : (
               coupons.map(coupon => {
                 const isPeriod = coupon.conditionType === 'periods' || coupon.conditionType === 'counts';
+                const isUnlimitedPeriod = coupon.conditionType === 'periods';
+                const isInfinite = coupon.conditionType === 'infinite';
                 return (
-                  <div key={coupon.id} className="border border-amber-200 rounded-2xl p-5 relative overflow-hidden bg-white shadow-sm hover:shadow-md transition">
+                  <div key={coupon.id} className="border border-[#EBE5DF] rounded-2xl p-5 relative overflow-hidden bg-white shadow-xs hover:shadow-md transition">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <span className="text-xs font-semibold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-md inline-block mb-2">
+                        <span className="text-xs font-semibold text-white bg-[#B35B48] px-2.5 py-0.5 rounded-md inline-block mb-2">
                           {coupon.discountText}
                         </span>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-[#7A6E65]">
                           {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
                         </p>
                       </div>
                     </div>
 
-                    {isPeriod && coupon.endTime && (
-                      <div className="text-[11px] text-blue-600 mb-3 bg-blue-50/60 p-2 rounded-lg font-mono">
+                    {isPeriod && coupon.endTime ? (
+                      <div className="text-[11px] text-[#B35B48] mb-3 bg-[#F4F0EA] p-2 rounded-lg font-mono border border-[#EBE5DF]">
                         有效期限至：{coupon.endTime.replace('T', ' ')}
                       </div>
-                    )}
+                    ) : (
+                      <div className="text-[11px] text-[#B35B48] mb-3 bg-[#F4F0EA] p-2 rounded-lg font-mono border border-[#EBE5DF]">
+                        永久有效，不限次數使用
+                      </div>)
+                    }
 
-                    <div className="pt-3 border-t border-dashed border-stone-200 flex justify-between items-center">
+                    <div className="pt-3 border-t border-dashed border-[#EBE5DF] flex justify-between items-center">
                       <div>
-                        <span className="text-[10px] text-stone-400 block">
-                          折扣代碼 ({isPeriod ? '期間不限次數' : `剩餘 ${coupon.usesLeft} 次`})
+                        <span className="text-[10px] text-[#8C7B70] block">
+                          折扣代碼 ({isUnlimitedPeriod ? '期間不限次數' : isInfinite ? '無限次數' : `剩餘 ${coupon.usesLeft} 次`})
                         </span>
-                        <span className="font-mono font-bold text-stone-800 text-sm">{coupon.code}</span>
+                        <span className="font-mono font-bold text-[#382E2B] text-sm">{coupon.code}</span>
                       </div>
 
                       <button
                         onClick={() => copyCouponCode(coupon.code)}
-                        className="px-3 py-1.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-stone-800 transition cursor-pointer"
+                        className="px-3 py-1.5 bg-[#B35B48] text-white rounded-lg text-xs hover:bg-[#9B4C3A] transition cursor-pointer"
                       >
                         {copiedCode === coupon.code ? '✅ 已複製' : '複製代碼'}
                       </button>
@@ -603,35 +604,35 @@ export default function AccountPage() {
 
         {/* TAB 3: 購物金 */}
         {activeTab === 'credits' && (
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold text-stone-800 text-base mb-2">💰 您的購物金與補償明細</h3>
-            <p className="text-xs text-stone-500 mb-6">包含管理員發放的客服補償、專屬獎勵及購物折抵紀錄。</p>
+          <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
+            <h3 className="font-semibold text-[#382E2B] text-base mb-2">💰 您的購物金與補償明細</h3>
+            <p className="text-xs text-[#7A6E65] mb-6">包含管理員發放的客服補償、專屬獎勵及購物折抵紀錄。</p>
 
             {creditLogs.length === 0 ? (
-              <div className="text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+              <div className="text-center py-12 bg-[#F4F0EA] rounded-xl border border-dashed border-[#EBE5DF]">
                 <span className="text-3xl block mb-2">🪙</span>
-                <p className="text-stone-500 text-xs">目前尚無任何購物金變動紀錄</p>
+                <p className="text-[#7A6E65] text-xs">目前尚無任何購物金變動紀錄</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {creditLogs.map(log => {
                   const isGrant = log.type === 'grant';
                   return (
-                    <div key={log.id} className="p-4 rounded-xl border border-stone-100 bg-stone-50/50 flex justify-between items-center">
+                    <div key={log.id} className="p-4 rounded-xl border border-[#EBE5DF] bg-[#FAF7F2] flex justify-between items-center">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                            isGrant ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-700'
+                            isGrant ? 'bg-emerald-100 text-emerald-800' : 'bg-[#EBE5DF] text-[#6E6058]'
                           }`}>
                             {isGrant ? '商店發放 / 補償' : '訂單折抵使用'}
                           </span>
-                          <span className="text-xs text-stone-400">
+                          <span className="text-xs text-[#8C7B70]">
                             {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleString('zh-TW') : '剛剛'}
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-stone-800">{log.reason || '無備註'}</p>
+                        <p className="text-sm font-medium text-[#382E2B]">{log.reason || '無備註'}</p>
                       </div>
-                      <div className={`text-sm font-bold font-mono ${isGrant ? 'text-emerald-600' : 'text-stone-700'}`}>
+                      <div className={`text-sm font-bold font-mono ${isGrant ? 'text-emerald-700' : 'text-[#B35B48]'}`}>
                         {isGrant ? `+HKD $${log.amount}` : `-HKD $${log.amount}`}
                       </div>
                     </div>
@@ -644,15 +645,15 @@ export default function AccountPage() {
 
         {/* TAB 4: 我的收藏 */}
         {activeTab === 'favorites' && (
-          <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold text-stone-800 text-base mb-2">❤️ 我的收藏清單 ({favorites.length})</h3>
-            <p className="text-xs text-stone-500 mb-6">您隨手心動關注的商品，隨時可直接前往購買。</p>
+          <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
+            <h3 className="font-semibold text-[#382E2B] text-base mb-2">❤️ 我的收藏清單 ({favorites.length})</h3>
+            <p className="text-xs text-[#7A6E65] mb-6">您隨手心動關注的選品，隨時可直接前往購買。</p>
 
             {favorites.length === 0 ? (
-              <div className="text-center py-16 bg-stone-50 rounded-xl border border-dashed border-stone-200">
+              <div className="text-center py-16 bg-[#F4F0EA] rounded-xl border border-dashed border-[#EBE5DF]">
                 <span className="text-4xl block mb-3">💔</span>
-                <p className="text-stone-500 text-sm mb-4">目前尚未收藏任何商品喔</p>
-                <Link href="/" className="inline-block bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-stone-800 transition no-underline">
+                <p className="text-[#7A6E65] text-sm mb-4">目前尚未收藏任何選品喔</p>
+                <Link href="/" className="inline-block bg-[#B35B48] text-white px-5 py-2.5 rounded-xl text-xs font-medium hover:bg-[#9B4C3A] transition no-underline">
                   前往首頁挑選商品
                 </Link>
               </div>
@@ -661,28 +662,28 @@ export default function AccountPage() {
                 {favorites.map(item => {
                   const hasImg = item.images && item.images.length > 0 && item.images[0].trim() !== '';
                   return (
-                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-stone-200 bg-stone-50/50 items-center hover:border-amber-300 transition">
-                      <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden border border-stone-200 shrink-0 flex items-center justify-center">
+                    <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-[#EBE5DF] bg-[#FAF7F2] items-center hover:border-[#B35B48] transition">
+                      <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden border border-[#EBE5DF] shrink-0 flex items-center justify-center">
                         {hasImg ? (
                           <Image src={item.images![0]} alt={item.name} fill className="object-cover" />
                         ) : (
-                          <span className="text-[10px] text-stone-400">NO IMAGE</span>
+                          <span className="text-[10px] text-[#8C7B70]">NO IMAGE</span>
                         )}
                       </div>
                       <div className="grow min-w-0">
-                        <Link href={`/product/${item.id}`} className="text-sm font-medium text-stone-900 hover:underline truncate block mb-1 no-underline">
+                        <Link href={`/product/${item.id}`} className="text-sm font-medium text-[#382E2B] hover:underline truncate block mb-1 no-underline">
                           {item.name}
                         </Link>
-                        <div className="text-xs font-bold font-mono text-amber-900 mb-3">
+                        <div className="text-xs font-bold font-mono text-[#B35B48] mb-3">
                           HKD ${Number(item.price).toFixed(1)}
                         </div>
                         <div className="flex gap-2">
-                          <Link href={`/product/${item.id}`} className="text-xs bg-stone-900 text-white px-3 py-1.5 rounded-lg hover:bg-stone-800 transition no-underline">
-                            查看商品
+                          <Link href={`/product/${item.id}`} className="text-xs bg-[#B35B48] text-white px-3 py-1.5 rounded-lg hover:bg-[#9B4C3A] transition no-underline">
+                            查看選品
                           </Link>
                           <button 
                             onClick={() => handleRemoveFavorite(item.id)}
-                            className="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                            className="text-xs text-rose-700 hover:text-rose-900 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition cursor-pointer"
                           >
                             移除收藏
                           </button>
@@ -696,100 +697,100 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 5: 會員等級權益 */}
+        {/* TAB 5: 會員權益 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
-            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6">
-              <h3 className="font-semibold text-stone-800 text-base mb-4">🏆 LIGHTNING 會員尊榮階級指南</h3>
+            <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6">
+              <h3 className="font-serif font-semibold text-[#382E2B] text-base mb-4">🏆 VILLA ATELIER 會員尊榮階級指南</h3>
               
               <div className="space-y-4 text-sm">
-                <div className="p-4 bg-white rounded-xl border border-stone-200 flex justify-between items-center">
+                <div className="p-4 bg-white rounded-xl border border-[#EBE5DF] flex justify-between items-center">
                   <div>
-                    <h4 className="font-bold text-stone-700">🥈 銀卡會員 Silver</h4>
-                    <p className="text-xs text-stone-500 mt-1">註冊即可加入 | 享有生日專屬禮券</p>
+                    <h4 className="font-bold text-[#6E6058]">🥈 銀卡會員 Silver</h4>
+                    <p className="text-xs text-[#7A6E65] mt-1">註冊即可加入 | 享有生日專屬禮券</p>
                   </div>
-                  <span className="text-xs font-mono text-stone-500">滿 $0</span>
+                  <span className="text-xs font-mono text-[#7A6E65]">滿 $0</span>
                 </div>
 
-                <div className="p-4 bg-[#FEF9C3]/40 rounded-xl border border-amber-200 flex justify-between items-center">
+                <div className="p-4 bg-[#C28C7A]/20 rounded-xl border border-[#C28C7A] flex justify-between items-center">
                   <div>
-                    <h4 className="font-bold text-stone-900">🥇 金卡會員 Gold</h4>
-                    <p className="text-xs text-stone-600 mt-1">全館結帳享 95 折折扣 | 專屬免運券 x2 / 月</p>
+                    <h4 className="font-bold text-[#B35B48]">🥇 金卡會員 Gold</h4>
+                    <p className="text-xs text-[#6E6058] mt-1">全館結帳享 95 折折扣 | 專屬免運券 x2 / 月</p>
                   </div>
-                  <span className="text-xs font-mono font-semibold text-stone-800">累積滿 HKD $1,000</span>
+                  <span className="text-xs font-mono font-semibold text-[#B35B48]">累積滿 HKD $1,000</span>
                 </div>
 
-                <div className="p-4 bg-stone-900 text-white rounded-xl flex justify-between items-center">
+                <div className="p-4 bg-[#B35B48] text-white rounded-xl flex justify-between items-center shadow-xs">
                   <div>
-                    <h4 className="font-bold text-amber-200">💎 鑽石會員 Diamond</h4>
-                    <p className="text-xs text-stone-300 mt-1">全館結帳享 9 折最高折扣 | 全年免運費特權 | 新品優先搶購</p>
+                    <h4 className="font-bold text-white">💎 鑽石會員 Diamond</h4>
+                    <p className="text-xs text-stone-100 mt-1">全館結帳享 9 折最高折扣 | 全年免運費特權 | 新品優先搶購</p>
                   </div>
-                  <span className="text-xs font-mono font-semibold text-amber-200">累積滿 HKD $3,000</span>
+                  <span className="text-xs font-mono font-semibold text-white">累積滿 HKD $3,000</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* 🌟 TAB 6: 個人資料設定與安全管理 (含完整填寫、確認修改鍵、登出與註銷方法) */}
+        {/* TAB 6: 個人資料修改 */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
-              <h3 className="font-semibold text-stone-800 text-base mb-1">詳細個人資料填寫</h3>
-              <p className="text-xs text-stone-500 mb-6">請填寫或更新您的詳細個人聯絡與基本資料，以確保享有完整的會員權益與配送服務。</p>
+            <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
+              <h3 className="font-semibold text-[#382E2B] text-base mb-1">詳細個人資料填寫</h3>
+              <p className="text-xs text-[#7A6E65] mb-6">請填寫或更新您的詳細個人聯絡與基本資料，以確保享有完整的會員權益與配送服務。</p>
               
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">帳戶 ID (無法變更)</label>
+                  <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">帳戶 ID (無法變更)</label>
                   <input 
                     type="text" 
                     value={profile?.accountId || ''} 
                     disabled 
-                    className="w-full p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-500 cursor-not-allowed font-mono"
+                    className="w-full p-3 bg-[#F4F0EA] border border-[#EBE5DF] rounded-xl text-xs text-[#7A6E65] cursor-not-allowed font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">註冊電子郵件</label>
+                  <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">註冊電子郵件</label>
                   <input 
                     type="email" 
                     value={profile?.email || ''} 
                     disabled 
-                    className="w-full p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-500 cursor-not-allowed font-mono"
+                    className="w-full p-3 bg-[#F4F0EA] border border-[#EBE5DF] rounded-xl text-xs text-[#7A6E65] cursor-not-allowed font-mono"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">收件人真實姓名</label>
+                    <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">收件人真實姓名</label>
                     <input 
                       type="text" 
                       value={editName} 
                       onChange={(e) => setEditName(e.target.value)}
                       placeholder="請輸入真實姓名"
-                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                      className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">聯絡電話</label>
+                    <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">聯絡電話</label>
                     <input 
                       type="tel" 
                       value={editPhone} 
                       onChange={(e) => setEditPhone(e.target.value)}
                       placeholder="例如：+852 9123 4567"
-                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                      className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">性別</label>
+                    <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">性別</label>
                     <select 
                       value={editGender}
                       onChange={(e) => setEditGender(e.target.value)}
-                      className="w-full p-3 border border-stone-200 rounded-xl text-sm bg-white focus:outline-none focus:border-stone-900 transition cursor-pointer"
+                      className="w-full p-3 border border-[#EBE5DF] rounded-xl text-sm bg-[#FAF7F2] focus:outline-none focus:border-[#B35B48] transition cursor-pointer"
                     >
                       <option value="male">男性</option>
                       <option value="female">女性</option>
@@ -799,59 +800,59 @@ export default function AccountPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-600 mb-1.5">生日</label>
+                    <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">生日</label>
                     <input 
                       type="date" 
                       value={editBirthday} 
                       onChange={(e) => setEditBirthday(e.target.value)}
-                      className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                      className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-stone-600 mb-1.5">預設配送地址</label>
+                  <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">預設配送地址</label>
                   <input 
                     type="text" 
                     value={editAddress} 
                     onChange={(e) => setEditAddress(e.target.value)}
                     placeholder="請輸入完整的收件寄送地址"
-                    className="w-full p-3 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-900 transition"
+                    className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                   />
                 </div>
 
-                {/* 🌟 資料修改確認鍵 */}
+                {/* 修改確認按鈕 */}
                 <button
                   type="submit"
                   disabled={isUpdatingProfile}
-                  className="w-full bg-[#FEF9C3] text-stone-900 py-3.5 rounded-xl font-semibold text-sm hover:bg-amber-200 transition shadow-sm mt-4 cursor-pointer"
+                  className="w-full bg-[#B35B48] text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-[#9B4C3A] transition shadow-xs mt-4 cursor-pointer"
                 >
                   {isUpdatingProfile ? '資料更新確認中...' : '確認修改並儲存個人資料'}
                 </button>
               </form>
             </div>
 
-            {/* 🌟 帳戶登出與註銷專區 */}
-            <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6 shadow-sm space-y-6">
+            {/* 登出與註銷 */}
+            <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6 shadow-xs space-y-6">
               <div>
-                <h3 className="font-semibold text-stone-800 text-base mb-1">帳戶登出 (Logout)</h3>
-                <p className="text-xs text-stone-500 mb-3">若您需要在共用裝置上登出目前帳戶，請點擊下方按鈕：</p>
+                <h3 className="font-semibold text-[#382E2B] text-base mb-1">帳戶登出 (Logout)</h3>
+                <p className="text-xs text-[#7A6E65] mb-3">若您需要在共用裝置上登出目前帳戶，請點擊下方按鈕：</p>
                 <button
                   onClick={handleLogout}
-                  className="bg-stone-900 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-stone-800 transition cursor-pointer"
+                  className="bg-[#382E2B] text-[#FAF7F2] px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#4E403B] transition cursor-pointer"
                 >
                   登出目前帳戶
                 </button>
               </div>
 
-              <div className="pt-6 border-t border-stone-200">
+              <div className="pt-6 border-t border-[#EBE5DF]">
                 <h3 className="font-semibold text-rose-700 text-base mb-1">⚠️ 帳戶註銷（永久刪除帳戶）方法</h3>
-                <p className="text-xs text-stone-600 mb-4 leading-relaxed">
-                  註銷帳戶後，您的所有會員權益、購物金餘額、個人資料及歷史紀錄將被永久清除且無法復原。如果您確認不再使用本平台，可點擊下方按鈕執行註銷。
+                <p className="text-xs text-[#7A6E65] mb-4 leading-relaxed">
+                  註銷帳戶後，您的所有會員權益、購物金餘額、個人資料及歷史紀錄將被永久清除且無法復原。如果你確認不再使用本平台，可點擊下方按鈕執行註銷。
                 </p>
                 <button
                   onClick={() => { setDeleteConfirmText(''); setIsDeleteModalOpen(true); }}
-                  className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-700 transition cursor-pointer"
+                  className="bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-800 transition cursor-pointer"
                 >
                   申請註銷帳戶
                 </button>
@@ -861,35 +862,35 @@ export default function AccountPage() {
         )}
       </main>
 
-      {/* 🌟 帳戶註銷確認互動視窗 (Modal) */}
+      {/* 註銷 Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-rose-600 mb-2">⚠️ 安全確認：您確定要註銷帳戶嗎？</h3>
-            <p className="text-xs text-stone-600 mb-4 leading-relaxed">
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#EBE5DF]">
+            <h3 className="text-lg font-bold text-rose-700 mb-2">⚠️ 安全確認：您確定要註銷帳戶嗎？</h3>
+            <p className="text-xs text-[#7A6E65] mb-4 leading-relaxed">
               此動作無法復原。系統將永久刪除您的所有資料、購物金及歷史紀錄。
             </p>
-            <p className="text-xs font-semibold text-stone-800 mb-2">
-              請在下方輸入框手動輸入 <span className="text-rose-600 font-mono">確認註銷帳戶</span>：
+            <p className="text-xs font-semibold text-[#382E2B] mb-2">
+              請在下方輸入框手動輸入 <span className="text-rose-700 font-mono">確認註銷帳戶</span>：
             </p>
             <input 
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="請輸入：確認註銷帳戶"
-              className="w-full p-3 border border-stone-300 rounded-xl text-sm mb-6 focus:outline-none focus:border-rose-600 font-mono"
+              className="w-full p-3 border border-[#EBE5DF] bg-white rounded-xl text-sm mb-6 focus:outline-none focus:border-rose-700 font-mono"
             />
             <div className="flex gap-3">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="grow bg-stone-100 text-stone-700 py-3 rounded-xl text-xs font-medium hover:bg-stone-200 transition cursor-pointer"
+                className="grow bg-[#F4F0EA] text-[#382E2B] py-3 rounded-xl text-xs font-medium hover:bg-[#EBE5DF] transition cursor-pointer"
               >
                 取消返回
               </button>
               <button
                 onClick={handleAccountDeletion}
                 disabled={isDeleting || deleteConfirmText !== '確認註銷帳戶'}
-                className="grow bg-rose-600 text-white py-3 rounded-xl text-xs font-semibold hover:bg-rose-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="grow bg-rose-700 text-white py-3 rounded-xl text-xs font-semibold hover:bg-rose-800 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isDeleting ? '註銷中...' : '確認永久註銷'}
               </button>
@@ -898,8 +899,8 @@ export default function AccountPage() {
         </div>
       )}
 
-      {/* 吐司通知 */}
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333333] text-white px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
+      {/* Toast */}
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
     </div>

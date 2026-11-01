@@ -65,7 +65,7 @@ export default function Home() {
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
-  // 會員表單與完整資料 (🌟 增加步驟控制：step 1 填寫資料，step 2 輸入驗證碼)
+  // 會員表單與完整資料
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [authAccountId, setAuthAccountId] = useState('');
@@ -97,7 +97,7 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('lightning_life_cart');
+    const savedCart = localStorage.getItem('villa_atelier_cart');
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch (e) {}
     }
@@ -152,7 +152,6 @@ export default function Home() {
         setUserFavorites({});
       }
 
-      // 優惠券即時監聽與過濾（排除其他人專屬優惠券）
       const unsubscribeCoupons = db.collection("coupons")
         .where("usesLeft", ">", 0)
         .onSnapshot((snapshot) => {
@@ -233,7 +232,7 @@ export default function Home() {
 
   const saveCartToStorage = (newCart: CartItem[]) => {
     setCart(newCart);
-    localStorage.setItem('lightning_life_cart', JSON.stringify(newCart));
+    localStorage.setItem('villa_atelier_cart', JSON.stringify(newCart));
   };
 
   const addToCart = (productId: string) => {
@@ -346,14 +345,11 @@ export default function Home() {
     }
   };
 
-  // 🌟 處理註冊與登入（包含透過 Resend 發送 6 位數驗證碼與驗證流程）
-  // 🌟 處理註冊與登入（先建立 Firebase Auth 帳號，再發送 6 位數驗證碼）
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isRegisterMode) {
         if (registerStep === 1) {
-          // 1. 檢查帳戶 ID 是否已被註冊
           const docRef = db.collection("users").doc(authAccountId);
           const docSnap = await docRef.get();
           if (docSnap.exists) {
@@ -361,9 +357,8 @@ export default function Home() {
             return;
           }
 
-          // 2. 直接在 Firebase Auth 建立帳號
           const userCred = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
-          const newUid = userCred.user?.uid; // 取得剛建立的 uid
+          const newUid = userCred.user?.uid;
 
           const res = await fetch('/api/send-code', {
             method: 'POST',
@@ -371,7 +366,7 @@ export default function Home() {
             body: JSON.stringify({ 
               email: authEmail, 
               accountId: authAccountId,
-              uid: newUid // 🌟 將 uid 傳給後端
+              uid: newUid
             })
           });
           const data = await res.json();
@@ -382,9 +377,8 @@ export default function Home() {
           }
 
           alert('✨ 帳號已建立！驗證信已發送至您的信箱，請輸入 6 位數驗證碼完成最後步驟。');
-          setRegisterStep(2); // 進入步驟 2 輸入驗證碼
+          setRegisterStep(2);
         } else {
-          // 4. 步驟 2：驗證使用者輸入的 6 位數驗證碼
           const verifDoc = await db.collection("verifications").doc(authEmail).get();
           if (!verifDoc.exists) {
             alert('找不到此信箱的驗證紀錄，請重新發送。');
@@ -397,7 +391,6 @@ export default function Home() {
             return;
           }
 
-          // 5. 驗證碼正確，將用戶資料寫入 Firestore 的 users 集合
           const currentUserObj = auth.currentUser;
           await db.collection("users").doc(authAccountId).set({
             accountId: authAccountId,
@@ -407,7 +400,6 @@ export default function Home() {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
-          // 6. 清除驗證紀錄
           await db.collection("verifications").doc(authEmail).delete();
 
           alert('🎉 註冊與驗證全部完成！');
@@ -416,7 +408,6 @@ export default function Home() {
           setIsAuthOpen(false);
         }
       } else {
-        // 一般登入邏輯
         const docRef = db.collection("users").doc(authAccountId);
         const docSnap = await docRef.get();
         if (!docSnap.exists) {
@@ -550,13 +541,14 @@ export default function Home() {
   const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen;
 
   return (
-    <div className="bg-white text-[#333333] min-h-screen overflow-x-hidden font-sans">
-      <nav className="fixed top-0 left-0 w-full h-18.75 bg-white/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#f0f0f0]">
-        <div className="text-[20px] font-bold tracking-[2px] uppercase">LIGHTNING</div>
+    <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen overflow-x-hidden font-sans">
+      {/* 導覽列 (加入紅褐色 hover 與強化購物車紅色氣泡) */}
+      <nav className="fixed top-0 left-0 w-full h-18.75 bg-[#FAF7F2]/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#EBE5DF]">
+        <div className="text-[18px] font-bold tracking-[3px] uppercase text-[#B35B48]">VILLA ATELIER</div>
         <div className="flex items-center gap-4">
           <Link 
             href={currentUser ? "/account" : "#"}
-            className="text-[13px] font-medium cursor-pointer text-[#333] p-2 md:py-1.5 md:px-3 rounded-md bg-[#fafafa] border border-[#f0f0f0] transition hover:bg-[#FEF9C3] flex items-center justify-center gap-1.5"
+            className="text-[13px] font-medium cursor-pointer text-[#382E2B] p-2 md:py-1.5 md:px-3 rounded-md bg-[#F4F0EA] border border-[#EBE5DF] transition hover:bg-[#C28C7A] hover:text-white flex items-center justify-center gap-1.5 group"
             onClick={(e) => {
               if (!currentUser) {
                 e.preventDefault();
@@ -566,7 +558,7 @@ export default function Home() {
             title={currentUser ? `會員中心 (${currentAccountId})` : '會員登入 / 註冊'}
           >
             <svg 
-              className="w-5 h-5 fill-none stroke-[#333] stroke-[1.5]" 
+              className="w-5 h-5 fill-none stroke-[#382E2B] group-hover:stroke-white stroke-[1.5] transition" 
               viewBox="0 0 24 24"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -580,39 +572,41 @@ export default function Home() {
           </Link>
 
           <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
-            <svg className="w-5.5 h-5.5 fill-none stroke-[#333] stroke-[1.5]" viewBox="0 0 24 24">
+            <svg className="w-5.5 h-5.5 fill-none stroke-[#382E2B] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
               <line x1="3" y1="6" x2="21" y2="6"></line>
               <path d="M16 10a4 4 0 0 1-8 0"></path>
             </svg>
-            <div className="absolute -top-1 -right-1.5 bg-[#FEF9C3] text-[#333] text-[11px] font-semibold w-4.5 h-4.5 rounded-full flex justify-center items-center">
+            <div className="absolute -top-1 -right-1.5 bg-[#B35B48] text-white text-[11px] font-semibold w-4.5 h-4.5 rounded-full flex justify-center items-center shadow-xs">
               {totalCount}
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="fixed top-18.75 left-0 w-full bg-white/95 backdrop-blur-md border-b border-[#f0f0f0] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex items-center gap-2 md:justify-center">
+      {/* 分類導覽（選中時採用陶土紅背景） */}
+      <div className="fixed top-18.75 left-0 w-full bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#EBE5DF] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(56,46,43,0.02)] flex items-center gap-2 md:justify-center">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => handleCategorySelect(cat)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer shrink-0 ${
               selectedCategory === cat 
-                ? 'bg-[#111111] text-white shadow-xs' 
-                : 'bg-[#f5f5f5] text-[#666666] hover:bg-[#eeeeee]'
+                ? 'bg-[#B35B48] text-white shadow-xs font-semibold' 
+                : 'bg-[#F4F0EA] text-[#6E6058] hover:bg-[#EBE5DF]'
             }`}
           >
-            {cat === 'all' ? '✨ 全部商品' : cat}
+            {cat === 'all' ? '✨ 全部選品' : cat}
           </button>
         ))}
       </div>
 
-      <div className={`fixed inset-0 bg-white/60 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
+      <div className={`fixed inset-0 bg-[#382E2B]/30 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
 
-      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isAuthOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
-        <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
-          <h2 className="text-[18px] font-semibold">
+      {/* 會員 Modal */}
+      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-[0_10px_40px_rgba(56,46,43,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isAuthOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
+        <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+          <h2 className="text-[18px] font-semibold text-[#B35B48]">
             {isRegisterMode ? (registerStep === 1 ? '註冊新會員 (步驟 1/2)' : '輸入驗證碼 (步驟 2/2)') : '會員登入'}
           </h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsAuthOpen(false)}>&times;</button>
@@ -621,72 +615,75 @@ export default function Home() {
           <form onSubmit={handleAuthSubmit}>
             {isRegisterMode && registerStep === 2 ? (
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#555]">請輸入信箱收到的 6 位數驗證碼</label>
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">請輸入信箱收到的 6 位數驗證碼</label>
                 <input 
                   type="text" 
                   value={inputVerificationCode} 
                   onChange={(e) => setInputVerificationCode(e.target.value)} 
-                  className="w-full p-3 border border-[#ddd] rounded-lg text-[20px] tracking-[8px] text-center outline-none transition focus:border-[#111]" 
+                  className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[20px] tracking-[8px] text-center outline-none transition focus:border-[#B35B48]" 
                   placeholder="000000" 
                   maxLength={6} 
                   required 
                 />
-                <p className="text-xs text-gray-500 mt-2 text-center">驗證碼已寄至：{authEmail}</p>
+                <p className="text-xs text-[#7A6E65] mt-2 text-center">驗證碼已寄至：{authEmail}</p>
               </div>
             ) : (
               <>
                 <div className="mb-5">
-                  <label className="block text-[13px] font-semibold mb-2 text-[#555]">帳戶 ID</label>
-                  <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="例如：john123" required />
+                  <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">帳戶 ID</label>
+                  <input type="text" value={authAccountId} onChange={(e) => setAuthAccountId(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="例如：john123" required />
                 </div>
                 {isRegisterMode && (
                   <div className="mb-5">
-                    <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (將接收驗證碼與連結)</label>
-                    <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
+                    <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (將接收驗證碼與連結)</label>
+                    <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
                   </div>
                 )}
                 <div className="mb-5">
-                  <label className="block text-[13px] font-semibold mb-2 text-[#555]">密碼 (至少 6 位數)</label>
-                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入密碼" required minLength={6} />
+                  <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">密碼 (至少 6 位數)</label>
+                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入密碼" required minLength={6} />
                 </div>
               </>
             )}
 
-            <button type="submit" className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
+            <button type="submit" className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
               {isRegisterMode ? (registerStep === 1 ? '下一步：發送 6 位數驗證碼' : '確認驗證並完成註冊') : '登入系統'}
             </button>
           </form>
 
           <div className="text-center mt-4 text-[13px]">
-            <span className="text-[#888]">{isRegisterMode ? '已經有帳號了？' : '還沒有帳號？'}</span>
-            <button onClick={() => { setIsRegisterMode(!isRegisterMode); setRegisterStep(1); }} className="text-[#111] font-semibold underline ml-1.5 bg-none border-none cursor-pointer">
+            <span className="text-[#7A6E65]">{isRegisterMode ? '已經有帳號了？' : '還沒有帳號？'}</span>
+            <button onClick={() => { setIsRegisterMode(!isRegisterMode); setRegisterStep(1); }} className="text-[#B35B48] font-semibold underline ml-1.5 bg-none border-none cursor-pointer">
               {isRegisterMode ? '點此登入' : '點此註冊'}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Hero 區 */}
       <div className="pt-34 px-[4%] max-w-350 mx-auto">
-        <header className="h-[35vh] bg-[#FEF9C3] rounded-2xl flex flex-col justify-center items-center text-center px-5">
-          <h1 className="text-[36px] font-semibold tracking-[4px] mb-3.5">日常的美好，源於細節</h1>
-          <p className="text-[14px] text-[#555] tracking-[2px]">輕巧點綴你的每一天，展現毫不費力的生活美學。</p>
+        <header className="h-[35vh] bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl flex flex-col justify-center items-center text-center px-5 shadow-xs relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#C28C7A]/10 rounded-full blur-xl pointer-events-none" />
+          <h1 className="text-[32px] md:text-[36px] font-serif tracking-[4px] mb-3.5 text-[#382E2B]">日常的美好，源於細節</h1>
+          <p className="text-[13px] md:text-[14px] text-[#B35B48] font-medium tracking-[3px] uppercase">STUDIO OF ARTFUL LIVING & DESIGN</p>
         </header>
         <div className="max-w-150 mx-auto mt-7.5 px-[4%]">
           <input 
             type="text" 
             value={searchKeyword}
             onChange={handleSearch}
-            className="w-full py-3.5 px-5 border border-[#f0f0f0] rounded-[30px] text-[14px] outline-none bg-[#fafafa] transition shadow-[0_2px_10px_rgba(0,0,0,0.02)] focus:border-[#111] focus:bg-white"
-            placeholder="🔍 搜尋商品名稱或分類..." 
+            className="w-full py-3.5 px-5 border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white transition shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48]"
+            placeholder="🔍 搜尋選品名稱或分類..." 
           />
         </div>
       </div>
 
+      {/* 商品區 */}
       <main className="max-w-300 my-10 mx-auto px-[4%]">
-        <h2 className="text-[20px] font-semibold tracking-[2px] mb-10 text-center">全站商品 / ALL ITEMS</h2>
+        <h2 className="text-[18px] font-serif tracking-[3px] mb-10 text-center text-[#382E2B]">全站選品 / CURATED ITEMS</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
           {filteredProducts.length === 0 ? (
-            <p className="text-center text-[#999] col-span-full py-10">沒有找到符合條件的商品。</p>
+            <p className="text-center text-[#888] col-span-full py-10">沒有找到符合條件的選品。</p>
           ) : (
             filteredProducts.map(p => {
               const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
@@ -695,25 +692,25 @@ export default function Home() {
               const isFavorited = !!userFavorites[p.id];
 
               return (
-                <div key={p.id} className="bg-white transition duration-400 flex flex-col rounded-[10px] relative hover:-translate-y-2 group">
+                <div key={p.id} className="bg-white border border-[#EBE5DF] transition duration-400 flex flex-col rounded-xl relative hover:-translate-y-1.5 group shadow-xs overflow-hidden">
                   {p.tag && (
-                    <div className={`absolute top-3.75 left-3.75 text-white text-[10px] font-extrabold py-1 px-2.5 z-10 rounded ${p.tag.toLowerCase() === 'hot' ? 'bg-[#ff6b6b]' : 'bg-[#111]'}`}>
+                    <div className="absolute top-3.75 left-3.75 text-white text-[10px] font-semibold py-1 px-2.5 z-10 rounded bg-[#B35B48]">
                       {p.tag}
                     </div>
                   )}
 
                   <button 
                     onClick={(e) => handleToggleFavorite(p.id, e)}
-                    className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-sm transition hover:scale-110 cursor-pointer"
+                    className="absolute top-3.75 right-3.75 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center z-10 shadow-xs transition hover:scale-110 cursor-pointer"
                   >
-                    <span className={`text-[16px] transition ${isFavorited ? 'text-red-500 scale-110' : 'text-stone-400 hover:text-stone-600'}`}>
+                    <span className={`text-[16px] transition ${isFavorited ? 'text-[#B35B48] scale-110' : 'text-stone-300 hover:text-stone-500'}`}>
                       {isFavorited ? '♥' : '♡'}
                     </span>
                   </button>
 
                   <Link href={`/product/${p.id}`} className="no-underline text-inherit block grow">
                     <div 
-                      className="relative w-full h-85 bg-[#f9f9f8] rounded-[10px] overflow-hidden mb-3.75 flex items-center justify-center touch-pan-y"
+                      className="relative w-full h-85 bg-[#F4F0EA] overflow-hidden flex items-center justify-center touch-pan-y"
                       onTouchStart={handleTouchStart}
                       onTouchEnd={(e) => handleTouchEnd(p.id, e, validImages.length)}
                     >
@@ -728,18 +725,20 @@ export default function Home() {
                           ))}
                         </>
                       ) : (
-                        <span className="text-[13px] text-[#888]">{p.category || 'NO IMAGE'}</span>
+                        <span className="text-[13px] text-[#A3958B]">{p.category || 'NO IMAGE'}</span>
                       )}
                     </div>
-                    <div className="flex flex-col grow px-1.25">
-                      <h3 className="text-[15px] font-medium mb-2.5 text-[#333]">{p.name}</h3>
-                      <div className="text-[15px] font-semibold mb-3.5">HKD {Number(p.price).toFixed(1)}</div>
+                    <div className="flex flex-col grow p-4">
+                      <h3 className="text-[14px] font-medium mb-2 text-[#382E2B] line-clamp-1">{p.name}</h3>
+                      <div className="text-[14px] font-semibold text-[#B35B48] mb-2">HKD {Number(p.price).toFixed(1)}</div>
                     </div>
                   </Link>
 
-                  <button className="w-full bg-transparent border border-[#e5e5e5] rounded-[10px] py-3 text-[13px] cursor-pointer transition hover:bg-[#FEF9C3]" onClick={() => addToCart(p.id)}>
-                    加入購物車
-                  </button>
+                  <div className="p-4 pt-0">
+                    <button className="w-full bg-[#FAF7F2] border border-[#EBE5DF] rounded-lg py-2.5 text-[13px] font-medium text-[#382E2B] cursor-pointer transition hover:bg-[#B35B48] hover:text-white" onClick={() => addToCart(p.id)}>
+                      加入購物車
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -747,27 +746,28 @@ export default function Home() {
         </div>
       </main>
 
-      <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-white shadow-[-5px_0_30px_rgba(0,0,0,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-[30px_25px] border-b border-[#f0f0f0] flex justify-between items-center">
-          <h2 className="text-[18px] font-semibold">購物車清單 ({totalCount})</h2>
+      {/* 購物車 Drawer */}
+      <div className={`fixed top-0 right-0 w-100 max-w-full h-full bg-[#FAF7F2] border-l border-[#EBE5DF] shadow-[-5px_0_30px_rgba(56,46,43,0.05)] z-2000 transition-transform duration-400 flex flex-col ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="p-[30px_25px] border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+          <h2 className="text-[18px] font-semibold text-[#382E2B]">購物車清單 ({totalCount})</h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCartOpen(false)}>&times;</button>
         </div>
         
         <div className="grow overflow-y-auto p-6.25">
           {cart.length === 0 ? (
-            <p className="text-center text-[#aaa] mt-12.5">購物車目前是空的喔</p>
+            <p className="text-center text-[#888] mt-12.5">購物車目前是空的喔</p>
           ) : (
             cart.map(item => (
-              <div key={item.id} className="flex gap-3.75 mb-6.25 items-center">
-                <div className="w-15 h-17.5 bg-[#f9f9f8] rounded-md flex justify-center items-center text-[11px]">ITEM</div>
+              <div key={item.id} className="flex gap-3.75 mb-6.25 items-center bg-white p-3 rounded-lg border border-[#EBE5DF]">
+                <div className="w-15 h-17.5 bg-[#F4F0EA] rounded-md flex justify-center items-center text-[11px] text-[#7A6E65]">ITEM</div>
                 <div className="grow">
-                  <div className="text-[13px] font-medium mb-1">{item.name}</div>
-                  <div className="text-[13px] font-semibold mb-2.5">HKD {Number(item.price).toFixed(1)}</div>
+                  <div className="text-[13px] font-medium mb-1 text-[#382E2B]">{item.name}</div>
+                  <div className="text-[13px] font-semibold mb-2.5 text-[#B35B48]">HKD {Number(item.price).toFixed(1)}</div>
                   <div className="flex items-center gap-3">
-                    <button className="bg-[#f5f5f5] border-none rounded-full w-6 h-6 cursor-pointer flex items-center justify-center" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                    <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, -1)}>-</button>
                     <span className="text-[13px]">{item.quantity}</span>
-                    <button className="bg-[#f5f5f5] border-none rounded-full w-6 h-6 cursor-pointer flex items-center justify-center" onClick={() => updateQuantity(item.id, 1)}>+</button>
-                    <button className="bg-none border-none text-[#b0b0b0] text-[12px] cursor-pointer ml-auto" onClick={() => removeFromCart(item.id)}>移除</button>
+                    <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                    <button className="bg-none border-none text-[#A3958B] text-[12px] cursor-pointer ml-auto hover:text-[#B35B48]" onClick={() => removeFromCart(item.id)}>移除</button>
                   </div>
                 </div>
               </div>
@@ -776,11 +776,11 @@ export default function Home() {
         </div>
 
         {cart.length > 0 && (
-          <div className="p-6.25 border-t border-[#f0f0f0] bg-[#fafafa]">
+          <div className="p-6.25 border-t border-[#EBE5DF] bg-[#F4F0EA]">
             <div className="mb-3">
-              <label className="block text-[12px] font-semibold text-[#666] mb-1.5">選擇適用折扣券</label>
+              <label className="block text-[12px] font-semibold text-[#6E6058] mb-1.5">選擇適用折扣券</label>
               <select 
-                className="w-full p-2.5 bg-white border border-[#ddd] rounded-lg text-[13px] outline-none cursor-pointer"
+                className="w-full p-2.5 bg-white border border-[#EBE5DF] rounded-lg text-[13px] outline-none cursor-pointer"
                 value={selectedCoupon ? selectedCoupon.code : ''}
                 onChange={(e) => {
                   const found = availableCoupons.find(c => c.code === e.target.value);
@@ -797,45 +797,45 @@ export default function Home() {
             </div>
 
             {currentUser && userStoreCredit > 0 && (
-              <div className="mb-4 p-3 bg-amber-50/60 border border-amber-200 rounded-lg flex items-center justify-between text-xs">
-                <label className="flex items-center gap-2 cursor-pointer font-medium text-stone-800">
+              <div className="mb-4 p-3 bg-[#C28C7A]/15 border border-[#C28C7A]/30 rounded-lg flex items-center justify-between text-xs">
+                <label className="flex items-center gap-2 cursor-pointer font-medium text-[#382E2B]">
                   <input 
                     type="checkbox" 
                     checked={useCredit} 
                     onChange={(e) => setUseCredit(e.target.checked)}
-                    className="w-4 h-4 rounded border-amber-300 accent-stone-900 cursor-pointer"
+                    className="w-4 h-4 rounded border-[#C28C7A] accent-[#B35B48] cursor-pointer"
                   />
                   使用購物金折抵 (可用 HKD ${userStoreCredit})
                 </label>
               </div>
             )}
 
-            <div className="flex justify-between mb-2 text-[13px] text-[#666]">
+            <div className="flex justify-between mb-2 text-[13px] text-[#7A6E65]">
               <span>商品小計</span>
               <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
             </div>
 
             {discountAmount > 0 && (
-              <div className="flex justify-between mb-2 text-[13px] text-emerald-600 font-medium">
+              <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>折扣優惠</span>
                 <span>- HKD {Number(discountAmount).toFixed(1)}</span>
               </div>
             )}
 
             {creditToDeduct > 0 && (
-              <div className="flex justify-between mb-2 text-[13px] text-amber-700 font-medium">
+              <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>購物金折抵</span>
                 <span>- HKD {Number(creditToDeduct).toFixed(1)}</span>
               </div>
             )}
 
-            <div className="flex justify-between mb-5 pt-3 border-t border-[#e5e5e5] text-[16px] font-semibold text-[#111]">
+            <div className="flex justify-between mb-5 pt-3 border-t border-[#EBE5DF] text-[16px] font-semibold text-[#382E2B]">
               <span>訂單總計</span>
-              <span>HKD {Number(finalTotal).toFixed(1)}</span>
+              <span className="text-[#B35B48]">HKD {Number(finalTotal).toFixed(1)}</span>
             </div>
 
             <button 
-              className="w-full bg-[#111] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] transition hover:bg-[#333]" 
+              className="w-full bg-[#B35B48] text-white border-none rounded-[10px] p-4 cursor-pointer text-[14px] font-semibold transition hover:bg-[#9B4C3A] shadow-xs" 
               onClick={openCheckoutModal}
             >
               前往結帳 Checkout
@@ -844,12 +844,13 @@ export default function Home() {
         )}
       </div>
 
-      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
-        <div className="p-6.25 border-b border-[#f0f0f0] flex justify-between items-center bg-[#fafafa]">
+      {/* 結帳 Modal */}
+      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-[0_10px_40px_rgba(56,46,43,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
+        <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
           <div className="flex items-center gap-2">
-            <h2 className="text-[18px] font-semibold">安全結帳</h2>
+            <h2 className="text-[18px] font-semibold text-[#382E2B]">安全結帳</h2>
             {userProfile && (
-              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-[10px] bg-[#B35B48] text-white px-2 py-0.5 rounded-full font-medium">
                 ✨ 已自動帶入會員資料
               </span>
             )}
@@ -859,33 +860,33 @@ export default function Home() {
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleCheckoutSubmit}>
             <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件人姓名</label>
-              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入真實姓名" required />
+              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
+              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入真實姓名" required />
             </div>
             <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#555]">電子郵件 (接收訂單通知)</label>
-              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="example@email.com" required />
+              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (接收訂單通知)</label>
+              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
             </div>
             <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#555]">收件地址</label>
-              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#ddd] rounded-lg text-[14px] outline-none transition focus:border-[#111]" placeholder="請輸入完整收件地址" required />
+              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
+              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入完整收件地址" required />
             </div>
 
-            <div className="bg-[#f9f9f8] p-3.5 rounded-lg mb-5 text-[13px]">
+            <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-5 text-[13px] border border-[#EBE5DF]">
               <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
               {discountAmount > 0 && (
-                <div className="flex justify-between mb-1 text-emerald-600"><span>優惠券折抵：</span><span>- HKD ${discountAmount.toFixed(1)}</span></div>
+                <div className="flex justify-between mb-1 text-[#B35B48]"><span>優惠券折抵：</span><span>- HKD ${discountAmount.toFixed(1)}</span></div>
               )}
               {creditToDeduct > 0 && (
-                <div className="flex justify-between mb-1 text-amber-700"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
+                <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
               )}
-              <div className="flex justify-between font-semibold pt-2 border-t border-[#eee] text-[14px]"><span>應付總額：</span><span>HKD ${finalTotal.toFixed(1)}</span></div>
+              <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span></div>
             </div>
             
-            <hr className="border-0 border-t border-dashed border-[#eee] my-6.25" />
+            <hr className="border-0 border-t border-dashed border-[#EBE5DF] my-6.25" />
             
-            <label className="block text-[13px] font-semibold mb-2 text-[#555]">信用卡資訊 (模擬)</label>
-            <div className="p-3.75 border border-[#ddd] rounded-lg bg-[#f9f9f9] flex items-center gap-2.5 mb-5">
+            <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">信用卡資訊 (模擬)</label>
+            <div className="p-3.75 border border-[#EBE5DF] rounded-lg bg-white flex items-center gap-2.5 mb-5">
               <div className="text-[24px]">💳</div>
               <div className="grow">
                 <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full border-none p-0 bg-transparent mb-1.5 outline-none text-[14px]" placeholder="0000 0000 0000 0000" required />
@@ -896,19 +897,19 @@ export default function Home() {
               </div>
             </div>
 
-            <button type="submit" disabled={isPaying} className="w-full bg-[#FEF9C3] text-[#111] p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#f0e9aa]">
+            <button type="submit" disabled={isPaying} className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
               {isPaying ? '付款處理中...' : `確認付款 HKD ${finalTotal.toFixed(1)}`}
             </button>
           </form>
         </div>
       </div>
 
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#333] text-white py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-1000 ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-1000 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
 
-      <footer className="bg-[#fafafa] text-[#888] text-center py-10 px-5 text-[12px] mt-25">
-        <p>&copy; 2026 LIGHTNING LIFESTYLE. ALL RIGHTS RESERVED.</p>
+      <footer className="bg-[#F4F0EA] text-[#7A6E65] text-center py-10 px-5 text-[12px] mt-25 border-t border-[#EBE5DF]">
+        <p>&copy; 2026 VILLA ATELIER STUDIO. ALL RIGHTS RESERVED.</p>
       </footer>
     </div>
   );
