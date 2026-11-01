@@ -99,7 +99,8 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('villa_atelier_cart');
+    // 初始載入預設訪客購物車
+    const savedCart = localStorage.getItem('villa_atelier_cart_guest');
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch (e) {}
     }
@@ -119,8 +120,17 @@ export default function Home() {
       
       if (user) {
         setCurrentUser(user);
+
+        // 🌟 登入時自動載入該會員專屬的購物車資料
+        const userCartKey = `villa_atelier_cart_${user.uid}`;
+        const userSavedCart = localStorage.getItem(userCartKey);
+        if (userSavedCart) {
+          try { setCart(JSON.parse(userSavedCart)); } catch (e) { setCart([]); }
+        } else {
+          setCart([]);
+        }
+
         try {
-          // 查詢 UID 對應用戶，並排查已軟刪除的檔案
           const querySnapshot = await db.collection("users")
             .where("uid", "==", user.uid)
             .get();
@@ -135,7 +145,6 @@ export default function Home() {
             setUserStoreCredit(userData.storeCredit || 0);
             setUserProfile(userData);
 
-            // 計算會員累積消費總額 (以計算會員等級折扣)
             db.collection("orders").where("email", "==", user.email).onSnapshot((ordersSnap) => {
               let spent = 0;
               ordersSnap.forEach((oDoc) => {
@@ -167,12 +176,23 @@ export default function Home() {
           setUserProfile(null);
         }
       } else {
+        // 🌟 登出時清空狀態，並載入訪客購物車（不刪除會員專屬購物車紀錄）
         setCurrentUser(null);
         setCurrentAccountId('');
         setUserStoreCredit(0);
         setUserTotalSpent(0);
         setUserProfile(null);
         setUserFavorites({});
+        
+        const guestCart = localStorage.getItem('villa_atelier_cart_guest');
+        if (guestCart) {
+          try { setCart(JSON.parse(guestCart)); } catch (e) { setCart([]); }
+        } else {
+          setCart([]);
+        }
+
+        setSelectedCoupon(null);
+        setUseCredit(false);
       }
 
       const unsubscribeCoupons = db.collection("coupons")
@@ -253,9 +273,11 @@ export default function Home() {
     setTimeout(() => setIsToastShow(false), 2500);
   };
 
+  // 🌟 儲存購物車時，依據當前是否登入儲存至對應的 UID key 或 guest key
   const saveCartToStorage = (newCart: CartItem[]) => {
     setCart(newCart);
-    localStorage.setItem('villa_atelier_cart', JSON.stringify(newCart));
+    const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
+    localStorage.setItem(cartKey, JSON.stringify(newCart));
   };
 
   const addToCart = (productId: string) => {
@@ -290,19 +312,17 @@ export default function Home() {
 
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // 🌟 計算會員等級折扣
   const getMemberTierRate = () => {
-    if (!currentUser) return 1; // 未登入無折扣
-    if (userTotalSpent >= 3000) return 0.90; // 鑽石會員 9折
-    if (userTotalSpent >= 1000) return 0.95; // 金卡會員 95折
-    return 1; // 銀卡會員無折扣
+    if (!currentUser) return 1;
+    if (userTotalSpent >= 3000) return 0.90;
+    if (userTotalSpent >= 1000) return 0.95;
+    return 1;
   };
 
   const memberTierRate = getMemberTierRate();
   const memberDiscountAmount = currentSubtotal * (1 - memberTierRate);
   const subtotalAfterMemberDiscount = Math.max(0, currentSubtotal - memberDiscountAmount);
 
-  // 🌟 計算優惠券折扣 (於會員等級折扣後折算)
   const calculateCouponDiscount = () => {
     if (!selectedCoupon) return 0;
     
@@ -389,7 +409,6 @@ export default function Home() {
           const docRef = db.collection("users").doc(authAccountId);
           const docSnap = await docRef.get();
 
-          // 🌟 若帳戶 ID 存在且非軟刪除狀態，則阻止註冊；若為已軟刪除，則允許覆蓋重新註冊
           if (docSnap.exists && !docSnap.data()?.isDeleted) {
             alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
             return;
@@ -431,7 +450,6 @@ export default function Home() {
 
           const currentUserObj = auth.currentUser;
 
-          // 🌟 覆蓋/新建用戶資料（確保 isDeleted 重設為 false）
           await db.collection("users").doc(authAccountId).set({
             accountId: authAccountId,
             email: authEmail,
@@ -566,7 +584,7 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計支付：HKD $${finalTotal.toFixed(1)}`);
+        alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計支付：HKD ${finalTotal.toFixed(1)}`);
         saveCartToStorage([]);
         setSelectedCoupon(null);
         setUseCredit(false);
@@ -857,7 +875,6 @@ export default function Home() {
               <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
             </div>
 
-            {/* 🌟 會員等級折扣提示與折減 */}
             {memberDiscountAmount > 0 && (
               <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>
