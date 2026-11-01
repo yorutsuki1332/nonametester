@@ -44,6 +44,7 @@ interface UserProfile {
   phone?: string;
   address?: string;
   storeCredit?: number;
+  isDeleted?: boolean;
 }
 
 export default function Home() {
@@ -119,9 +120,15 @@ export default function Home() {
       if (user) {
         setCurrentUser(user);
         try {
-          const querySnapshot = await db.collection("users").where("uid", "==", user.uid).get();
-          if (!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0];
+          // 查詢 UID 對應用戶，並排查已軟刪除的檔案
+          const querySnapshot = await db.collection("users")
+            .where("uid", "==", user.uid)
+            .get();
+            
+          const activeDocs = querySnapshot.docs.filter(d => !d.data()?.isDeleted);
+
+          if (activeDocs.length > 0) {
+            const doc = activeDocs[0];
             loggedInAccountId = doc.id;
             const userData = doc.data() as UserProfile;
             setCurrentAccountId(loggedInAccountId);
@@ -381,7 +388,9 @@ export default function Home() {
         if (registerStep === 1) {
           const docRef = db.collection("users").doc(authAccountId);
           const docSnap = await docRef.get();
-          if (docSnap.exists) {
+
+          // 🌟 若帳戶 ID 存在且非軟刪除狀態，則阻止註冊；若為已軟刪除，則允許覆蓋重新註冊
+          if (docSnap.exists && !docSnap.data()?.isDeleted) {
             alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
             return;
           }
@@ -421,11 +430,14 @@ export default function Home() {
           }
 
           const currentUserObj = auth.currentUser;
+
+          // 🌟 覆蓋/新建用戶資料（確保 isDeleted 重設為 false）
           await db.collection("users").doc(authAccountId).set({
             accountId: authAccountId,
             email: authEmail,
             uid: currentUserObj?.uid || '',
             storeCredit: 0,
+            isDeleted: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
@@ -439,8 +451,8 @@ export default function Home() {
       } else {
         const docRef = db.collection("users").doc(authAccountId);
         const docSnap = await docRef.get();
-        if (!docSnap.exists) {
-          alert('找不到此帳戶 ID，請確認是否輸入正確。');
+        if (!docSnap.exists || docSnap.data()?.isDeleted) {
+          alert('找不到此帳戶 ID 或該帳戶已被註銷，請確認是否輸入正確。');
           return;
         }
         const email = docSnap.data()?.email;

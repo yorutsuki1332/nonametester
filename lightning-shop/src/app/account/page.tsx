@@ -279,21 +279,61 @@ export default function AccountPage() {
 
     setIsDeleting(true);
     try {
+      const accountId = profile.accountId;
+      const originalEmail = currentUser.email || '';
+      const deletedTag = `deleted_${Date.now()}`;
+      const deletedEmailTag = `${deletedTag}_${originalEmail}`;
+
       // 1. 先嘗試刪除 Firebase Authentication 內的帳戶
-      // (如果登入時間過久，這裡會直接跳錯，不會去動到底層的 Firestore，避免資料不一致)
       await currentUser.delete();
 
-      // 2. Auth 刪除成功後，再刪除 Firestore 內的會員資料與相關紀錄
-      await db.collection("users").doc(profile.accountId).delete();
+      // 2. 執行軟刪除：更新 Firestore 使用者狀態，釋放 Email
+      await db.collection("users").doc(accountId).update({
+        isDeleted: true,
+        deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        email: deletedEmailTag,
+        name: '【已註銷用戶】',
+        phone: '',
+        address: '',
+        storeCredit: 0
+      });
 
-      alert('您的帳戶已成功永久註銷。');
+      // 3. 🌟 關鍵修正：將綁定給此 accountId 的專屬優惠券直接失效或變更 targetAccountId
+      // 這樣即使新用戶未來註冊了相同的 accountId，也絕對不會配對到這張舊優惠券
+      const couponsSnap = await db.collection("coupons").where("targetAccountId", "==", accountId).get();
+      if (!couponsSnap.empty) {
+        const couponBatch = db.batch();
+        couponsSnap.forEach((cDoc) => {
+          couponBatch.update(cDoc.ref, { 
+            targetAccountId: `expired_${deletedTag}`, // 改變綁定對象，使新帳號無法讀取
+            usesLeft: 0 // 次數歸零徹底失效
+          });
+        });
+        await couponBatch.commit();
+      }
+
+      // 4. 清理歷史訂單關聯：將舊訂單 email 加上 deleted 前綴
+      if (originalEmail) {
+        const ordersSnap = await db.collection("orders").where("email", "==", originalEmail).get();
+        if (!ordersSnap.empty) {
+          const orderBatch = db.batch();
+          ordersSnap.forEach((oDoc) => {
+            orderBatch.update(oDoc.ref, { 
+              email: deletedEmailTag,
+              originalUserEmail: originalEmail
+            });
+          });
+          await orderBatch.commit();
+        }
+      }
+
+      alert('您的帳戶已成功註銷，感謝您過去的陪伴。');
       router.push('/');
     } catch (error: any) {
       console.error('帳戶註銷失敗:', error);
       
-      // 處理憑證過期需要重新登入的情況
       if (error.code === 'auth/requires-recent-login') {
-        alert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，然後重新登入帳戶後，再立即執行一次註銷帳戶。');
+        alert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，重新登入帳戶後，再立即執行一次註銷操作。');
       } else {
         alert('註銷失敗：' + (error.message || '未知錯誤'));
       }
@@ -859,7 +899,7 @@ export default function AccountPage() {
               <div className="pt-6 border-t border-[#EBE5DF]">
                 <h3 className="font-semibold text-rose-700 text-base mb-1">⚠️ 帳戶註銷（永久刪除帳戶）方法</h3>
                 <p className="text-xs text-[#7A6E65] mb-4 leading-relaxed">
-                  註銷帳戶後，您的所有會員權益、購物金餘額、個人資料及歷史紀錄將被永久清除且無法復原。如果你確認不再使用本平台，可點擊下方按鈕執行註銷。
+                  註銷帳戶後，您的所有會員權益、購物金餘額與個人聯絡資訊將會被清空與解除關聯。如果你確認不再使用本平台，可點擊下方按鈕執行註銷。
                 </p>
                 <button
                   onClick={() => { setDeleteConfirmText(''); setIsDeleteModalOpen(true); }}
@@ -879,7 +919,7 @@ export default function AccountPage() {
           <div className="bg-[#FAF7F2] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#EBE5DF]">
             <h3 className="text-lg font-bold text-rose-700 mb-2">⚠️ 安全確認：您確定要註銷帳戶嗎？</h3>
             <p className="text-xs text-[#7A6E65] mb-4 leading-relaxed">
-              此動作無法復原。系統將永久刪除您的所有資料、購物金及歷史紀錄。
+              此動作無法復原。系統將清除您的個人聯絡資料與購物金餘額。
             </p>
             <p className="text-xs font-semibold text-[#382E2B] mb-2">
               請在下方輸入框手動輸入 <span className="text-rose-700 font-mono">確認註銷帳戶</span>：
@@ -903,7 +943,7 @@ export default function AccountPage() {
                 disabled={isDeleting || deleteConfirmText !== '確認註銷帳戶'}
                 className="grow bg-rose-700 text-white py-3 rounded-xl text-xs font-semibold hover:bg-rose-800 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {isDeleting ? '註銷中...' : '確認永久註銷'}
+                {isDeleting ? '註銷中...' : '確認註銷'}
               </button>
             </div>
           </div>
