@@ -58,10 +58,11 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
-  // 折扣券、購物金與收藏狀態
+  // 折扣券、購物金、會員等級與收藏狀態
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [userStoreCredit, setUserStoreCredit] = useState<number>(0);
+  const [userTotalSpent, setUserTotalSpent] = useState<number>(0);
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
@@ -127,6 +128,18 @@ export default function Home() {
             setUserStoreCredit(userData.storeCredit || 0);
             setUserProfile(userData);
 
+            // 計算會員累積消費總額 (以計算會員等級折扣)
+            db.collection("orders").where("email", "==", user.email).onSnapshot((ordersSnap) => {
+              let spent = 0;
+              ordersSnap.forEach((oDoc) => {
+                const orderData = oDoc.data();
+                if (orderData.status !== 'cancelled') {
+                  spent += Number(orderData.total || 0);
+                }
+              });
+              setUserTotalSpent(spent);
+            });
+
             db.collection("users").doc(loggedInAccountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
@@ -137,17 +150,20 @@ export default function Home() {
           } else {
             setCurrentAccountId('會員');
             setUserStoreCredit(0);
+            setUserTotalSpent(0);
             setUserProfile(null);
           }
         } catch (e) {
           setCurrentAccountId('會員');
           setUserStoreCredit(0);
+          setUserTotalSpent(0);
           setUserProfile(null);
         }
       } else {
         setCurrentUser(null);
         setCurrentAccountId('');
         setUserStoreCredit(0);
+        setUserTotalSpent(0);
         setUserProfile(null);
         setUserFavorites({});
       }
@@ -267,7 +283,20 @@ export default function Home() {
 
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  const calculateDiscount = () => {
+  // 🌟 計算會員等級折扣
+  const getMemberTierRate = () => {
+    if (!currentUser) return 1; // 未登入無折扣
+    if (userTotalSpent >= 3000) return 0.90; // 鑽石會員 9折
+    if (userTotalSpent >= 1000) return 0.95; // 金卡會員 95折
+    return 1; // 銀卡會員無折扣
+  };
+
+  const memberTierRate = getMemberTierRate();
+  const memberDiscountAmount = currentSubtotal * (1 - memberTierRate);
+  const subtotalAfterMemberDiscount = Math.max(0, currentSubtotal - memberDiscountAmount);
+
+  // 🌟 計算優惠券折扣 (於會員等級折扣後折算)
+  const calculateCouponDiscount = () => {
     if (!selectedCoupon) return 0;
     
     if ((selectedCoupon.conditionType === 'periods' || selectedCoupon.conditionType === 'counts') && selectedCoupon.startTime && selectedCoupon.endTime) {
@@ -280,15 +309,15 @@ export default function Home() {
     if (currentSubtotal < selectedCoupon.minSpend) return 0;
     
     if (selectedCoupon.discountType === 'fixed') {
-      return Math.min(currentSubtotal, selectedCoupon.discountValue);
+      return Math.min(subtotalAfterMemberDiscount, selectedCoupon.discountValue);
     } else if (selectedCoupon.discountType === 'percent') {
-      return currentSubtotal * (1 - selectedCoupon.discountValue);
+      return subtotalAfterMemberDiscount * (1 - selectedCoupon.discountValue);
     }
     return 0;
   };
 
-  const discountAmount = calculateDiscount();
-  const subtotalAfterCoupon = Math.max(0, currentSubtotal - discountAmount);
+  const couponDiscountAmount = calculateCouponDiscount();
+  const subtotalAfterCoupon = Math.max(0, subtotalAfterMemberDiscount - couponDiscountAmount);
   const creditToDeduct = useCredit ? Math.min(subtotalAfterCoupon, userStoreCredit) : 0;
   const finalTotal = Math.max(0, subtotalAfterCoupon - creditToDeduct);
 
@@ -449,7 +478,7 @@ export default function Home() {
     e.preventDefault();
     if (cart.length === 0) return alert('購物車是空的！');
 
-    if (selectedCoupon && calculateDiscount() === 0 && selectedCoupon.discountValue > 0) {
+    if (selectedCoupon && calculateCouponDiscount() === 0 && selectedCoupon.discountValue > 0) {
       alert('您選擇的優惠券已過期或不符合條件，請重新選擇！');
       return;
     }
@@ -477,7 +506,8 @@ export default function Home() {
         address: shippingAddress.trim(),
         items: cart,
         subtotal: currentSubtotal,
-        discount: discountAmount,
+        memberDiscount: memberDiscountAmount,
+        discount: couponDiscountAmount,
         creditDeducted: creditToDeduct,
         couponCode: selectedCoupon ? selectedCoupon.code : null,
         total: finalTotal,
@@ -542,7 +572,7 @@ export default function Home() {
 
   return (
     <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen overflow-x-hidden font-sans">
-      {/* 導覽列 (加入紅褐色 hover 與強化購物車紅色氣泡) */}
+      {/* 導覽列 */}
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-[#FAF7F2]/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-1000 border-b border-[#EBE5DF]">
         <div className="text-[18px] font-bold tracking-[3px] uppercase text-[#B35B48]">VILLA ATELIER</div>
         <div className="flex items-center gap-4">
@@ -584,7 +614,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 分類導覽（選中時採用陶土紅背景） */}
+      {/* 分類導覽 */}
       <div className="fixed top-18.75 left-0 w-full bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#EBE5DF] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(56,46,43,0.02)] flex items-center gap-2 md:justify-center">
         {categories.map((cat) => (
           <button
@@ -815,10 +845,20 @@ export default function Home() {
               <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
             </div>
 
-            {discountAmount > 0 && (
+            {/* 🌟 會員等級折扣提示與折減 */}
+            {memberDiscountAmount > 0 && (
               <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
-                <span>折扣優惠</span>
-                <span>- HKD {Number(discountAmount).toFixed(1)}</span>
+                <span>
+                  {userTotalSpent >= 3000 ? '💎 鑽石會員 9折折扣' : '🥇 金卡會員 95折折扣'}
+                </span>
+                <span>- HKD {Number(memberDiscountAmount).toFixed(1)}</span>
+              </div>
+            )}
+
+            {couponDiscountAmount > 0 && (
+              <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
+                <span>優惠券折抵</span>
+                <span>- HKD {Number(couponDiscountAmount).toFixed(1)}</span>
               </div>
             )}
 
@@ -874,8 +914,14 @@ export default function Home() {
 
             <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-5 text-[13px] border border-[#EBE5DF]">
               <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between mb-1 text-[#B35B48]"><span>優惠券折抵：</span><span>- HKD ${discountAmount.toFixed(1)}</span></div>
+              {memberDiscountAmount > 0 && (
+                <div className="flex justify-between mb-1 text-[#B35B48]">
+                  <span>{userTotalSpent >= 3000 ? '鑽石會員尊榮 9折：' : '金卡會員尊榮 95折：'}</span>
+                  <span>- HKD ${memberDiscountAmount.toFixed(1)}</span>
+                </div>
+              )}
+              {couponDiscountAmount > 0 && (
+                <div className="flex justify-between mb-1 text-[#B35B48]"><span>優惠券折抵：</span><span>- HKD ${couponDiscountAmount.toFixed(1)}</span></div>
               )}
               {creditToDeduct > 0 && (
                 <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>

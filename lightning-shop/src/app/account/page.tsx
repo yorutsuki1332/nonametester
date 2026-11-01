@@ -279,14 +279,25 @@ export default function AccountPage() {
 
     setIsDeleting(true);
     try {
-      await db.collection("users").doc(profile.accountId).delete();
+      // 1. 先嘗試刪除 Firebase Authentication 內的帳戶
+      // (如果登入時間過久，這裡會直接跳錯，不會去動到底層的 Firestore，避免資料不一致)
       await currentUser.delete();
+
+      // 2. Auth 刪除成功後，再刪除 Firestore 內的會員資料與相關紀錄
+      await db.collection("users").doc(profile.accountId).delete();
 
       alert('您的帳戶已成功永久註銷。');
       router.push('/');
     } catch (error: any) {
       console.error('帳戶註銷失敗:', error);
-      alert('註銷失敗：' + error.message + '\n\n提示：若登入時間過久，請先重新登入後再執行註銷。');
+      
+      // 處理憑證過期需要重新登入的情況
+      if (error.code === 'auth/requires-recent-login') {
+        alert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，然後重新登入帳戶後，再立即執行一次註銷帳戶。');
+      } else {
+        alert('註銷失敗：' + (error.message || '未知錯誤'));
+      }
+      
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
     }
