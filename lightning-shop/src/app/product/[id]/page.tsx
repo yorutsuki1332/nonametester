@@ -37,8 +37,8 @@ export default function ProductPage({ params }: PageProps) {
   return (
     <Suspense
       fallback={
-        <div className="bg-white text-[#333333] min-h-screen flex items-center justify-center font-sans">
-          <div className="text-[18px] text-[#888]">正在載入商品資料...</div>
+        <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen flex items-center justify-center font-sans">
+          <div className="text-[18px] text-[#7A6E65]">正在載入選品資料...</div>
         </div>
       }
     >
