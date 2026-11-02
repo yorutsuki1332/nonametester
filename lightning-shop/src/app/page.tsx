@@ -657,7 +657,7 @@ export default function Home() {
                 : 'bg-[#F4F0EA] text-[#6E6058] hover:bg-[#EBE5DF]'
             }`}
           >
-            {cat === 'all' ? '✨ 全部選品' : cat}
+            {cat === 'all' ? '✨ 全部選品' :  cat === 'DAILY WEAR' ? '👕 日常穿搭' : cat === 'ACCESSORY' ? '💍 首飾配件' : cat === 'BAGS' ? '👜 包包' : cat}
           </button>
         ))}
       </div>

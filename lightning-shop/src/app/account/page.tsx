@@ -93,6 +93,8 @@ export default function AccountPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
 
+  const today = new Date().toISOString().split('T')[0]; // 取得今天的日期，格式為 YYYY-MM-DD
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setIsToastShow(true);
@@ -864,6 +866,7 @@ export default function AccountPage() {
                     <input 
                       type="date" 
                       value={editBirthday} 
+                      max={today} // 設定最大日期為今天，避免選擇未來日期
                       onChange={(e) => setEditBirthday(e.target.value)}
                       className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                     />

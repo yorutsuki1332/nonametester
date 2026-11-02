@@ -229,18 +229,19 @@ export default function ProductDetailClient({
                 />
               </div>
             ))}
+            
             {validImages.length > 1 && (
               <>
                 <button 
                   type="button"
-                  className="absolute top-1/2 -translate-y-1/2 left-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-0 group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
+                  className="absolute top-1/2 -translate-y-1/2 left-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-80 md:opacity-50 md:group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
                   onClick={() => moveSlide(-1, validImages.length)}
                 >
                   &#10094;
                 </button>
                 <button 
                   type="button"
-                  className="absolute top-1/2 -translate-y-1/2 right-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-0 group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
+                  className="absolute top-1/2 -translate-y-1/2 right-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-80 md:opacity-50 md:group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
                   onClick={() => moveSlide(1, validImages.length)}
                 >
                   &#10095;
