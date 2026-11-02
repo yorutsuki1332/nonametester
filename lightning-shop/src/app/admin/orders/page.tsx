@@ -78,6 +78,22 @@ export default function AdminOrdersListPage() {
     setFilteredList(filtered);
   }, [searchKeyword, allList]);
 
+  const handleOrderEmailDisplay = (email?: string) => {
+    if (!email) return '未提供';
+    try {
+      const [deleted, deleteId, emailPart] = email.split('_');
+      if (deleted === 'deleted' && deleteId && emailPart) {
+        const emailDisplay = `${emailPart}
+        [已刪除帳號]`;
+        return emailDisplay;
+      } else{
+        return email;
+      }
+    } catch (error: any) {
+      console.error('Error occurred while processing email:', error);
+    }
+  };
+
   const showToast = (message: string) => {
     setToastMsg(message);
     setIsToastShow(true);
@@ -166,71 +182,73 @@ export default function AdminOrdersListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full">
-        <table className="w-full border-collapse text-left text-[14px]">
-          <thead className="hidden md:table-header-group md:overflow-x-scroll no-scrollbar">
-            <tr className= "md:overflow-auto-hidden">
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">訂單 ID</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">收件人</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">電子郵件</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">總金額 (HKD)</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">狀態</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何訂單紀錄</td></tr>
-            ) : filteredList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的訂單</td></tr>
-            ) : (
-              filteredList.map(o => {
-                const status = o.status || 'pending';
-                const badgeClass = status === 'completed' 
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
-                  : status === 'shipping'
-                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                  : status === 'preparing'
-                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
-                  : status === 'paid'
-                  ? 'bg-purple-50 text-purple-800 border border-purple-200'
-                  : status === 'cancelled' 
-                  ? 'bg-rose-50 text-rose-800 border border-rose-200' 
-                  : 'bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF]';
+      <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
+        <div className="overflow-x-auto w-full p-4 md:p-6.25">
+          <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
+            <thead className="hidden md:table-header-group">
+              <tr className= "border-b-2 border-[#EBE5DF]">
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">訂單 ID</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">收件人</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">電子郵件</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">總金額 (HKD)</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">狀態</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px]">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allList.length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何訂單紀錄</td></tr>
+              ) : filteredList.length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的訂單</td></tr>
+              ) : (
+                filteredList.map(o => {
+                  const status = o.status || 'pending';
+                  const badgeClass = status === 'completed' 
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                    : status === 'shipping'
+                    ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                    : status === 'preparing'
+                    ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                    : status === 'paid'
+                    ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                    : status === 'cancelled' 
+                    ? 'bg-rose-50 text-rose-800 border border-rose-200' 
+                    : 'bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF]';
 
-                return (
-                  <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2]">
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">訂單 ID</span>
-                      {o.id}
-                    </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">收件人</span>
-                      {o.name || '未提供'}
-                    </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
-                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">電子郵件</span>
-                      {o.email || '未提供'}
-                    </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle md:w-32.5 font-mono text-[#382E2B]">
-                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">總金額</span>
-                      HKD {Number(o.total || 0).toFixed(1)}
-                    </td>
-                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle">
-                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">狀態</span>
-                      <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${badgeClass}`}>
-                        {getStatusLabel(status)}
-                      </span>
-                    </td>
-                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle md:w-27.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
-                      <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                  return (
+                    <tr key={o.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2]">
+                      <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] whitespace-nowrap">
+                        <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">訂單 ID</span>
+                        {o.id}
+                      </td>
+                      <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] text-right md:text-left">
+                        <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">收件人</span>
+                        {o.name || '未提供'}
+                      </td>
+                      <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle  text-[#382E2B] whitespace-break-spaces md:whitespace-nowrap text-right md:text-left">
+                        <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">電子郵件</span>
+                        {handleOrderEmailDisplay(o.email) || '未提供'}
+                      </td>
+                      <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#382E2B] md:whitespace-nowrap">
+                        <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">總金額</span>
+                        HKD {Number(o.total || 0).toFixed(1)}
+                      </td>
+                      <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#382E2B] md:whitespace-nowrap">
+                        <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">狀態</span>
+                        <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${badgeClass}`}>
+                          {getStatusLabel(status)}
+                        </span>
+                      </td>
+                      <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle mt-3 md:mt-0 pt-3 md:pt-3.75 md:whitespace-nowrap md:text-right">
+                        <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 訂單詳情 Modal */}

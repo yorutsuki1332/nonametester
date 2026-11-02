@@ -53,9 +53,11 @@ export default function AdminProductsListPage() {
       const list: Product[] = [];
 
       querySnapshot.forEach((doc) => {
-        const data = { id: doc.id, ...doc.data() } as Product;
-        map[doc.id] = data;
-        list.push(data);
+        const data = doc.data() as any;
+        const { id: _, ...rest } = data;
+        const product = { id: doc.id, ...rest } as Product;
+        map[doc.id] = product;
+        list.push(product);
       });
 
       setProductsMap(map);
@@ -257,54 +259,68 @@ export default function AdminProductsListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full">
-        <table className="w-full border-collapse text-left text-[14px]">
-          <thead className="hidden md:table-header-group">
-            <tr>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">商品編號</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">商品名稱</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">分類</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">標籤</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">售價 (HKD)</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allProductsList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何上架商品</td></tr>
-            ) : filteredList.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的商品</td></tr>
-            ) : (
-              filteredList.map(p => (
-                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2]">
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
-                    {p.id}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品名稱</span>
-                    {p.name}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">分類</span>
-                    {p.category}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">標籤</span>
-                    {p.tag ? <span className={`inline-block p-[4px_8px] rounded text-[11px] font-semibold ${p.tag.toLowerCase() === 'hot' ? 'bg-[#B35B48] text-white' : 'bg-[#382E2B] text-white'}`}>{p.tag}</span> : <span className="text-[#A3958B]">無</span>}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle md:w-30 font-mono text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">售價 (HKD)</span>
-                    HKD {Number(p.price).toFixed(1)}
-                  </td>
-                  <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle md:w-22.5 mt-3 md:mt-0 pt-3 md:pt-3.75">
-                    <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition" onClick={() => openEditModal(p.id)}>修改</button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* 🌟 左右移動/橫向滾動容器外框 */}
+      <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
+        <div className="overflow-x-auto w-full p-4 md:p-6.25">
+          <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
+            <thead className="hidden md:table-header-group">
+              <tr className="border-b-2 border-[#EBE5DF]">
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品編號</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品名稱</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">分類</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">標籤</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">售價 (HKD)</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allProductsList.length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何上架商品</td></tr>
+              ) : filteredList.length === 0 ? (
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的商品</td></tr>
+              ) : (
+                filteredList.map(p => (
+                  <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2] transition">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] whitespace-break-spaces md:whitespace-nowrap">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
+                      {p.id}
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] text-right md:text-left">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold text-left">商品名稱</span>
+                      <span className="w-50 md:w-auto">{p.name}</span>
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品分類</span>
+                      {p.category}
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">標籤</span>
+                      {p.tag ? (
+                        <span className={`inline-block px-2.5 py-1 rounded text-[11px] font-semibold ${p.tag.toLowerCase() === 'hot' ? 'bg-[#B35B48] text-white' : 'bg-[#382E2B] text-white'}`}>
+                          {p.tag}
+                        </span>
+                      ) : (
+                        <span className="text-[#A3958B]">無</span>
+                      )}
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b border-[#EBE5DF] md:align-middle">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">售價</span>
+                      HKD {Number(p.price).toFixed(1)}
+                    </td>
+                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 md:border-b border-[#EBE5DF] md:align-middle mt-3 md:mt-0 pt-3 md:pt-3.75 md:whitespace-nowrap md:text-right">
+                      <button 
+                        className="w-full md:w-auto bg-[#B35B48] text-white border-none px-4 p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-rose-800 transition shadow-xs" 
+                        onClick={() => openEditModal(p.id)}
+                      >
+                        修改
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 修改商品 Modal */}

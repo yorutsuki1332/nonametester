@@ -251,7 +251,7 @@ export default function AdminDiscontinuedListPage() {
 
   return (
     <>
-      <div className="mb-7.5">
+      <div className="mb-6.25">
         <h1 className="text-[24px] font-serif font-semibold mb-1 text-[#382E2B]">已下架貨品</h1>
         <p className="text-[#7A6E65] text-[14px]">管理目前所有已下架的選品，可選擇重新上架或永久刪除。</p>
       </div>
@@ -266,53 +266,55 @@ export default function AdminDiscontinuedListPage() {
         />
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6.25 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full">
-        <table className="w-full border-collapse text-left text-[14px]">
-          <thead className="hidden md:table-header-group">
-            <tr>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">商品編號</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">商品名稱</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">分類</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">售價 (HKD)</th>
-              <th className="p-3.75 border-b-2 border-[#EBE5DF] text-[#7A6E65] font-semibold text-[15px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allList.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">目前沒有已下架的商品</td></tr>
-            ) : filteredList.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的已下架商品</td></tr>
-            ) : (
-              filteredList.map(p => (
-                <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2]">
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
-                    {p.id}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品名稱</span>
-                    {p.name}
-                  </td>
-                  <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品分類</span>
-                    {p.category}
-                  </td>
-                  <td width={90} className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle md:w-22.5 font-mono text-[#382E2B]">
-                    <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">售價</span>
-                    HKD {Number(p.price).toFixed(1)}
-                  </td>
-                  <td width={290} className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle md:w-72.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
-                    <div className="flex flex-col md:flex-row gap-2">
-                      <button className="w-full md:w-auto bg-white text-[#382E2B] border border-[#EBE5DF] p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#F4F0EA] transition" onClick={() => openEditModal(p.id)}>資料修改</button>
-                      <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => restoreProduct(p.id)}>重新上架</button>
-                      <button className="w-full md:w-auto bg-rose-700 text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-rose-800 transition shadow-xs" onClick={() => openDeleteModal(p.id)}>永久刪除</button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
+        <div className="overflow-x-auto w-full p-4 md:p-6.25">
+          <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
+            <thead className="hidden md:table-header-group">
+              <tr className="border-b-2 border-[#EBE5DF]">
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品編號</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品名稱</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">分類</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">售價 (HKD)</th>
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allList.length === 0 ? (
+                <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">目前沒有已下架的商品</td></tr>
+              ) : filteredList.length === 0 ? (
+                <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的已下架商品</td></tr>
+              ) : (
+                filteredList.map(p => (
+                  <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2] transition">
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] whitespace-break-spaces md:whitespace-nowrap">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
+                      {p.id}
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] text-right md:text-left">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold text-right">商品名稱</span>
+                      <span className="w-50 md:w-auto">{p.name}</span>
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品分類</span>
+                      {p.category}
+                    </td>
+                    <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle md:w-22.5 font-medium text-[#382E2B]">
+                      <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">售價</span>
+                      HKD {Number(p.price).toFixed(1)}
+                    </td>
+                    <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:align-middle md:w-72.5 mt-3 md:mt-0 pt-3 md:pt-3.75 gap-2">
+                      <div className="flex flex-col md:flex-row gap-2">
+                        <button className="w-full md:w-auto bg-white text-[#382E2B] border border-[#EBE5DF] p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#F4F0EA] transition" onClick={() => openEditModal(p.id)}>資料修改</button>
+                        <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => restoreProduct(p.id)}>重新上架</button>
+                        <button className="w-full md:w-auto bg-rose-700 text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-rose-800 transition shadow-xs" onClick={() => openDeleteModal(p.id)}>永久刪除</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 修改已下架商品 Modal */}
