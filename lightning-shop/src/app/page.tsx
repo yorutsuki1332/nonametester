@@ -108,8 +108,9 @@ export default function Home() {
     const unsubscribeProducts = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Product[] = [];
       snapshot.forEach((doc) => {
-        const { id, ...data } = doc.data() as any;
-        list.push({ id: doc.id, ...data });
+        const data = doc.data() as any;
+        const { id: _, ...rest } = data;
+        list.push({ id: doc.id, ...rest });
       });
       setProducts(list);
       setFilteredProducts(list);
@@ -121,7 +122,6 @@ export default function Home() {
       if (user) {
         setCurrentUser(user);
 
-        // 🌟 登入時自動載入該會員專屬的購物車資料
         const userCartKey = `villa_atelier_cart_${user.uid}`;
         const userSavedCart = localStorage.getItem(userCartKey);
         if (userSavedCart) {
@@ -176,7 +176,6 @@ export default function Home() {
           setUserProfile(null);
         }
       } else {
-        // 🌟 登出時清空狀態，並載入訪客購物車（不刪除會員專屬購物車紀錄）
         setCurrentUser(null);
         setCurrentAccountId('');
         setUserStoreCredit(0);
@@ -202,8 +201,9 @@ export default function Home() {
           const now = new Date().getTime();
 
           snapshot.forEach((doc) => {
-            const { id, ...data } = doc.data() as any;
-            const coupon = { id: doc.id, ...data } as Coupon;
+            const data = doc.data() as any;
+            const { id: _, ...rest } = data;
+            const coupon = { id: doc.id, ...rest } as Coupon;
 
             if (coupon.targetAccountId && coupon.targetAccountId.trim() !== '' && coupon.targetAccountId !== loggedInAccountId) {
               return; 
@@ -273,7 +273,6 @@ export default function Home() {
     setTimeout(() => setIsToastShow(false), 2500);
   };
 
-  // 🌟 儲存購物車時，依據當前是否登入儲存至對應的 UID key 或 guest key
   const saveCartToStorage = (newCart: CartItem[]) => {
     setCart(newCart);
     const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
@@ -600,6 +599,18 @@ export default function Home() {
 
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen;
+
+  // 🌟 新增：當購物車、登入或結帳視窗開啟時，鎖定背景 body 捲動
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isAnyModalOpen]);
 
   return (
     <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen overflow-x-hidden font-sans">
