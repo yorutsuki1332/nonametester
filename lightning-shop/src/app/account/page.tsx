@@ -62,6 +62,15 @@ interface FavoriteItem {
   category?: string;
 }
 
+// 🌟 定義支援的地區與號碼長度限制
+const COUNTRY_CODES = [
+  { code: '+852', label: '香港 (+852)', minLen: 8, maxLen: 8, placeholder: '請輸入 8 位號碼' },
+  { code: '+886', label: '台灣 (+886)', minLen: 9, maxLen: 10, placeholder: '請輸入 9-10 位號碼' },
+  { code: '+86', label: '中國 (+86)', minLen: 11, maxLen: 11, placeholder: '請輸入 11 位號碼' },
+  { code: '+853', label: '澳門 (+853)', minLen: 8, maxLen: 8, placeholder: '請輸入 8 位號碼' },
+  { code: '+81', label: '日本 (+81)', minLen: 10, maxLen: 10, placeholder: '請輸入 10 位號碼' },
+];
+
 export default function AccountPage() {
   const router = useRouter();
 
@@ -78,7 +87,11 @@ export default function AccountPage() {
 
   // 詳細個人資料編輯狀態
   const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
+  
+  // 🌟 拆分電話號碼為「地區」與「號碼」
+  const [phoneCountry, setPhoneCountry] = useState('+852');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
   const [editGender, setEditGender] = useState('prefer_not_to_say');
   const [editBirthday, setEditBirthday] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -93,7 +106,7 @@ export default function AccountPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0]; // 取得今天的日期，格式為 YYYY-MM-DD
+  const today = new Date().toISOString().split('T')[0];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -114,7 +127,18 @@ export default function AccountPage() {
             docId = userDoc.id;
             setProfile({ ...userData, accountId: docId });
             setEditName(userData.name || '');
-            setEditPhone(userData.phone || '');
+
+            // 🌟 嘗試解析資料庫中的 phone（例如 "+852 91234567"）
+            if (userData.phone) {
+              const parts = userData.phone.trim().split(' ');
+              if (parts.length >= 2 && COUNTRY_CODES.some(c => c.code === parts[0])) {
+                setPhoneCountry(parts[0]);
+                setPhoneNumber(parts.slice(1).join(''));
+              } else {
+                setPhoneNumber(userData.phone);
+              }
+            }
+
             setEditGender(userData.gender || 'prefer_not_to_say');
             setEditBirthday(userData.birthday || '');
             setEditAddress(userData.address || '');
@@ -184,14 +208,12 @@ export default function AccountPage() {
               });
           }
 
-          // 改為依 accountId (docId) 查詢：
           let ordersQuery: any = null;
           if (docId) {
             ordersQuery = db.collection("orders")
               .where("accountId", "==", docId)
               .orderBy("createdAt", "desc");
           } else {
-            // 備用防呆：若無 docId 則以 email 查詢
             ordersQuery = db.collection("orders")
               .where("email", "==", user.email)
               .orderBy("createdAt", "desc");
@@ -243,11 +265,24 @@ export default function AccountPage() {
     e.preventDefault();
     if (!profile?.accountId) return;
 
+    // 🌟 驗證電話號碼長度是否符合選擇的地區
+    const selectedCountryConfig = COUNTRY_CODES.find(c => c.code === phoneCountry) || COUNTRY_CODES[0];
+    const cleanPhone = phoneNumber.replace(/\D/g, ''); // 只保留數字
+
+    if (cleanPhone.length > 0) {
+      if (cleanPhone.length < selectedCountryConfig.minLen || cleanPhone.length > selectedCountryConfig.maxLen) {
+        alert(`${selectedCountryConfig.label} 的電話號碼長度必須介於 ${selectedCountryConfig.minLen} 至 ${selectedCountryConfig.maxLen} 位數之間！`);
+        return;
+      }
+    }
+
+    const fullPhone = cleanPhone ? `${phoneCountry} ${cleanPhone}` : '';
+
     setIsUpdatingProfile(true);
     try {
       await db.collection("users").doc(profile.accountId).update({
         name: editName.trim(),
-        phone: editPhone.trim(),
+        phone: fullPhone,
         gender: editGender,
         birthday: editBirthday,
         address: editAddress.trim(),
@@ -257,7 +292,7 @@ export default function AccountPage() {
       setProfile(prev => prev ? { 
         ...prev, 
         name: editName, 
-        phone: editPhone, 
+        phone: fullPhone, 
         gender: editGender, 
         birthday: editBirthday, 
         address: editAddress 
@@ -295,10 +330,8 @@ export default function AccountPage() {
       const deletedTag = `deleted_${Date.now()}`;
       const deletedEmailTag = `${deletedTag}_${originalEmail}`;
 
-      // 1. 先嘗試刪除 Firebase Authentication 內的帳戶
       await currentUser.delete();
 
-      // 2. 執行軟刪除：更新 Firestore 使用者狀態，釋放 Email
       await db.collection("users").doc(accountId).update({
         isDeleted: true,
         deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -309,21 +342,18 @@ export default function AccountPage() {
         storeCredit: 0
       });
 
-      // 3. 🌟 關鍵修正：將綁定給此 accountId 的專屬優惠券直接失效或變更 targetAccountId
-      // 這樣即使新用戶未來註冊了相同的 accountId，也絕對不會配對到這張舊優惠券
       const couponsSnap = await db.collection("coupons").where("targetAccountId", "==", accountId).get();
       if (!couponsSnap.empty) {
         const couponBatch = db.batch();
         couponsSnap.forEach((cDoc) => {
           couponBatch.update(cDoc.ref, { 
-            targetAccountId: `expired_${deletedTag}`, // 改變綁定對象，使新帳號無法讀取
-            usesLeft: 0 // 次數歸零徹底失效
+            targetAccountId: `expired_${deletedTag}`,
+            usesLeft: 0
           });
         });
         await couponBatch.commit();
       }
 
-      // 4. 清理歷史訂單關聯：將舊訂單 email 加上 deleted 前綴
       if (originalEmail) {
         const ordersSnap = await db.collection("orders").where("email", "==", originalEmail).get();
         if (!ordersSnap.empty) {
@@ -342,13 +372,11 @@ export default function AccountPage() {
       router.push('/');
     } catch (error: any) {
       console.error('帳戶註銷失敗:', error);
-      
       if (error.code === 'auth/requires-recent-login') {
         alert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，重新登入帳戶後，再立即執行一次註銷操作。');
       } else {
         alert('註銷失敗：' + (error.message || '未知錯誤'));
       }
-      
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
     }
@@ -395,6 +423,8 @@ export default function AccountPage() {
     return true;
   });
 
+  const currentCountryConfig = COUNTRY_CODES.find(c => c.code === phoneCountry) || COUNTRY_CODES[0];
+
   if (loading) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-[#FAF7F2] text-[#8C7B70]">
@@ -408,7 +438,6 @@ export default function AccountPage() {
 
   return (
     <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen font-sans pb-20 relative">
-      {/* 導覽列 */}
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-[#FAF7F2]/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#EBE5DF]">
         <Link href="/" className="text-[18px] font-bold tracking-[3px] uppercase text-[#B35B48] no-underline">
           VILLA ATELIER
@@ -422,7 +451,6 @@ export default function AccountPage() {
       </nav>
 
       <main className="max-w-4xl mx-auto pt-28 px-4 sm:px-6">
-        {/* 會員尊榮卡片 (強調陶土紅光芒) */}
         <div className="bg-[#382E2B] text-[#FAF7F2] rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden border border-[#4E403B]">
           <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-44 h-44 bg-[#B35B48]/25 rounded-full blur-2xl pointer-events-none" />
           
@@ -472,7 +500,6 @@ export default function AccountPage() {
           </div>
         </div>
 
-        {/* 分頁 Tab */}
         <div className="flex border-b border-[#EBE5DF] mb-8 overflow-x-auto no-scrollbar gap-2 md:gap-0.5">
           {[
             { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
@@ -503,7 +530,6 @@ export default function AccountPage() {
           ))}
         </div>
 
-        {/* TAB 1: 訂單記錄 */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
             <div className="flex gap-2 mb-4 overflow-x-auto">
@@ -606,7 +632,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 2: 優惠卷 */}
         {activeTab === 'coupons' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {coupons.length === 0 ? (
@@ -664,7 +689,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 3: 購物金 */}
         {activeTab === 'credits' && (
           <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
             <h3 className="font-semibold text-[#382E2B] text-base mb-2">💰 您的購物金與補償明細</h3>
@@ -705,7 +729,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 4: 我的收藏 */}
         {activeTab === 'favorites' && (
           <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
             <h3 className="font-semibold text-[#382E2B] text-base mb-2">❤️ 我的收藏清單 ({favorites.length})</h3>
@@ -759,7 +782,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 5: 會員權益 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
             <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6">
@@ -794,7 +816,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* TAB 6: 個人資料修改 */}
         {activeTab === 'profile' && (
           <div className="space-y-6">
             <div className="bg-white border border-[#EBE5DF] rounded-2xl p-6 shadow-xs">
@@ -834,15 +855,32 @@ export default function AccountPage() {
                     />
                   </div>
 
+                  {/* 🌟 聯絡電話：加入地區下拉選單與動態字數限制 */}
                   <div>
                     <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">聯絡電話</label>
-                    <input 
-                      type="tel" 
-                      value={editPhone} 
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="例如：+852 9123 4567"
-                      className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
-                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={phoneCountry}
+                        onChange={(e) => setPhoneCountry(e.target.value)}
+                        className="w-32 p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-xs font-mono focus:outline-none focus:border-[#B35B48] transition cursor-pointer shrink-0"
+                      >
+                        {COUNTRY_CODES.map(c => (
+                          <option key={c.code} value={c.code}>{c.label}</option>
+                        ))}
+                      </select>
+
+                      <input 
+                        type="tel"
+                        maxLength={currentCountryConfig.maxLen}
+                        value={phoneNumber} 
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                        placeholder={currentCountryConfig.placeholder}
+                        className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm font-mono focus:outline-none focus:border-[#B35B48] transition"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#7A6E65] mt-1">
+                      限制格式：{currentCountryConfig.label} 需輸入 {currentCountryConfig.minLen === currentCountryConfig.maxLen ? `${currentCountryConfig.maxLen} 位數` : `${currentCountryConfig.minLen}-${currentCountryConfig.maxLen} 位數`}
+                    </p>
                   </div>
                 </div>
 
@@ -866,7 +904,7 @@ export default function AccountPage() {
                     <input 
                       type="date" 
                       value={editBirthday} 
-                      max={today} // 設定最大日期為今天，避免選擇未來日期
+                      max={today}
                       onChange={(e) => setEditBirthday(e.target.value)}
                       className="w-full p-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-xl text-sm focus:outline-none focus:border-[#B35B48] transition"
                     />
@@ -884,7 +922,6 @@ export default function AccountPage() {
                   />
                 </div>
 
-                {/* 修改確認按鈕 */}
                 <button
                   type="submit"
                   disabled={isUpdatingProfile}
@@ -895,11 +932,10 @@ export default function AccountPage() {
               </form>
             </div>
 
-            {/* 登出與註銷 */}
             <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6 shadow-xs space-y-6">
               <div>
                 <h3 className="font-semibold text-[#382E2B] text-base mb-1">帳戶登出 (Logout)</h3>
-                <p className="text-xs text-[#7A6E65] mb-3">若您需要在共用裝置上登出目前帳戶，請點擊下方按鈕：</p>
+                <p className="text-xs text-[#7A6E65] mb-3">若您需要在共用裝置上登出目前帳戶, 請點擊下方按鈕：</p>
                 <button
                   onClick={handleLogout}
                   className="bg-[#382E2B] text-[#FAF7F2] px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#4E403B] transition cursor-pointer"
@@ -925,7 +961,6 @@ export default function AccountPage() {
         )}
       </main>
 
-      {/* 註銷 Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#EBE5DF]">
@@ -962,7 +997,6 @@ export default function AccountPage() {
         </div>
       )}
 
-      {/* Toast */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
