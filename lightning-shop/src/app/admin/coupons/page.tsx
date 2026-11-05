@@ -132,7 +132,7 @@ export default function AdminCouponsPage() {
       return;
     }
 
-    // 🌟 嚴格檢驗：確保完結時間必須大於開始時間至少一分鐘以上
+    // 🌟 嚴格檢驗：確保完結時間必須大於開始時間至少五分鐘以上
     if (!hasNoExpiry && startTime && endTime) {
       const startMs = new Date(startTime).getTime();
       const endMs = new Date(endTime).getTime();

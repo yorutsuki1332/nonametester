@@ -394,7 +394,7 @@ export default function Home() {
     if (selectedCoupon.discountType === 'fixed') {
       return Math.min(subtotalAfterMemberDiscount, selectedCoupon.discountValue);
     } else if (selectedCoupon.discountType === 'percent') {
-      const percentVal = selectedCoupon.discountValue <= 1 ? selectedCoupon.discountValue : selectedCoupon.discountValue / 100;
+      const percentVal = selectedCoupon.discountValue < 1 ? selectedCoupon.discountValue : selectedCoupon.discountValue / 100;
       return subtotalAfterMemberDiscount * percentVal;
     }
     return 0;
