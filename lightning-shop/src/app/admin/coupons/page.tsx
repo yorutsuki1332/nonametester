@@ -134,7 +134,7 @@ export default function AdminCouponsPage() {
       return;
     }
 
-    const finalDiscountValue = valNum;
+    const finalDiscountValue = valNum.toFixed(0); // 保留兩位小數
 
     // 次數計算：若勾選可重複使用或設定為永久，次數寫入 99999；否則採用輸入次數
     const finalUses = (isReusable || conditionType === 'infinite') 
@@ -192,8 +192,21 @@ export default function AdminCouponsPage() {
   };
 
   const getStartTimeMin = () => {
-    return startTime ? startTime : getNowDatetimeLocal();
-  };
+    if (!startTime) return getNowDatetimeLocal();
+
+    // 將字串轉為 Date 物件並加一分鐘
+    const dateObj = new Date(startTime);
+    dateObj.setMinutes(dateObj.getMinutes() + 1);
+
+    // 格式化回 yyyy-MM-ddTHH:mm 格式
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }; 
 
   return (
     <>
