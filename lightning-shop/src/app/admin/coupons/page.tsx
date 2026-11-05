@@ -205,6 +205,7 @@ export default function AdminCouponsPage() {
     const hours = String(dateObj.getHours()).padStart(2, '0');
     const minutes = String(dateObj.getMinutes()).padStart(2, '0');
 
+    console.log('getStartTimeMin:', `${year}-${month}-${day}T${hours}:${minutes}`);;
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   }; 
 
@@ -406,7 +407,7 @@ export default function AdminCouponsPage() {
                   if (c.discountType === 'fixed') {
                     displayDiscount = `折 HKD $${c.discountValue}`;
                   } else {
-                    const rawVal = c.discountValue <= 1 ? c.discountValue * 100 : c.discountValue;
+                    const rawVal = c.discountValue;
                     const offPercent = rawVal.toFixed(0);
                     const discountFold = (100 - Number(offPercent)) / 10;
                     displayDiscount = `-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
