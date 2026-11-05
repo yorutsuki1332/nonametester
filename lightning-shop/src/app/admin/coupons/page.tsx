@@ -20,8 +20,8 @@ interface Coupon {
   usesLeft: number;
   targetAccountId?: string | null;
   conditionType?: 'infinite' | 'counts' | 'periods';
-  startTime?: string;
-  endTime?: string;
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export default function AdminCouponsPage() {
@@ -34,13 +34,17 @@ export default function AdminCouponsPage() {
   const [discountType, setDiscountType] = useState<'fixed' | 'percent'>('fixed');
   const [discountValue, setDiscountValue] = useState('');
   
-  // 🌟 可重複使用與次數控制
-  const [isReusable, setIsReusable] = useState(false);
+  // 可重複使用與次數控制
+  const [isReusable, setIsReusable] = useState(true);
   const [usesLeft, setUsesLeft] = useState('1');
+
+  const [canHaveExpiryPeriod, setCanHaveExpiryPeriod] = useState(false);
   
   const [targetAccountId, setTargetAccountId] = useState('');
-  const [conditionType, setConditionType] = useState<'infinite' | 'counts' | 'periods'>('counts');
+  const [conditionType, setConditionType] = useState<'infinite' | 'counts' | 'periods'>('infinite');
   
+  // 無有效限期控制
+  const [hasNoExpiry, setHasNoExpiry] = useState(true);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   
@@ -51,8 +55,9 @@ export default function AdminCouponsPage() {
     const unsubscribeCoupons = db.collection("coupons").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Coupon[] = [];
       snapshot.forEach((doc) => {
-        const { id, ...data } = doc.data() as any;
-        list.push({ id: doc.id, ...data });
+        const data = doc.data() as any;
+        const { id: _, ...rest } = data; // 排除 data 裡的 id 避免覆寫警告
+        list.push({ id: doc.id, ...rest } as Coupon);
       });
       setCoupons(list);
     });
@@ -60,7 +65,9 @@ export default function AdminCouponsPage() {
     const unsubscribeUsers = db.collection("users").onSnapshot((snapshot) => {
       const userList: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        userList.push({ id: doc.id, ...doc.data() } as UserProfile);
+        const data = doc.data() as any;
+        const { id: _, ...rest } = data;
+        userList.push({ id: doc.id, ...rest } as UserProfile);
       });
       setUsers(userList);
     });
@@ -77,13 +84,26 @@ export default function AdminCouponsPage() {
     setTimeout(() => setIsToastShow(false), 3000);
   };
 
-  // 🌟 自動連動控制：當切換「有效條件」時，自動取消勾選或重新勾選「可重複使用」
+  // 🌟 核心修正：切換條件時，正確重設 isReusable 與 hasNoExpiry 狀態
   const handleConditionTypeChange = (newType: 'infinite' | 'counts' | 'periods') => {
     setConditionType(newType);
-    if (newType === 'counts') {
-      setIsReusable(false); // 選擇「有限次數」時，自動 uncheck 可重複使用，讓管理者輸入數字
-    } else {
-      setIsReusable(true);  // 選擇「永久有效」或「期間優惠」時，自動勾選可重複使用
+
+    if (newType === 'infinite') {
+      setIsReusable(true);       // 切回永久有效 -> 自動勾選「重複使用」
+      setHasNoExpiry(true);      // 自動勾選「無有效限期」
+      setCanHaveExpiryPeriod(false);
+      setStartTime('');
+      setEndTime('');
+    } else if (newType === 'periods') {
+      setIsReusable(true);       // 切回期間優惠 -> 自動勾選「重複使用」
+      setHasNoExpiry(false);     // 期間優惠預設需選擇時間
+      setCanHaveExpiryPeriod(true);
+    } else if (newType === 'counts') {
+      setIsReusable(false);      // 有限次數 -> 取消重複使用
+      setHasNoExpiry(true);      // 有限次數預設無有效限期
+      setCanHaveExpiryPeriod(true);
+      setStartTime('');
+      setEndTime('');
     }
   };
 
@@ -108,20 +128,16 @@ export default function AdminCouponsPage() {
       }
     }
 
-    if (conditionType === 'periods' && (!startTime || !endTime)) {
-      alert('期間優惠必須填寫開始時間與完結時間！');
+    // 當未勾選「無有效限期」時，必須輸入時間
+    if (!hasNoExpiry && (!startTime || !endTime)) {
+      alert('有設定有效限期時，必須填寫開始時間與完結時間！');
       return;
     }
 
-    if (conditionType === 'counts' && (!startTime || !endTime)) {
-      alert('次數優惠必須填寫開始時間與完結時間！');
-      return;
-    }
+    const finalDiscountValue = valNum;
 
-    const finalDiscountValue = discountType === 'percent' ? valNum / 100 : valNum;
-
-    // 🌟 次數計算：若勾選可重複使用或設定為永久/期間，次數寫入 99999；否則採用輸入次數
-    const finalUses = (isReusable || conditionType === 'infinite' || conditionType === 'periods') 
+    // 次數計算：若勾選可重複使用或設定為永久，次數寫入 99999；否則採用輸入次數
+    const finalUses = (isReusable || conditionType === 'infinite') 
       ? 99999 
       : (Number(usesLeft) || 1);
 
@@ -135,8 +151,8 @@ export default function AdminCouponsPage() {
         discountValue: finalDiscountValue,
         usesLeft: finalUses,
         conditionType,
-        startTime: (conditionType === 'periods' || conditionType === 'counts') ? startTime : null,
-        endTime: (conditionType === 'periods' || conditionType === 'counts') ? endTime : null,
+        startTime: !hasNoExpiry && startTime ? startTime : null,
+        endTime: !hasNoExpiry && endTime ? endTime : null,
         targetAccountId: targetAccountId.trim() ? targetAccountId.trim() : null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -147,9 +163,11 @@ export default function AdminCouponsPage() {
       setMinSpend('');
       setDiscountValue('');
       setUsesLeft('1');
-      setIsReusable(false);
+      setIsReusable(true);
       setTargetAccountId('');
-      setConditionType('counts');
+      setConditionType('infinite');
+      setCanHaveExpiryPeriod(false);
+      setHasNoExpiry(true);
       setStartTime('');
       setEndTime('');
     } catch (error: any) {
@@ -191,7 +209,6 @@ export default function AdminCouponsPage() {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">有效條件 <span className="text-[#B35B48] ml-1">*</span></label>
-              {/* 🌟 透過 onChange 觸發 handleConditionTypeChange 自動連動 */}
               <select 
                 value={conditionType} 
                 onChange={(e) => handleConditionTypeChange(e.target.value as any)}
@@ -220,19 +237,19 @@ export default function AdminCouponsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="flex gap-4 items-end md:grid md:grid-cols-2 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-end">
+            <div className="flex gap-4 items-end md:grid md:grid-cols-3 md:gap-3">
               <div className="flex flex-col gap-2 shrink-0">
                 <label className="text-xs font-semibold text-[#6E6058]">重複使用</label>
-                <label className="flex items-center gap-2 py-3 px-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-lg text-xs font-medium cursor-pointer">
+                <label className="flex items-center gap-2 py-3.5 px-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-lg text-xs font-medium cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={isReusable} 
                     onChange={(e) => setIsReusable(e.target.checked)} 
                     className="w-4 h-4 accent-[#B35B48] cursor-pointer"
-                    disabled={conditionType === 'counts'} // 🌟 若選擇「有限次數」時，禁用勾選可重複使用
+                    disabled={conditionType === 'counts'}
                   />
-                  可重複使用
+                  可以
                 </label>
               </div>
 
@@ -249,10 +266,31 @@ export default function AdminCouponsPage() {
                   min={1} 
                 />
               </div>
+
+              {/* 🌟 有效限期按鈕控制 */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-[#6E6058]">有效限期設定</label>
+                <label className="flex items-center justify-center gap-2 py-3.5 px-4 border border-[#EBE5DF] outline-none bg-[#FAF7F2] focus:border-[#B35B48] rounded-lg text-xs font-medium cursor-pointer transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]">
+                  <input 
+                    type="checkbox" 
+                    checked={hasNoExpiry} 
+                    onChange={(e) => {
+                      setHasNoExpiry(e.target.checked);
+                      if (e.target.checked) {
+                        setStartTime('');
+                        setEndTime('');
+                      }
+                    }}
+                    className="w-4 h-4 accent-[#B35B48] cursor-pointer bg-[#FAF7F2] transition"
+                    disabled={conditionType === 'infinite'}
+                  />
+                  無限
+                </label>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-[#6E6058]">開始時間 {conditionType === 'periods' && <span className="text-[#B35B48] ml-1">*</span>}</label>
+              <label className="text-xs font-semibold text-[#6E6058]">開始時間 {!hasNoExpiry && <span className="text-[#B35B48] ml-1">*</span>}</label>
               <input
                 type="datetime-local"
                 value={startTime}
@@ -260,13 +298,13 @@ export default function AdminCouponsPage() {
                 style={{ accentColor: '#B35B48' }}
                 min={getNowDatetimeLocal()}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
-                required={conditionType === 'periods'}
-                disabled={conditionType === 'infinite'}
+                required={!hasNoExpiry}
+                disabled={hasNoExpiry}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-[#6E6058]">完結時間 {conditionType === 'periods' && <span className="text-[#B35B48] ml-1">*</span>}</label>
+              <label className="text-xs font-semibold text-[#6E6058]">完結時間 {!hasNoExpiry && <span className="text-[#B35B48] ml-1">*</span>}</label>
               <input
                 type="datetime-local"
                 value={endTime}
@@ -274,15 +312,15 @@ export default function AdminCouponsPage() {
                 style={{ accentColor: '#B35B48' }}
                 min={getNowDatetimeLocal()}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
-                required={conditionType === 'periods'}
-                disabled={conditionType === 'infinite'}
+                required={!hasNoExpiry}
+                disabled={hasNoExpiry}
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-2 mb-6">
             <label className="text-xs font-semibold text-[#6E6058]">優惠描述文字</label>
-            <input type="text" value={discountText} onChange={(e) => setDiscountText(e.target.value)} placeholder="例如：客服補償專屬 9 折券" className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition" />
+            <input type="text" value={discountText} onChange={(e) => setDiscountText(e.target.value)} placeholder="例如：客服補償專屬 9 折券" className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm uppercase outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -297,24 +335,24 @@ export default function AdminCouponsPage() {
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">
                 折扣數值 <span className="text-[#B35B48] ml-1">*</span> 
-                {discountType === 'percent' && <span className="text-[11px] text-[#8C7B70] font-normal ml-1.5">(例: 輸入 30 即扣減 30%)</span>}
+                {discountType === 'percent' && <span className="text-[11px] text-[#8C7B70] font-normal ml-1.5">(例: 輸入 30 即扣減 30% / 7折)</span>}
               </label>
               <input 
                 type="number" 
-                step={discountType === 'fixed' ? '1' : '0.1'} 
+                step="any" 
                 value={discountValue} 
                 onChange={(e) => setDiscountValue(e.target.value)} 
                 placeholder={discountType === 'fixed' ? '例如：100' : '例如：30 (代表扣減 30%)'} 
-                min={0.01}
+                min={0}
                 max={discountType === 'percent' ? 100 : undefined}
-                className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition" 
+                className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" 
                 required 
               />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">最低消費門檻 ($)</label>
-              <input type="number" value={minSpend} onChange={(e) => setMinSpend(e.target.value)} placeholder="0 代表無門檻" min={0} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition" />
+              <input type="number" step="any" value={minSpend} onChange={(e) => setMinSpend(e.target.value)} placeholder="0 代表無門檻" min={0} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" />
             </div>
           </div>
 
@@ -327,7 +365,7 @@ export default function AdminCouponsPage() {
       <div className="bg-white rounded-2xl p-5 md:p-10 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF]">
         <h2 className="text-base font-serif font-semibold mb-5 pb-2.5 border-b border-[#EBE5DF] text-[#382E2B]">現有優惠券列表</h2>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm">
+          <table className="w-full border-collapse text-left text-sm min-w-175">
             <thead>
               <tr className="border-b border-[#EBE5DF] text-[#7A6E65]">
                 <th className="pb-3 font-semibold">代碼</th>
@@ -345,7 +383,17 @@ export default function AdminCouponsPage() {
               ) : (
                 coupons.map(c => {
                   const now = new Date().getTime();
-                  const isExpired = (c.conditionType === 'periods' || c.conditionType === 'counts') && c.endTime ? new Date(c.endTime).getTime() < now : false;
+                  const isExpired = c.endTime ? new Date(c.endTime).getTime() < now : false;
+
+                  let displayDiscount = '';
+                  if (c.discountType === 'fixed') {
+                    displayDiscount = `折 HKD $${c.discountValue}`;
+                  } else {
+                    const rawVal = c.discountValue <= 1 ? c.discountValue * 100 : c.discountValue;
+                    const offPercent = rawVal;
+                    const discountFold = (100 - rawVal) / 10;
+                    displayDiscount = `-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
+                  }
 
                   return (
                     <tr key={c.id} className="border-b border-[#F4F0EA] hover:bg-[#FAF7F2]">
@@ -358,37 +406,25 @@ export default function AdminCouponsPage() {
                         )}
                       </td>
                       <td className="py-3.5 text-xs">
-                        {c.conditionType === 'infinite' ? (
-                          <span className="text-emerald-700 font-medium">永久有效</span>
-                        ) : c.conditionType === 'periods' ? (
-                          <div>
-                            {isExpired ? (
-                              <span className="text-rose-700 font-bold block">🔴 已過期</span>
-                            ) : (
-                              <span className="text-blue-700 font-medium block">🟢 期間優惠 (進行中)</span>
-                            )}
-                            <span className="text-[10px] text-[#8C7B70]">{c.startTime?.replace('T', ' ')} ~ {c.endTime?.replace('T', ' ')}</span>
-                          </div>
+                        {!c.endTime ? (
+                          <span className="text-emerald-700 font-medium">🟢 無有效限期</span>
                         ) : (
                           <div>
                             {isExpired ? (
                               <span className="text-rose-700 font-bold block">🔴 已過期</span>
                             ) : (
-                              <span className="text-blue-700 font-medium block">🟢 有效限期內 + 有限次數</span>
+                              <span className="text-blue-700 font-medium block">🟢 進行中</span>
                             )}
                             <span className="text-[10px] text-[#8C7B70]">{c.startTime?.replace('T', ' ')} ~ {c.endTime?.replace('T', ' ')}</span>
                           </div>
                         )}
                       </td>
                       <td className="py-3.5 text-[#382E2B]">{c.discountText}</td>
-                      <td className="py-3.5 text-[#382E2B] font-mono">
-                        {c.discountType === 'fixed' 
-                          ? `折 $${c.discountValue}` 
-                          : `${(100 - c.discountValue * 100).toFixed(0)}% OFF (${((1 - c.discountValue) * 10).toFixed(1)}折)`
-                        }
+                      <td className="py-3.5 text-[#B35B48] font-semibold font-mono">
+                        {displayDiscount}
                       </td>
                       <td className="py-3.5 font-semibold font-mono text-[#B35B48]">
-                        {(c.usesLeft >= 99999 || c.conditionType === 'infinite' || c.conditionType === 'periods') ? '無限次' : `${c.usesLeft} 次`}
+                        {(c.usesLeft >= 99999 || c.conditionType === 'infinite') ? '無限次' : `${c.usesLeft} 次`}
                       </td>
                       <td className="py-3.5 text-right">
                         <button onClick={() => handleDeleteCoupon(c.id)} className="text-rose-700 hover:underline text-xs bg-rose-50 border border-rose-200 px-3 py-1 rounded-md transition cursor-pointer">刪除</button>

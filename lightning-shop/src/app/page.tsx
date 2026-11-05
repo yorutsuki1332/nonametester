@@ -47,6 +47,14 @@ interface UserProfile {
   isDeleted?: boolean;
 }
 
+interface TierItem {
+  id: string;
+  name: string;
+  badge: string;
+  threshold: number;
+  discount: number;
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -66,6 +74,13 @@ export default function Home() {
   const [userTotalSpent, setUserTotalSpent] = useState<number>(0);
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
+
+  // 🌟 動態會員等級清單 (從 Firestore settings/member_tiers 讀取)
+  const [tierList, setTierList] = useState<TierItem[]>([
+    { id: 'silver', name: '銀卡會員 Silver', badge: '🥈', threshold: 0, discount: 1.0 },
+    { id: 'gold', name: '金卡會員 Gold', badge: '🥇', threshold: 1000, discount: 0.95 },
+    { id: 'diamond', name: '鑽石會員 Diamond', badge: '💎', threshold: 3000, discount: 0.90 }
+  ]);
 
   // 會員表單與完整資料
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -105,6 +120,17 @@ export default function Home() {
       try { setCart(JSON.parse(savedCart)); } catch (e) {}
     }
 
+    // 即時監聽 Firestore 會員等級設定
+    const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
+      if (doc.exists) {
+        const data = doc.data() as any;
+        if (data?.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) {
+          const sorted = [...data.tiers].sort((a, b) => Number(b.threshold) - Number(a.threshold));
+          setTierList(sorted);
+        }
+      }
+    });
+
     const unsubscribeProducts = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Product[] = [];
       snapshot.forEach((doc) => {
@@ -116,7 +142,15 @@ export default function Home() {
       setFilteredProducts(list);
     });
 
+    let unsubscribeOrders: (() => void) | null = null;
+    let unsubscribeUserDoc: (() => void) | null = null;
+    let unsubscribeFavs: (() => void) | null = null;
+
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+      if (unsubscribeOrders) unsubscribeOrders();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeFavs) unsubscribeFavs();
+
       let loggedInAccountId = ''; 
       
       if (user) {
@@ -138,25 +172,49 @@ export default function Home() {
           const activeDocs = querySnapshot.docs.filter(d => !d.data()?.isDeleted);
 
           if (activeDocs.length > 0) {
-            const doc = activeDocs[0];
-            loggedInAccountId = doc.id;
-            const userData = doc.data() as UserProfile;
+            const userDocSnap = activeDocs[0];
+            loggedInAccountId = userDocSnap.id;
             setCurrentAccountId(loggedInAccountId);
-            setUserStoreCredit(userData.storeCredit || 0);
-            setUserProfile(userData);
 
-            db.collection("orders").where("email", "==", user.email).onSnapshot((ordersSnap) => {
-              let spent = 0;
-              ordersSnap.forEach((oDoc) => {
-                const orderData = oDoc.data();
-                if (orderData.status !== 'cancelled') {
-                  spent += Number(orderData.total || 0);
-                }
-              });
-              setUserTotalSpent(spent);
+            // 🌟 1. 即時監聽用戶個人檔與購物金
+            unsubscribeUserDoc = db.collection("users").doc(loggedInAccountId).onSnapshot((doc) => {
+              if (doc.exists) {
+                const userData = doc.data() as UserProfile;
+                setUserStoreCredit(userData.storeCredit || 0);
+                setUserProfile(userData);
+              }
             });
 
-            db.collection("users").doc(loggedInAccountId).collection("favorites").onSnapshot((favSnap) => {
+            // 🌟 2. 修復：依 accountId 即時計算累積消費金額，自動偵測會員等級
+            unsubscribeOrders = db.collection("orders")
+              .where("accountId", "==", loggedInAccountId)
+              .onSnapshot((ordersSnap) => {
+                let spent = 0;
+                ordersSnap.forEach((oDoc) => {
+                  const orderData = oDoc.data();
+                  if (orderData.status !== 'cancelled') {
+                    spent += Number(orderData.total || 0);
+                  }
+                });
+                setUserTotalSpent(spent);
+              }, (err) => {
+                // 若依 accountId 查不到，備用以 email 查詢
+                if (user.email) {
+                  db.collection("orders").where("email", "==", user.email).onSnapshot((eSnap) => {
+                    let spent = 0;
+                    eSnap.forEach((oDoc) => {
+                      const orderData = oDoc.data();
+                      if (orderData.status !== 'cancelled') {
+                        spent += Number(orderData.total || 0);
+                      }
+                    });
+                    setUserTotalSpent(spent);
+                  });
+                }
+              });
+
+            // 3. 監聽收藏
+            unsubscribeFavs = db.collection("users").doc(loggedInAccountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
                 favMap[fDoc.id] = true;
@@ -230,8 +288,12 @@ export default function Home() {
     });
 
     return () => {
+      unsubscribeTier();
       unsubscribeProducts();
       unsubscribeAuth();
+      if (unsubscribeOrders) unsubscribeOrders();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeFavs) unsubscribeFavs();
     };
   }, []);
 
@@ -311,14 +373,16 @@ export default function Home() {
 
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  const getMemberTierRate = () => {
-    if (!currentUser) return 1;
-    if (userTotalSpent >= 3000) return 0.90;
-    if (userTotalSpent >= 1000) return 0.95;
-    return 1;
+  // 🌟 自動根據用戶總消費（userTotalSpent）對照等級門檻匹配最高會員等級
+  const getCurrentUserTier = (): TierItem | null => {
+    if (!currentUser) return null;
+    const sorted = [...tierList].sort((a, b) => Number(b.threshold) - Number(a.threshold));
+    const matched = sorted.find(t => userTotalSpent >= Number(t.threshold));
+    return matched || null;
   };
 
-  const memberTierRate = getMemberTierRate();
+  const currentTier = getCurrentUserTier();
+  const memberTierRate = currentTier ? Number(currentTier.discount) : 1;
   const memberDiscountAmount = currentSubtotal * (1 - memberTierRate);
   const subtotalAfterMemberDiscount = Math.max(0, currentSubtotal - memberDiscountAmount);
 
@@ -337,7 +401,8 @@ export default function Home() {
     if (selectedCoupon.discountType === 'fixed') {
       return Math.min(subtotalAfterMemberDiscount, selectedCoupon.discountValue);
     } else if (selectedCoupon.discountType === 'percent') {
-      return subtotalAfterMemberDiscount * (1 - selectedCoupon.discountValue);
+      const percentVal = selectedCoupon.discountValue <= 1 ? selectedCoupon.discountValue : selectedCoupon.discountValue / 100;
+      return subtotalAfterMemberDiscount * percentVal;
     }
     return 0;
   };
@@ -600,7 +665,6 @@ export default function Home() {
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen;
 
-  // 🌟 新增：當購物車、登入或結帳視窗開啟時，鎖定背景 body 捲動
   useEffect(() => {
     if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -887,10 +951,11 @@ export default function Home() {
               <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
             </div>
 
-            {memberDiscountAmount > 0 && (
+            {/* 🌟 自動感應會員等級並顯示對應折數 */}
+            {memberDiscountAmount > 0 && currentTier && (
               <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>
-                  {userTotalSpent >= 3000 ? '💎 鑽石會員 9折折扣' : '🥇 金卡會員 95折折扣'}
+                  {currentTier.badge} {currentTier.name} {(Number(currentTier.discount) * 100).toFixed(0)}折折扣
                 </span>
                 <span>- HKD {Number(memberDiscountAmount).toFixed(1)}</span>
               </div>
@@ -955,9 +1020,11 @@ export default function Home() {
 
             <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-5 text-[13px] border border-[#EBE5DF]">
               <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
-              {memberDiscountAmount > 0 && (
+              {memberDiscountAmount > 0 && currentTier && (
                 <div className="flex justify-between mb-1 text-[#B35B48]">
-                  <span>{userTotalSpent >= 3000 ? '鑽石會員尊榮 9折：' : '金卡會員尊榮 95折：'}</span>
+                  <span>
+                    {currentTier.badge} {currentTier.name} {(Number(currentTier.discount) * 100).toFixed(0)}折：
+                  </span>
                   <span>- HKD ${memberDiscountAmount.toFixed(1)}</span>
                 </div>
               )}

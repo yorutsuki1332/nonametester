@@ -62,7 +62,14 @@ interface FavoriteItem {
   category?: string;
 }
 
-// 🌟 定義支援的地區與號碼長度限制
+interface TierItem {
+  id: string;
+  name: string;
+  badge: string;
+  threshold: number;
+  discount: number;
+}
+
 const COUNTRY_CODES = [
   { code: '+852', label: '香港 (+852)', minLen: 8, maxLen: 8, placeholder: '請輸入 8 位號碼' },
   { code: '+886', label: '台灣 (+886)', minLen: 9, maxLen: 10, placeholder: '請輸入 9-10 位號碼' },
@@ -81,17 +88,21 @@ export default function AccountPage() {
   const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   
+  // 🌟 動態會員等級設定
+  const [tierList, setTierList] = useState<TierItem[]>([
+    { id: 'silver', name: '銀卡會員 Silver', badge: '🥈', threshold: 0, discount: 1.0 },
+    { id: 'gold', name: '金卡會員 Gold', badge: '🥇', threshold: 1000, discount: 0.95 },
+    { id: 'diamond', name: '鑽石會員 Diamond', badge: '💎', threshold: 3000, discount: 0.90 }
+  ]);
+  
   const [activeTab, setActiveTab] = useState<'orders' | 'coupons' | 'credits' | 'favorites' | 'level' | 'profile'>('orders');
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'shipped' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
 
   // 詳細個人資料編輯狀態
   const [editName, setEditName] = useState('');
-  
-  // 🌟 拆分電話號碼為「地區」與「號碼」
   const [phoneCountry, setPhoneCountry] = useState('+852');
   const [phoneNumber, setPhoneNumber] = useState('');
-
   const [editGender, setEditGender] = useState('prefer_not_to_say');
   const [editBirthday, setEditBirthday] = useState('');
   const [editAddress, setEditAddress] = useState('');
@@ -115,6 +126,18 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
+    // 🌟 監聽 Firestore 中的會員等級設定
+    const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
+      if (doc.exists) {
+        const data = doc.data() as any;
+        if (data?.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) {
+          // 門檻由低到高排序
+          const sorted = [...data.tiers].sort((a, b) => Number(a.threshold) - Number(b.threshold));
+          setTierList(sorted);
+        }
+      }
+    });
+
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setCurrentUser(user);
@@ -128,7 +151,6 @@ export default function AccountPage() {
             setProfile({ ...userData, accountId: docId });
             setEditName(userData.name || '');
 
-            // 🌟 嘗試解析資料庫中的 phone（例如 "+852 91234567"）
             if (userData.phone) {
               const parts = userData.phone.trim().split(' ');
               if (parts.length >= 2 && COUNTRY_CODES.some(c => c.code === parts[0])) {
@@ -248,26 +270,67 @@ export default function AccountPage() {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeTier();
+      unsubscribeAuth();
+    };
   }, [router]);
 
-  const totalSpent = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const totalSpent = orders.reduce((sum, order) => sum + (order.status !== 'cancelled' ? (order.total || 0) : 0), 0);
 
-  const getMemberTier = (spent: number) => {
-    if (spent >= 3000) return { tier: '鑽石會員 Diamond', color: 'bg-[#B35B48] text-white border border-[#B35B48]', nextTier: '已達最高等級', progress: 100, target: 3000 };
-    if (spent >= 1000) return { tier: '金卡會員 Gold', color: 'bg-[#C28C7A] text-white', nextTier: '鑽石會員', progress: Math.min(100, (spent / 3000) * 100), target: 3000 };
-    return { tier: '銀卡會員 Silver', color: 'bg-[#F4F0EA] text-[#6E6058] border border-[#EBE5DF]', nextTier: '金卡會員', progress: Math.min(100, (spent / 1000) * 100), target: 1000 };
+  // 🌟 動態計算當前等級與進度資訊
+  const getDynamicTierInfo = (spent: number) => {
+    if (tierList.length === 0) {
+      return { tier: '貴賓會員', badge: '👑', color: 'bg-[#F4F0EA] text-[#6E6058]', nextTier: '已達最高等級', progress: 100, target: 0 };
+    }
+
+    // 由低到高排序
+    const sortedAsc = [...tierList].sort((a, b) => Number(a.threshold) - Number(b.threshold));
+    
+    // 找出當前已解鎖的最高等級
+    let currentTierItem = sortedAsc[0];
+    let nextTierItem: TierItem | null = null;
+
+    for (let i = 0; i < sortedAsc.length; i++) {
+      if (spent >= sortedAsc[i].threshold) {
+        currentTierItem = sortedAsc[i];
+        nextTierItem = sortedAsc[i + 1] || null;
+      }
+    }
+
+    if (!nextTierItem) {
+      return {
+        tier: currentTierItem.name,
+        badge: currentTierItem.badge,
+        color: 'bg-[#B35B48] text-white border border-[#B35B48]',
+        nextTier: '已達最高等級',
+        progress: 100,
+        target: currentTierItem.threshold
+      };
+    }
+
+    const currentThres = currentTierItem.threshold;
+    const nextThres = nextTierItem.threshold;
+    const progress = Math.min(100, Math.max(0, ((spent - currentThres) / (nextThres - currentThres)) * 100));
+
+    return {
+      tier: currentTierItem.name,
+      badge: currentTierItem.badge,
+      color: 'bg-[#C28C7A] text-white',
+      nextTier: nextTierItem.name,
+      progress: isNaN(progress) ? 0 : progress,
+      target: nextThres
+    };
   };
 
-  const currentTier = getMemberTier(totalSpent);
+  const currentTierInfo = getDynamicTierInfo(totalSpent);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile?.accountId) return;
 
-    // 🌟 驗證電話號碼長度是否符合選擇的地區
     const selectedCountryConfig = COUNTRY_CODES.find(c => c.code === phoneCountry) || COUNTRY_CODES[0];
-    const cleanPhone = phoneNumber.replace(/\D/g, ''); // 只保留數字
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
 
     if (cleanPhone.length > 0) {
       if (cleanPhone.length < selectedCountryConfig.minLen || cleanPhone.length > selectedCountryConfig.maxLen) {
@@ -460,8 +523,9 @@ export default function AccountPage() {
                 <h1 className="text-2xl font-serif tracking-wide text-[#FAF7F2]">
                   {profile?.name || profile?.accountId || '貴賓會員'}
                 </h1>
-                <span className={`text-xs px-3 py-1 rounded-full font-semibold ${currentTier.color}`}>
-                  {currentTier.tier}
+                <span className={`text-xs px-3 py-1 rounded-full font-semibold flex items-center gap-1 ${currentTierInfo.color}`}>
+                  <span>{currentTierInfo.badge}</span>
+                  <span>{currentTierInfo.tier}</span>
                 </span>
               </div>
               <p className="text-[#C4B7AD] text-xs tracking-wider">
@@ -486,15 +550,15 @@ export default function AccountPage() {
             <div className="flex justify-between text-xs text-[#D6C7BC] mb-2">
               <span>會員權益進度</span>
               <span>
-                {currentTier.nextTier === '已達最高等級' 
+                {currentTierInfo.nextTier === '已達最高等級' 
                   ? '已享有頂級尊榮特權' 
-                  : `距離 ${currentTier.nextTier} 還差 HKD $${Math.max(0, currentTier.target - totalSpent).toLocaleString()}`}
+                  : `距離 ${currentTierInfo.nextTier} 還差 HKD $${Math.max(0, currentTierInfo.target - totalSpent).toLocaleString()}`}
               </span>
             </div>
             <div className="w-full bg-[#27201E] h-2 rounded-full overflow-hidden">
               <div 
                 className="bg-[#B35B48] h-full rounded-full transition-all duration-500"
-                style={{ width: `${currentTier.progress}%` }}
+                style={{ width: `${currentTierInfo.progress}%` }}
               />
             </div>
           </div>
@@ -782,35 +846,48 @@ export default function AccountPage() {
           </div>
         )}
 
+        {/* 🌟 動態顯示所有會員等級與權益說明 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
             <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6">
               <h3 className="font-serif font-semibold text-[#382E2B] text-base mb-4">🏆 VILLA ATELIER 會員尊榮階級指南</h3>
               
               <div className="space-y-4 text-sm">
-                <div className="p-4 bg-white rounded-xl border border-[#EBE5DF] flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-[#6E6058]">🥈 銀卡會員 Silver</h4>
-                    <p className="text-xs text-[#7A6E65] mt-1">註冊即可加入 | 享有生日專屬禮券</p>
-                  </div>
-                  <span className="text-xs font-mono text-[#7A6E65]">滿 $0</span>
-                </div>
+                {tierList.map(tier => {
+                  const isCurrent = currentTierInfo.tier === tier.name;
+                  const discountFold = (Number(tier.discount) * 10).toFixed(1);
 
-                <div className="p-4 bg-[#C28C7A]/20 rounded-xl border border-[#C28C7A] flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-[#B35B48]">🥇 金卡會員 Gold</h4>
-                    <p className="text-xs text-[#6E6058] mt-1">全館結帳享 95 折折扣 | 專屬免運券 x2 / 月</p>
-                  </div>
-                  <span className="text-xs font-mono font-semibold text-[#B35B48]">累積滿 HKD $1,000</span>
-                </div>
-
-                <div className="p-4 bg-[#B35B48] text-white rounded-xl flex justify-between items-center shadow-xs">
-                  <div>
-                    <h4 className="font-bold text-white">💎 鑽石會員 Diamond</h4>
-                    <p className="text-xs text-stone-100 mt-1">全館結帳享 9 折最高折扣 | 全年免運費特權 | 新品優先搶購</p>
-                  </div>
-                  <span className="text-xs font-mono font-semibold text-white">累積滿 HKD $3,000</span>
-                </div>
+                  return (
+                    <div 
+                      key={tier.id} 
+                      className={`p-4 rounded-xl border flex justify-between items-center transition ${
+                        isCurrent 
+                          ? 'bg-[#B35B48] text-white border-[#B35B48] shadow-md' 
+                          : 'bg-white border-[#EBE5DF] text-[#382E2B]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{tier.badge}</span>
+                          <h4 className="font-bold text-base">{tier.name}</h4>
+                          {isCurrent && (
+                            <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded font-semibold border border-white/30">
+                              目前等級
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-xs mt-1 ${isCurrent ? 'text-stone-100' : 'text-[#7A6E65]'}`}>
+                          {tier.discount < 1 
+                            ? `全館結帳尊享 ${discountFold} 折最高折扣` 
+                            : '註冊即可加入 | 享有專屬優惠權益'}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-mono font-semibold shrink-0 ml-3 ${isCurrent ? 'text-white' : 'text-[#B35B48]'}`}>
+                        累積滿 HKD ${Number(tier.threshold).toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -855,7 +932,6 @@ export default function AccountPage() {
                     />
                   </div>
 
-                  {/* 🌟 聯絡電話：加入地區下拉選單與動態字數限制 */}
                   <div>
                     <label className="block text-xs font-semibold text-[#6E6058] mb-1.5">聯絡電話</label>
                     <div className="flex gap-2">
