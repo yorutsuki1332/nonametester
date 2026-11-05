@@ -38,6 +38,8 @@ interface Coupon {
   id: string;
   code: string;
   discountText: string;
+  discountType: string;
+  discountValue: number;
   minSpend: number;
   usesLeft: number;
   targetAccountId?: string | null;
@@ -715,9 +717,14 @@ export default function AccountPage() {
                         <span className="text-xs font-semibold text-white bg-[#B35B48] px-2.5 py-0.5 rounded-md inline-block mb-2">
                           {coupon.discountText}
                         </span>
-                        <p className="text-xs text-[#7A6E65]">
-                          {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
-                        </p>
+                        <div className="flex flex-row gap-4">
+                          <p className="text-xs text-[#7A6E65]">
+                            {coupon.discountType === 'percent' ? `${coupon.discountValue}% 折扣` : `HKD $${coupon.discountValue} 現金折抵`}
+                          </p>
+                          <p className="text-xs text-[#7A6E65]">
+                            {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
