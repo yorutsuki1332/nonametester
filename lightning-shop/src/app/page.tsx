@@ -67,6 +67,9 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
+  // 結帳步驟控制 (1: 填寫收件資料, 2: 結帳再確認頁面)
+  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
+
   // 折扣券、購物金、會員等級與收藏狀態
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
@@ -75,7 +78,7 @@ export default function Home() {
   const [useCredit, setUseCredit] = useState<boolean>(false);
   const [userFavorites, setUserFavorites] = useState<{ [productId: string]: boolean }>({});
 
-  // 🌟 動態會員等級清單 (從 Firestore settings/member_tiers 讀取)
+  // 動態會員等級清單
   const [tierList, setTierList] = useState<TierItem[]>([
     { id: 'silver', name: '銀卡會員 Silver', badge: '🥈', threshold: 0, discount: 1.0 },
     { id: 'gold', name: '金卡會員 Gold', badge: '🥇', threshold: 1000, discount: 0.95 },
@@ -100,13 +103,10 @@ export default function Home() {
   // 圖片輪播
   const [sliderIndexes, setSliderIndexes] = useState<{ [key: string]: number }>({});
   
-  // 結帳表單狀態
+  // 結帳表單狀態 (已移除模擬信用卡欄位)
   const [shippingName, setShippingName] = useState('');
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
   const [isPaying, setIsPaying] = useState(false);
 
   // 手機滑動紀錄
@@ -114,13 +114,11 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    // 初始載入預設訪客購物車
     const savedCart = localStorage.getItem('villa_atelier_cart_guest');
     if (savedCart) {
       try { setCart(JSON.parse(savedCart)); } catch (e) {}
     }
 
-    // 即時監聽 Firestore 會員等級設定
     const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
       if (doc.exists) {
         const data = doc.data() as any;
@@ -176,7 +174,6 @@ export default function Home() {
             loggedInAccountId = userDocSnap.id;
             setCurrentAccountId(loggedInAccountId);
 
-            // 🌟 1. 即時監聽用戶個人檔與購物金
             unsubscribeUserDoc = db.collection("users").doc(loggedInAccountId).onSnapshot((doc) => {
               if (doc.exists) {
                 const userData = doc.data() as UserProfile;
@@ -185,7 +182,6 @@ export default function Home() {
               }
             });
 
-            // 🌟 2. 修復：依 accountId 即時計算累積消費金額，自動偵測會員等級
             unsubscribeOrders = db.collection("orders")
               .where("accountId", "==", loggedInAccountId)
               .onSnapshot((ordersSnap) => {
@@ -198,7 +194,6 @@ export default function Home() {
                 });
                 setUserTotalSpent(spent);
               }, (err) => {
-                // 若依 accountId 查不到，備用以 email 查詢
                 if (user.email) {
                   db.collection("orders").where("email", "==", user.email).onSnapshot((eSnap) => {
                     let spent = 0;
@@ -213,7 +208,6 @@ export default function Home() {
                 }
               });
 
-            // 3. 監聽收藏
             unsubscribeFavs = db.collection("users").doc(loggedInAccountId).collection("favorites").onSnapshot((favSnap) => {
               const favMap: { [productId: string]: boolean } = {};
               favSnap.forEach(fDoc => {
@@ -373,7 +367,6 @@ export default function Home() {
 
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // 🌟 自動根據用戶總消費（userTotalSpent）對照等級門檻匹配最高會員等級
   const getCurrentUserTier = (): TierItem | null => {
     if (!currentUser) return null;
     const sorted = [...tierList].sort((a, b) => Number(b.threshold) - Number(a.threshold));
@@ -548,16 +541,9 @@ export default function Home() {
     }
   };
 
-  const handleExpiryInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, '');
-    if (val.length > 2) {
-      val = val.substring(0, 2) + '/' + val.substring(2, 4);
-    }
-    setCardExpiry(val);
-  };
-
   const openCheckoutModal = () => {
     setIsCartOpen(false);
+    setCheckoutStep(1); // 每次打開回到第一步填寫
     if (userProfile) {
       if (userProfile.name) setShippingName(userProfile.name);
       if (userProfile.email) setShippingEmail(userProfile.email);
@@ -568,8 +554,18 @@ export default function Home() {
     setIsPaymentOpen(true);
   };
 
-  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+  // 進入結帳再確認步驟
+  const handleProceedToReview = (e: React.FormEvent) => {
     e.preventDefault();
+    if (cart.length === 0) return alert('購物車是空的！');
+    if (!shippingName.trim() || !shippingEmail.trim() || !shippingAddress.trim()) {
+      alert('請完整填寫收件資訊！');
+      return;
+    }
+    setCheckoutStep(2);
+  };
+
+  const handleCheckoutSubmit = async () => {
     if (cart.length === 0) return alert('購物車是空的！');
 
     if (selectedCoupon && calculateCouponDiscount() === 0 && selectedCoupon.discountValue > 0) {
@@ -649,11 +645,12 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        alert(`🎉 付款成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計支付：HKD ${finalTotal.toFixed(1)}`);
+        alert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}`);
         saveCartToStorage([]);
         setSelectedCoupon(null);
         setUseCredit(false);
         setIsPaymentOpen(false);
+        setCheckoutStep(1);
         setIsPaying(false);
       }, 1500);
     } catch (error: any) {
@@ -951,7 +948,6 @@ export default function Home() {
               <span>HKD {Number(currentSubtotal).toFixed(1)}</span>
             </div>
 
-            {/* 🌟 自動感應會員等級並顯示對應折數 */}
             {memberDiscountAmount > 0 && currentTier && (
               <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>
@@ -990,12 +986,14 @@ export default function Home() {
         )}
       </div>
 
-      {/* 結帳 Modal */}
-      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-125 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-[0_10px_40px_rgba(56,46,43,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
+      {/* 結帳 Modal (支援 Step 1 填寫收件資料 與 Step 2 結帳再確認頁面) */}
+      <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-135 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-[0_10px_40px_rgba(56,46,43,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
         <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
           <div className="flex items-center gap-2">
-            <h2 className="text-[18px] font-semibold text-[#382E2B]">安全結帳</h2>
-            {userProfile && (
+            <h2 className="text-[18px] font-semibold text-[#382E2B]">
+              {checkoutStep === 1 ? '安全結帳 (步驟 1/2：填寫收件資料)' : '訂單確認 (步驟 2/2：再確認詳情)'}
+            </h2>
+            {userProfile && checkoutStep === 1 && (
               <span className="text-[10px] bg-[#B35B48] text-white px-2 py-0.5 rounded-full font-medium">
                 ✨ 已自動帶入會員資料
               </span>
@@ -1003,58 +1001,108 @@ export default function Home() {
           </div>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsPaymentOpen(false)}>&times;</button>
         </div>
-        <div className="p-6.25 max-h-[70vh] overflow-y-auto">
-          <form onSubmit={handleCheckoutSubmit}>
-            <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
-              <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入真實姓名" required />
-            </div>
-            <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (接收訂單通知)</label>
-              <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
-            </div>
-            <div className="mb-5">
-              <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
-              <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入完整收件地址" required />
-            </div>
 
-            <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-5 text-[13px] border border-[#EBE5DF]">
-              <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
-              {memberDiscountAmount > 0 && currentTier && (
-                <div className="flex justify-between mb-1 text-[#B35B48]">
-                  <span>
-                    {currentTier.badge} {currentTier.name} {(Number(currentTier.discount) * 100).toFixed(0)}折：
-                  </span>
-                  <span>- HKD ${memberDiscountAmount.toFixed(1)}</span>
-                </div>
-              )}
-              {couponDiscountAmount > 0 && (
-                <div className="flex justify-between mb-1 text-[#B35B48]"><span>優惠券折抵：</span><span>- HKD ${couponDiscountAmount.toFixed(1)}</span></div>
-              )}
-              {creditToDeduct > 0 && (
-                <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
-              )}
-              <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span></div>
-            </div>
-            
-            <hr className="border-0 border-t border-dashed border-[#EBE5DF] my-6.25" />
-            
-            <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">信用卡資訊 (模擬)</label>
-            <div className="p-3.75 border border-[#EBE5DF] rounded-lg bg-white flex items-center gap-2.5 mb-5">
-              <div className="text-[24px]">💳</div>
-              <div className="grow">
-                <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full border-none p-0 bg-transparent mb-1.5 outline-none text-[14px]" placeholder="0000 0000 0000 0000" required />
-                <div className="flex gap-2.5">
-                  <input type="text" value={cardExpiry} onChange={handleExpiryInput} className="w-15 border-none p-0 bg-transparent outline-none text-[14px]" placeholder="MM/YY" required maxLength={5} />
-                  <input type="text" value={cardCvc} onChange={(e) => setCardCvc(e.target.value)} className="w-12.5 border-none p-0 bg-transparent outline-none text-[14px]" placeholder="CVC" required maxLength={4} />
+        <div className="p-6.25 max-h-[70vh] overflow-y-auto">
+          {checkoutStep === 1 ? (
+            /* 步驟 1：填寫收件資料表單 */
+            <form onSubmit={handleProceedToReview}>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
+                <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入真實姓名" required />
+              </div>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (接收訂單通知)</label>
+                <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
+              </div>
+              <div className="mb-6">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
+                <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入完整收件地址" required />
+              </div>
+
+              <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-6 text-[13px] border border-[#EBE5DF]">
+                <div className="flex justify-between mb-1"><span>商品總額：</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
+                {memberDiscountAmount > 0 && currentTier && (
+                  <div className="flex justify-between mb-1 text-[#B35B48]">
+                    <span>{currentTier.badge} {currentTier.name} 優惠：</span>
+                    <span>- HKD ${memberDiscountAmount.toFixed(1)}</span>
+                  </div>
+                )}
+                {couponDiscountAmount > 0 && (
+                  <div className="flex justify-between mb-1 text-[#B35B48]"><span>優惠券折抵：</span><span>- HKD ${couponDiscountAmount.toFixed(1)}</span></div>
+                )}
+                {creditToDeduct > 0 && (
+                  <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
+                )}
+                <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span></div>
+              </div>
+
+              <button type="submit" className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
+                下一步：確認訂單詳情
+              </button>
+            </form>
+          ) : (
+            /* 步驟 2：結帳再確認頁面 */
+            <div className="flex flex-col gap-5">
+              <div className="bg-[#F4F0EA] p-4 rounded-xl border border-[#EBE5DF]">
+                <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5 pb-1.5 border-b border-[#EBE5DF]">📦 收件資訊</h3>
+                <div className="text-xs text-[#6E6058] flex flex-col gap-1">
+                  <p><strong className="text-[#382E2B]">收件人：</strong> {shippingName}</p>
+                  <p><strong className="text-[#382E2B]">電子郵件：</strong> {shippingEmail}</p>
+                  <p><strong className="text-[#382E2B]">收件地址：</strong> {shippingAddress}</p>
                 </div>
               </div>
-            </div>
 
-            <button type="submit" disabled={isPaying} className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
-              {isPaying ? '付款處理中...' : `確認付款 HKD ${finalTotal.toFixed(1)}`}
-            </button>
-          </form>
+              <div className="bg-[#F4F0EA] p-4 rounded-xl border border-[#EBE5DF]">
+                <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5 pb-1.5 border-b border-[#EBE5DF]">🛒 購買商品明細 ({totalCount} 件)</h3>
+                <div className="max-h-40 overflow-y-auto flex flex-col gap-2 pr-1">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex justify-between items-center text-xs bg-white p-2.5 rounded-lg border border-[#EBE5DF]">
+                      <span className="text-[#382E2B] font-medium line-clamp-1">{item.name} x {item.quantity}</span>
+                      <span className="text-[#B35B48] font-mono font-semibold">HKD ${(item.price * item.quantity).toFixed(1)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-[#F4F0EA] p-4 rounded-xl border border-[#EBE5DF]">
+                <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5 pb-1.5 border-b border-[#EBE5DF]">💳 金額結算明細</h3>
+                <div className="text-xs flex flex-col gap-1.5 text-[#6E6058]">
+                  <div className="flex justify-between"><span>商品小計</span><span>HKD ${currentSubtotal.toFixed(1)}</span></div>
+                  {memberDiscountAmount > 0 && currentTier && (
+                    <div className="flex justify-between text-[#B35B48]"><span>{currentTier.badge} {currentTier.name} 折扣</span><span>- HKD ${memberDiscountAmount.toFixed(1)}</span></div>
+                  )}
+                  {couponDiscountAmount > 0 && (
+                    <div className="flex justify-between text-[#B35B48]"><span>優惠券折抵</span><span>- HKD ${couponDiscountAmount.toFixed(1)}</span></div>
+                  )}
+                  {creditToDeduct > 0 && (
+                    <div className="flex justify-between text-[#B35B48]"><span>購物金折抵</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
+                  )}
+                  <div className="flex justify-between font-bold pt-2 border-t border-[#EBE5DF] text-sm text-[#382E2B]">
+                    <span>應付總額</span>
+                    <span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setCheckoutStep(1)} 
+                  className="w-1/3 bg-[#FAF7F2] text-[#382E2B] border border-[#EBE5DF] p-3.5 rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-[#EBE5DF]"
+                >
+                  返回修改
+                </button>
+                <button 
+                  type="button" 
+                  disabled={isPaying} 
+                  onClick={handleCheckoutSubmit} 
+                  className="w-2/3 bg-[#B35B48] text-white p-3.5 border-none rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs"
+                >
+                  {isPaying ? '下單處理中...' : `確認無誤，立即下單 HKD ${finalTotal.toFixed(1)}`}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

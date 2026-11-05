@@ -88,7 +88,7 @@ export default function AccountPage() {
   const [creditLogs, setCreditLogs] = useState<CreditLog[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   
-  // 🌟 動態會員等級設定
+  // 動態會員等級設定
   const [tierList, setTierList] = useState<TierItem[]>([
     { id: 'silver', name: '銀卡會員 Silver', badge: '🥈', threshold: 0, discount: 1.0 },
     { id: 'gold', name: '金卡會員 Gold', badge: '🥇', threshold: 1000, discount: 0.95 },
@@ -126,12 +126,10 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
-    // 🌟 監聽 Firestore 中的會員等級設定
     const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
       if (doc.exists) {
         const data = doc.data() as any;
         if (data?.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) {
-          // 門檻由低到高排序
           const sorted = [...data.tiers].sort((a, b) => Number(a.threshold) - Number(b.threshold));
           setTierList(sorted);
         }
@@ -278,16 +276,13 @@ export default function AccountPage() {
 
   const totalSpent = orders.reduce((sum, order) => sum + (order.status !== 'cancelled' ? (order.total || 0) : 0), 0);
 
-  // 🌟 動態計算當前等級與進度資訊
   const getDynamicTierInfo = (spent: number) => {
     if (tierList.length === 0) {
       return { tier: '貴賓會員', badge: '👑', color: 'bg-[#F4F0EA] text-[#6E6058]', nextTier: '已達最高等級', progress: 100, target: 0 };
     }
 
-    // 由低到高排序
     const sortedAsc = [...tierList].sort((a, b) => Number(a.threshold) - Number(b.threshold));
     
-    // 找出當前已解鎖的最高等級
     let currentTierItem = sortedAsc[0];
     let nextTierItem: TierItem | null = null;
 
@@ -536,12 +531,14 @@ export default function AccountPage() {
             <div className="flex gap-3">
               <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-32">
                 <span className="text-xs text-[#D6C7BC] block mb-1">可用購物金</span>
-                <span className="text-xl font-bold font-mono text-[#B35B48]">HKD ${profile?.storeCredit || 0}</span>
+                {/* 🌟 可用購物金取 1 位小數 */}
+                <span className="text-xl font-bold font-mono text-[#B35B48]">HKD ${Number(profile?.storeCredit || 0).toFixed(1)}</span>
               </div>
               
               <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-36">
                 <span className="text-xs text-[#D6C7BC] block mb-1">累積消費金額</span>
-                <span className="text-xl font-bold font-mono text-[#FAF7F2]">HKD ${totalSpent.toLocaleString()}</span>
+                {/* 🌟 累積消費金額取 1 位小數 */}
+                <span className="text-xl font-bold font-mono text-[#FAF7F2]">HKD ${totalSpent.toFixed(1)}</span>
               </div>
             </div>
           </div>
@@ -552,7 +549,8 @@ export default function AccountPage() {
               <span>
                 {currentTierInfo.nextTier === '已達最高等級' 
                   ? '已享有頂級尊榮特權' 
-                  : `距離 ${currentTierInfo.nextTier} 還差 HKD $${Math.max(0, currentTierInfo.target - totalSpent).toLocaleString()}`}
+                  /* 🌟 距離升級金額取 1 位小數 */
+                  : `距離 ${currentTierInfo.nextTier} 還差 HKD $${Math.max(0, currentTierInfo.target - totalSpent).toFixed(1)}`}
               </span>
             </div>
             <div className="w-full bg-[#27201E] h-2 rounded-full overflow-hidden">
@@ -678,6 +676,7 @@ export default function AccountPage() {
                             <p className="text-xs text-[#8C7B70]">數量: x{item.quantity}</p>
                           </div>
                         </div>
+                        {/* 🌟 訂單品項小計取 1 位小數 */}
                         <span className="font-mono text-[#B35B48]">HKD ${(item.price * item.quantity).toFixed(1)}</span>
                       </div>
                     ))}
@@ -687,7 +686,8 @@ export default function AccountPage() {
                     <span className="text-xs text-[#7A6E65]">收件地址: {order.address || '未填寫'}</span>
                     <div className="text-right">
                       <span className="text-xs text-[#7A6E65] mr-2">總計金額</span>
-                      <span className="font-bold font-mono text-[#B35B48] text-base">HKD ${order.total?.toFixed(1)}</span>
+                      {/* 🌟 訂單總計取 1 位小數 */}
+                      <span className="font-bold font-mono text-[#B35B48] text-base">HKD ${Number(order.total || 0).toFixed(1)}</span>
                     </div>
                   </div>
                 </div>
@@ -782,8 +782,9 @@ export default function AccountPage() {
                         </div>
                         <p className="text-sm font-medium text-[#382E2B]">{log.reason || '無備註'}</p>
                       </div>
+                      {/* 🌟 購物金金額取 1 位小數 */}
                       <div className={`text-sm font-bold font-mono ${isGrant ? 'text-emerald-700' : 'text-[#B35B48]'}`}>
-                        {isGrant ? `+HKD $${log.amount}` : `-HKD $${log.amount}`}
+                        {isGrant ? `+HKD $${Number(log.amount || 0).toFixed(1)}` : `-HKD $${Number(log.amount || 0).toFixed(1)}`}
                       </div>
                     </div>
                   );
@@ -823,6 +824,7 @@ export default function AccountPage() {
                         <Link href={`/product/${item.id}`} className="text-sm font-medium text-[#382E2B] hover:underline truncate block mb-1 no-underline">
                           {item.name}
                         </Link>
+                        {/* 🌟 收藏商品價格取 1 位小數 */}
                         <div className="text-xs font-bold font-mono text-[#B35B48] mb-3">
                           HKD ${Number(item.price).toFixed(1)}
                         </div>
@@ -846,7 +848,6 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* 🌟 動態顯示所有會員等級與權益說明 */}
         {activeTab === 'level' && (
           <div className="space-y-4">
             <div className="bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl p-6">
@@ -882,8 +883,9 @@ export default function AccountPage() {
                             : '註冊即可加入 | 享有專屬優惠權益'}
                         </p>
                       </div>
+                      {/* 🌟 會員等級門檻取 1 位小數 */}
                       <span className={`text-xs font-mono font-semibold shrink-0 ml-3 ${isCurrent ? 'text-white' : 'text-[#B35B48]'}`}>
-                        累積滿 HKD ${Number(tier.threshold).toLocaleString()}
+                        累積滿 HKD ${Number(tier.threshold).toFixed(1)}
                       </span>
                     </div>
                   );
