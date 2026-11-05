@@ -408,7 +408,7 @@ export default function AdminCouponsPage() {
                     displayDiscount = `折 HKD $${c.discountValue}`;
                   } else {
                     const rawVal = c.discountValue;
-                    const offPercent = rawVal.toFixed(0);
+                    const offPercent = rawVal;
                     const discountFold = (100 - Number(offPercent)) / 10;
                     displayDiscount = `-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
                   }
