@@ -951,7 +951,7 @@ export default function Home() {
             {memberDiscountAmount > 0 && currentTier && (
               <div className="flex justify-between mb-2 text-[13px] text-[#B35B48] font-medium">
                 <span>
-                  {currentTier.badge} {currentTier.name} {(Number(currentTier.discount) * 100).toFixed(0)}折折扣
+                  {currentTier.badge} {currentTier.name} {(Number(currentTier.discount) * 10).toFixed(1)}折優惠
                 </span>
                 <span>- HKD {Number(memberDiscountAmount).toFixed(1)}</span>
               </div>

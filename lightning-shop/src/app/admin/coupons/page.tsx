@@ -238,10 +238,10 @@ export default function AdminCouponsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-end">
-            <div className="flex gap-4 items-end md:grid md:grid-cols-3 md:gap-3">
+            <div className="grid grid-cols-1 gap-4 items-end md:grid md:grid-cols-3 md:gap-3">
               <div className="flex flex-col gap-2 shrink-0">
                 <label className="text-xs font-semibold text-[#6E6058]">重複使用</label>
-                <label className="flex items-center gap-2 py-3.5 px-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-lg text-xs font-medium cursor-pointer">
+                <label className="flex items-center justify-center gap-2 py-3.5 px-3 border border-[#EBE5DF] bg-[#FAF7F2] rounded-lg text-xs font-medium cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={isReusable} 
@@ -362,9 +362,9 @@ export default function AdminCouponsPage() {
         </form>
       </div>
 
-      <div className="bg-white rounded-2xl p-5 md:p-10 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF]">
+      <div className="bg-white rounded-2xl p-5 md:p-10 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] overflow-hidden">
         <h2 className="text-base font-serif font-semibold mb-5 pb-2.5 border-b border-[#EBE5DF] text-[#382E2B]">現有優惠券列表</h2>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto w-full">
           <table className="w-full border-collapse text-left text-sm min-w-175">
             <thead>
               <tr className="border-b border-[#EBE5DF] text-[#7A6E65]">
@@ -390,8 +390,8 @@ export default function AdminCouponsPage() {
                     displayDiscount = `折 HKD $${c.discountValue}`;
                   } else {
                     const rawVal = c.discountValue <= 1 ? c.discountValue * 100 : c.discountValue;
-                    const offPercent = rawVal;
-                    const discountFold = (100 - rawVal) / 10;
+                    const offPercent = rawVal.toFixed(0);
+                    const discountFold = (100 - Number(offPercent)) / 10;
                     displayDiscount = `-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
                   }
 

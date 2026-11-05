@@ -182,7 +182,7 @@ export default function AdminTierSettingsPage() {
                       全館結帳折扣率 (係數)
                     </label>
                     <p className="text-[11px] text-[#8C7B70] mb-2">
-                      折數預覽：<span className="font-semibold text-[#B35B48]">{(Number(tier.discount) * 100).toFixed(0)} 折</span> (例如填入 <code className="bg-[#FAF7F2] px-1 py-0.5 rounded border border-[#EBE5DF]">0.9</code> 代表 9 折)
+                      折數預覽：<span className="font-semibold text-[#B35B48]">{(Number(tier.discount) * 10).toFixed(1)} 折</span> (例如填入 <code className="bg-[#FAF7F2] px-1 py-0.5 rounded border border-[#EBE5DF]">0.9</code> 代表 9 折)
                     </p>
                     <input
                       type="number"
