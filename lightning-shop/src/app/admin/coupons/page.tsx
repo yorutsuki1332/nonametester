@@ -191,6 +191,10 @@ export default function AdminCouponsPage() {
     return now.toISOString().slice(0, 16);
   };
 
+  const getStartTimeMin = () => {
+    return startTime ? startTime : getNowDatetimeLocal();
+  };
+
   return (
     <>
       <div className="mb-8">
@@ -273,7 +277,7 @@ export default function AdminCouponsPage() {
                 <label className="flex items-center justify-center gap-2 py-3.5 px-4 border border-[#EBE5DF] outline-none bg-[#FAF7F2] focus:border-[#B35B48] rounded-lg text-xs font-medium cursor-pointer transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]">
                   <input 
                     type="checkbox" 
-                    checked={hasNoExpiry} 
+                    checked={hasNoExpiry && canHaveExpiryPeriod} 
                     onChange={(e) => {
                       setHasNoExpiry(e.target.checked);
                       if (e.target.checked) {
@@ -310,7 +314,7 @@ export default function AdminCouponsPage() {
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 style={{ accentColor: '#B35B48' }}
-                min={getNowDatetimeLocal()}
+                min={getStartTimeMin()}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
                 required={!hasNoExpiry}
                 disabled={hasNoExpiry}
