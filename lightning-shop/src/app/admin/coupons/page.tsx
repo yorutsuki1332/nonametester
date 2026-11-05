@@ -56,7 +56,7 @@ export default function AdminCouponsPage() {
       const list: Coupon[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as any;
-        const { id: _, ...rest } = data; // 排除 data 裡的 id 避免覆寫警告
+        const { id: _, ...rest } = data;
         list.push({ id: doc.id, ...rest } as Coupon);
       });
       setCoupons(list);
@@ -84,23 +84,22 @@ export default function AdminCouponsPage() {
     setTimeout(() => setIsToastShow(false), 3000);
   };
 
-  // 🌟 核心修正：切換條件時，正確重設 isReusable 與 hasNoExpiry 狀態
   const handleConditionTypeChange = (newType: 'infinite' | 'counts' | 'periods') => {
     setConditionType(newType);
 
     if (newType === 'infinite') {
-      setIsReusable(true);       // 切回永久有效 -> 自動勾選「重複使用」
-      setHasNoExpiry(true);      // 自動勾選「無有效限期」
+      setIsReusable(true);
+      setHasNoExpiry(true);
       setCanHaveExpiryPeriod(false);
       setStartTime('');
       setEndTime('');
     } else if (newType === 'periods') {
-      setIsReusable(true);       // 切回期間優惠 -> 自動勾選「重複使用」
-      setHasNoExpiry(false);     // 期間優惠預設需選擇時間
+      setIsReusable(true);
+      setHasNoExpiry(false);
       setCanHaveExpiryPeriod(true);
     } else if (newType === 'counts') {
-      setIsReusable(false);      // 有限次數 -> 取消重複使用
-      setHasNoExpiry(true);      // 有限次數預設無有效限期
+      setIsReusable(false);
+      setHasNoExpiry(true);
       setCanHaveExpiryPeriod(true);
       setStartTime('');
       setEndTime('');
@@ -128,15 +127,23 @@ export default function AdminCouponsPage() {
       }
     }
 
-    // 當未勾選「無有效限期」時，必須輸入時間
     if (!hasNoExpiry && (!startTime || !endTime)) {
       alert('有設定有效限期時，必須填寫開始時間與完結時間！');
       return;
     }
 
-    const finalDiscountValue = valNum.toFixed(0); // 保留兩位小數
+    // 🌟 嚴格檢驗：確保完結時間必須大於開始時間至少一分鐘以上
+    if (!hasNoExpiry && startTime && endTime) {
+      const startMs = new Date(startTime).getTime();
+      const endMs = new Date(endTime).getTime();
+      if (endMs <= startMs) {
+        alert('❌ 完結時間必須大於開始時間至少一分鐘！');
+        return;
+      }
+    }
 
-    // 次數計算：若勾選可重複使用或設定為永久，次數寫入 99999；否則採用輸入次數
+    const finalDiscountValue = valNum.toFixed(0);
+
     const finalUses = (isReusable || conditionType === 'infinite') 
       ? 99999 
       : (Number(usesLeft) || 1);
@@ -191,23 +198,21 @@ export default function AdminCouponsPage() {
     return now.toISOString().slice(0, 16);
   };
 
+  // 🌟 自動計算開始時間加一分鐘，作為完結時間的最小限制 (min)
   const getStartTimeMin = () => {
     if (!startTime) return getNowDatetimeLocal();
 
-    // 將字串轉為 Date 物件並加一分鐘
     const dateObj = new Date(startTime);
-    dateObj.setMinutes(dateObj.getMinutes() + 1);
+    dateObj.setMinutes(dateObj.getMinutes() + 5);
 
-    // 格式化回 yyyy-MM-ddTHH:mm 格式
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
     const hours = String(dateObj.getHours()).padStart(2, '0');
     const minutes = String(dateObj.getMinutes()).padStart(2, '0');
 
-    console.log('getStartTimeMin:', `${year}-${month}-${day}T${hours}:${minutes}`);;
     return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }; 
+  };
 
   return (
     <>
@@ -285,7 +290,6 @@ export default function AdminCouponsPage() {
                 />
               </div>
 
-              {/* 🌟 有效限期按鈕控制 */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-[#6E6058]">有效限期設定</label>
                 <label className="flex items-center justify-center gap-2 py-3.5 px-4 border border-[#EBE5DF] outline-none bg-[#FAF7F2] focus:border-[#B35B48] rounded-lg text-xs font-medium cursor-pointer transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]">
@@ -312,7 +316,14 @@ export default function AdminCouponsPage() {
               <input
                 type="datetime-local"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  setStartTime(newStart);
+                  // 如果目前選的完結時間小於或等於新的開始時間，自動清空完結時間
+                  if (endTime && newStart && new Date(endTime).getTime() <= new Date(newStart).getTime()) {
+                    setEndTime('');
+                  }
+                }}
                 style={{ accentColor: '#B35B48' }}
                 min={getNowDatetimeLocal()}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
@@ -328,7 +339,7 @@ export default function AdminCouponsPage() {
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 style={{ accentColor: '#B35B48' }}
-                min={getStartTimeMin()}
+                min={getStartTimeMin()} // 🌟 限制完結時間必須大於開始時間至少一分鐘
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
                 required={!hasNoExpiry}
                 disabled={hasNoExpiry}
