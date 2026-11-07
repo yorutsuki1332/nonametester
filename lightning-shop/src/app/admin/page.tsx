@@ -24,6 +24,28 @@ export default function AdminAddProductPage() {
   const [isToastShow, setIsToastShow] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    isConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    isConfirm: false,
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
   useEffect(() => {
     initAutoSku();
     setCurrentYear(new Date().getFullYear());
@@ -80,7 +102,7 @@ export default function AdminAddProductPage() {
   const processFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (uploadedFiles.length + fileArray.length > 15) {
-      alert('商品圖片總數不能超過 15 張！');
+      showAlert('商品圖片總數不能超過 15 張！', '數量限制');
       return;
     }
 
@@ -124,7 +146,7 @@ export default function AdminAddProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productSKU) {
-      alert('請完整選擇貨源地區與建議性別！');
+      showAlert('請完整選擇貨源地區與建議性別！', '欄位未填寫');
       return;
     }
 
@@ -176,7 +198,7 @@ export default function AdminAddProductPage() {
       setUploadedPreviews([]);
       initAutoSku();
     } catch (error: any) {
-      alert('上架失敗： ' + error.message);
+      showAlert('上架失敗： ' + error.message, '系統錯誤');
     } finally {
       setIsSubmitting(false);
     }
@@ -311,6 +333,29 @@ export default function AdminAddProductPage() {
           </div>
         </form>
       </div>
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-xs font-medium z-3000 transition-transform duration-1000 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         ✅ 商品上架成功！雲端資料庫已同步。

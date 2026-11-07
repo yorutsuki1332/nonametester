@@ -115,6 +115,38 @@ export default function AccountPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    isConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    isConfirm: false,
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: true,
+      onConfirm,
+    });
+  };
+
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -331,7 +363,7 @@ export default function AccountPage() {
 
     if (cleanPhone.length > 0) {
       if (cleanPhone.length < selectedCountryConfig.minLen || cleanPhone.length > selectedCountryConfig.maxLen) {
-        alert(`${selectedCountryConfig.label} 的電話號碼長度必須介於 ${selectedCountryConfig.minLen} 至 ${selectedCountryConfig.maxLen} 位數之間！`);
+        showAlert(`${selectedCountryConfig.label} 的電話號碼長度必須介於 ${selectedCountryConfig.minLen} 至 ${selectedCountryConfig.maxLen} 位數之間！`, '格式錯誤');
         return;
       }
     }
@@ -360,7 +392,7 @@ export default function AccountPage() {
 
       showToast('✅ 個人資料已確認修改並成功儲存！');
     } catch (error: any) {
-      alert('更新失敗：' + error.message);
+      showAlert('更新失敗：' + error.message, '系統提示');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -371,13 +403,13 @@ export default function AccountPage() {
       showToast('已成功登出帳戶');
       router.push('/');
     }).catch((error) => {
-      alert('登出失敗：' + error.message);
+      showAlert('登出失敗：' + error.message, '系統提示');
     });
   };
 
   const handleAccountDeletion = async () => {
     if (deleteConfirmText !== '確認註銷帳戶') {
-      alert('請正確輸入「確認註銷帳戶」文字以解鎖註銷程序！');
+      showAlert('請正確輸入「確認註銷帳戶」文字以解鎖註銷程序！', '驗證失敗');
       return;
     }
 
@@ -428,14 +460,14 @@ export default function AccountPage() {
         }
       }
 
-      alert('您的帳戶已成功註銷，感謝您過去的陪伴。');
+      showAlert('您的帳戶已成功註銷，感謝您過去的陪伴。', '註銷成功');
       router.push('/');
     } catch (error: any) {
       console.error('帳戶註銷失敗:', error);
       if (error.code === 'auth/requires-recent-login') {
-        alert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，重新登入帳戶後，再立即執行一次註銷操作。');
+        showAlert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，重新登入帳戶後，再立即執行一次註銷操作。', '安全驗證');
       } else {
-        alert('註銷失敗：' + (error.message || '未知錯誤'));
+        showAlert('註銷失敗：' + (error.message || '未知錯誤'), '註銷失敗');
       }
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
@@ -454,7 +486,7 @@ export default function AccountPage() {
       await db.collection("users").doc(profile.accountId).collection("favorites").doc(productId).delete();
       showToast('已移除該收藏商品');
     } catch (err: any) {
-      alert('移除失敗：' + err.message);
+      showAlert('移除失敗：' + err.message, '操作失敗');
     }
   };
 
@@ -484,6 +516,7 @@ export default function AccountPage() {
   });
 
   const currentCountryConfig = COUNTRY_CODES.find(c => c.code === phoneCountry) || COUNTRY_CODES[0];
+  const isAnyModalOpen = isDeleteModalOpen || customModal.isOpen;
 
   if (loading) {
     return (
@@ -533,13 +566,11 @@ export default function AccountPage() {
             <div className="flex gap-3">
               <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-32">
                 <span className="text-xs text-[#D6C7BC] block mb-1">可用購物金</span>
-                {/* 🌟 可用購物金取 1 位小數 */}
                 <span className="text-xl font-bold font-mono text-[#B35B48]">HKD ${Number(profile?.storeCredit || 0).toFixed(1)}</span>
               </div>
               
               <div className="bg-[#FAF7F2]/10 border border-[#B35B48]/30 p-3.5 rounded-xl text-right min-w-36">
                 <span className="text-xs text-[#D6C7BC] block mb-1">累積消費金額</span>
-                {/* 🌟 累積消費金額取 1 位小數 */}
                 <span className="text-xl font-bold font-mono text-[#FAF7F2]">HKD ${totalSpent.toFixed(1)}</span>
               </div>
             </div>
@@ -551,7 +582,6 @@ export default function AccountPage() {
               <span>
                 {currentTierInfo.nextTier === '已達最高等級' 
                   ? '已享有頂級尊榮特權' 
-                  /* 🌟 距離升級金額取 1 位小數 */
                   : `距離 ${currentTierInfo.nextTier} 還差 HKD $${Math.max(0, currentTierInfo.target - totalSpent).toFixed(1)}`}
               </span>
             </div>
@@ -678,7 +708,6 @@ export default function AccountPage() {
                             <p className="text-xs text-[#8C7B70]">數量: x{item.quantity}</p>
                           </div>
                         </div>
-                        {/* 🌟 訂單品項小計取 1 位小數 */}
                         <span className="font-mono text-[#B35B48]">HKD ${(item.price * item.quantity).toFixed(1)}</span>
                       </div>
                     ))}
@@ -688,7 +717,6 @@ export default function AccountPage() {
                     <span className="text-xs text-[#7A6E65]">收件地址: {order.address || '未填寫'}</span>
                     <div className="text-right">
                       <span className="text-xs text-[#7A6E65] mr-2">總計金額</span>
-                      {/* 🌟 訂單總計取 1 位小數 */}
                       <span className="font-bold font-mono text-[#B35B48] text-base">HKD ${Number(order.total || 0).toFixed(1)}</span>
                     </div>
                   </div>
@@ -789,7 +817,6 @@ export default function AccountPage() {
                         </div>
                         <p className="text-sm font-medium text-[#382E2B]">{log.reason || '無備註'}</p>
                       </div>
-                      {/* 🌟 購物金金額取 1 位小數 */}
                       <div className={`text-sm font-bold font-mono ${isGrant ? 'text-emerald-700' : 'text-[#B35B48]'}`}>
                         {isGrant ? `+HKD $${Number(log.amount || 0).toFixed(1)}` : `-HKD $${Number(log.amount || 0).toFixed(1)}`}
                       </div>
@@ -831,7 +858,6 @@ export default function AccountPage() {
                         <Link href={`/product/${item.id}`} className="text-sm font-medium text-[#382E2B] hover:underline truncate block mb-1 no-underline">
                           {item.name}
                         </Link>
-                        {/* 🌟 收藏商品價格取 1 位小數 */}
                         <div className="text-xs font-bold font-mono text-[#B35B48] mb-3">
                           HKD ${Number(item.price).toFixed(1)}
                         </div>
@@ -890,7 +916,6 @@ export default function AccountPage() {
                             : '註冊即可加入 | 享有專屬優惠權益'}
                         </p>
                       </div>
-                      {/* 🌟 會員等級門檻取 1 位小數 */}
                       <span className={`text-xs font-mono font-semibold shrink-0 ml-3 ${isCurrent ? 'text-white' : 'text-[#B35B48]'}`}>
                         累積滿 HKD ${Number(tier.threshold).toFixed(1)}
                       </span>
@@ -1046,6 +1071,7 @@ export default function AccountPage() {
         )}
       </main>
 
+      {/* 帳戶註銷確認 Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#EBE5DF]">
@@ -1076,6 +1102,41 @@ export default function AccountPage() {
                 className="grow bg-rose-700 text-white py-3 rounded-xl text-xs font-semibold hover:bg-rose-800 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isDeleting ? '註銷中...' : '確認註銷'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              {customModal.isConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-[#F4F0EA] text-[#382E2B] border border-[#EBE5DF] rounded-lg text-xs font-semibold hover:bg-[#EBE5DF] transition cursor-pointer"
+                >
+                  取消
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (customModal.onConfirm) customModal.onConfirm();
+                  setCustomModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
               </button>
             </div>
           </div>

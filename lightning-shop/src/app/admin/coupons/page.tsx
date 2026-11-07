@@ -47,6 +47,38 @@ export default function AdminCouponsPage() {
   const [hasNoExpiry, setHasNoExpiry] = useState(true);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert / confirm)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    isConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    isConfirm: false,
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: true,
+      onConfirm,
+    });
+  };
   
   const [toastMsg, setToastMsg] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -111,33 +143,32 @@ export default function AdminCouponsPage() {
 
     const valNum = Number(discountValue);
     if (!code || isNaN(valNum)) {
-      alert('請填寫完整優惠券資訊！');
+      showAlert('請填寫完整優惠券資訊！', '提示');
       return;
     }
 
     if (valNum <= 0) {
-      alert('折扣數值必須大於 0！');
+      showAlert('折扣數值必須大於 0！', '提示');
       return;
     }
 
     if (discountType === 'percent') {
       if (valNum < 0 || valNum > 100) {
-        alert('百分比折扣數值不可小於 0 或大於 100！');
+        showAlert('百分比折扣數值不可小於 0 或大於 100！', '提示');
         return;
       }
     }
 
     if (!hasNoExpiry && (!startTime || !endTime)) {
-      alert('有設定有效限期時，必須填寫開始時間與完結時間！');
+      showAlert('有設定有效限期時，必須填寫開始時間與完結時間！', '提示');
       return;
     }
 
-    // 🌟 嚴格檢驗：確保完結時間必須大於開始時間至少五分鐘以上
     if (!hasNoExpiry && startTime && endTime) {
       const startMs = new Date(startTime).getTime();
       const endMs = new Date(endTime).getTime();
       if (endMs <= startMs) {
-        alert('❌ 完結時間必須大於開始時間至少一分鐘！');
+        showAlert('❌ 完結時間必須大於開始時間至少一分鐘！', '時間設定錯誤');
         return;
       }
     }
@@ -178,18 +209,19 @@ export default function AdminCouponsPage() {
       setStartTime('');
       setEndTime('');
     } catch (error: any) {
-      alert('發放失敗： ' + error.message);
+      showAlert('發放失敗： ' + error.message, '錯誤');
     }
   };
 
-  const handleDeleteCoupon = async (couponId: string) => {
-    if (!confirm(`確定要刪除優惠券 ${couponId} 嗎？`)) return;
-    try {
-      await db.collection("coupons").doc(couponId).delete();
-      showToast('⚠️ 優惠券已刪除');
-    } catch (error: any) {
-      alert('刪除失敗：' + error.message);
-    }
+  const handleDeleteCoupon = (couponId: string) => {
+    showConfirm(`確定要刪除優惠券 ${couponId} 嗎？`, async () => {
+      try {
+        await db.collection("coupons").doc(couponId).delete();
+        showToast('⚠️ 優惠券已刪除');
+      } catch (error: any) {
+        showAlert('刪除失敗：' + error.message, '錯誤');
+      }
+    }, '刪除確認');
   };
 
   const getNowDatetimeLocal = () => {
@@ -198,7 +230,6 @@ export default function AdminCouponsPage() {
     return now.toISOString().slice(0, 16);
   };
 
-  // 🌟 自動計算開始時間加一分鐘，作為完結時間的最小限制 (min)
   const getStartTimeMin = () => {
     if (!startTime) return getNowDatetimeLocal();
 
@@ -319,7 +350,6 @@ export default function AdminCouponsPage() {
                 onChange={(e) => {
                   const newStart = e.target.value;
                   setStartTime(newStart);
-                  // 如果目前選的完結時間小於或等於新的開始時間，自動清空完結時間
                   if (endTime && newStart && new Date(endTime).getTime() <= new Date(newStart).getTime()) {
                     setEndTime('');
                   }
@@ -339,7 +369,7 @@ export default function AdminCouponsPage() {
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 style={{ accentColor: '#B35B48' }}
-                min={getStartTimeMin()} // 🌟 限制完結時間必須大於開始時間至少一分鐘
+                min={getStartTimeMin()}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition disabled:bg-[#F4F0EA] disabled:text-[#8C7B70]"
                 required={!hasNoExpiry}
                 disabled={hasNoExpiry}
@@ -466,6 +496,41 @@ export default function AdminCouponsPage() {
           </table>
         </div>
       </div>
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert / confirm) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              {customModal.isConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-[#F4F0EA] text-[#382E2B] border border-[#EBE5DF] rounded-lg text-xs font-semibold hover:bg-[#EBE5DF] transition cursor-pointer"
+                >
+                  取消
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (customModal.onConfirm) customModal.onConfirm();
+                  setCustomModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-3000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMsg}

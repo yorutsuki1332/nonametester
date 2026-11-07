@@ -63,12 +63,45 @@ export default function Home() {
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedCartIds, setSelectedCartIds] = useState<string[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
   // 結帳步驟控制 (1: 填寫收件資料, 2: 結帳再確認頁面)
   const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
+
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert / confirm)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    isConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    isConfirm: false,
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: true,
+      onConfirm,
+    });
+  };
 
   // 折扣券、購物金、會員等級與收藏狀態
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -96,14 +129,14 @@ export default function Home() {
   const [currentAccountId, setCurrentAccountId] = useState('');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // 提示訊息
+  // 提示訊息 (Toast)
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
 
   // 圖片輪播
   const [sliderIndexes, setSliderIndexes] = useState<{ [key: string]: number }>({});
   
-  // 結帳表單狀態 (已移除模擬信用卡欄位)
+  // 結帳表單狀態
   const [shippingName, setShippingName] = useState('');
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
@@ -333,6 +366,43 @@ export default function Home() {
     setCart(newCart);
     const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
     localStorage.setItem(cartKey, JSON.stringify(newCart));
+    setSelectedCartIds(prev => prev.filter(id => newCart.some(item => item.id === id)));
+  };
+
+  // 🌟 購物車勾選與移除相關操作 (使用自定義彈窗)
+  const handleToggleSelectCartItem = (id: string) => {
+    setSelectedCartIds(prev => 
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllCartItems = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedCartIds(cart.map(item => item.id));
+    } else {
+      setSelectedCartIds([]);
+    }
+  };
+
+  const handleClearCart = () => {
+    showConfirm('確定要清空購物車嗎？', () => {
+      saveCartToStorage([]);
+      setSelectedCartIds([]);
+      showToast('購物車已清空');
+    }, '清空購物車');
+  };
+
+  const handleRemoveSelectedCart = () => {
+    if (selectedCartIds.length === 0) {
+      showAlert('請先勾選要移除的商品！', '提示');
+      return;
+    }
+    showConfirm(`確定要移除已勾選的 ${selectedCartIds.length} 項商品嗎？`, () => {
+      const updated = cart.filter(item => !selectedCartIds.includes(item.id));
+      saveCartToStorage(updated);
+      setSelectedCartIds([]);
+      showToast('已移除選中的商品');
+    }, '批次刪除');
   };
 
   const addToCart = (productId: string) => {
@@ -438,7 +508,7 @@ export default function Home() {
     e.stopPropagation();
 
     if (!currentUser || !currentAccountId) {
-      alert('請先登入會員以使用收藏功能！');
+      showAlert('請先登入會員以使用收藏功能！', '會員功能');
       setIsAuthOpen(true);
       return;
     }
@@ -467,7 +537,7 @@ export default function Home() {
           const docSnap = await docRef.get();
 
           if (docSnap.exists && !docSnap.data()?.isDeleted) {
-            alert('此帳戶 ID 已經被註冊，請選擇其他 ID。');
+            showAlert('此帳戶 ID 已經被註冊，請選擇其他 ID。', '註冊失敗');
             return;
           }
 
@@ -486,22 +556,22 @@ export default function Home() {
           const data = await res.json();
 
           if (!data.success) {
-            alert('驗證碼發送失敗： ' + (data.error?.message || '未知錯誤'));
+            showAlert('驗證碼發送失敗： ' + (data.error?.message || '未知錯誤'), '發送失敗');
             return;
           }
 
-          alert('✨ 帳號已建立！驗證信已發送至您的信箱，請輸入 6 位數驗證碼完成最後步驟。');
+          showAlert('✨ 帳號已建立！驗證信已發送至您的信箱，請輸入 6 位數驗證碼完成最後步驟。', '發送成功');
           setRegisterStep(2);
         } else {
           const verifDoc = await db.collection("verifications").doc(authEmail).get();
           if (!verifDoc.exists) {
-            alert('找不到此信箱的驗證紀錄，請重新發送。');
+            showAlert('找不到此信箱的驗證紀錄，請重新發送。', '驗證失敗');
             return;
           }
 
           const serverCode = verifDoc.data()?.code;
           if (serverCode !== inputVerificationCode.trim()) {
-            alert('❌ 驗證碼錯誤，請重新輸入！');
+            showAlert('❌ 驗證碼錯誤，請重新輸入！', '驗證失敗');
             return;
           }
 
@@ -518,7 +588,7 @@ export default function Home() {
 
           await db.collection("verifications").doc(authEmail).delete();
 
-          alert('🎉 註冊與驗證全部完成！');
+          showAlert('🎉 註冊與驗證全部完成！', '歡迎加入');
           setIsRegisterMode(false);
           setRegisterStep(1);
           setIsAuthOpen(false);
@@ -527,7 +597,7 @@ export default function Home() {
         const docRef = db.collection("users").doc(authAccountId);
         const docSnap = await docRef.get();
         if (!docSnap.exists || docSnap.data()?.isDeleted) {
-          alert('找不到此帳戶 ID 或該帳戶已被註銷，請確認是否輸入正確。');
+          showAlert('找不到此帳戶 ID 或該帳戶已被註銷，請確認是否輸入正確。', '登入失敗');
           return;
         }
         const email = docSnap.data()?.email;
@@ -537,13 +607,13 @@ export default function Home() {
         setIsAuthOpen(false);
       }
     } catch (error: any) {
-      alert('操作失敗： ' + error.message);
+      showAlert('操作失敗： ' + error.message, '系統提示');
     }
   };
 
   const openCheckoutModal = () => {
     setIsCartOpen(false);
-    setCheckoutStep(1); // 每次打開回到第一步填寫
+    setCheckoutStep(1);
     if (userProfile) {
       if (userProfile.name) setShippingName(userProfile.name);
       if (userProfile.email) setShippingEmail(userProfile.email);
@@ -554,22 +624,21 @@ export default function Home() {
     setIsPaymentOpen(true);
   };
 
-  // 進入結帳再確認步驟
   const handleProceedToReview = (e: React.FormEvent) => {
     e.preventDefault();
-    if (cart.length === 0) return alert('購物車是空的！');
+    if (cart.length === 0) return showAlert('購物車是空的！', '提示');
     if (!shippingName.trim() || !shippingEmail.trim() || !shippingAddress.trim()) {
-      alert('請完整填寫收件資訊！');
+      showAlert('請完整填寫收件資訊！', '資訊未完整');
       return;
     }
     setCheckoutStep(2);
   };
 
   const handleCheckoutSubmit = async () => {
-    if (cart.length === 0) return alert('購物車是空的！');
+    if (cart.length === 0) return showAlert('購物車是空的！', '提示');
 
     if (selectedCoupon && calculateCouponDiscount() === 0 && selectedCoupon.discountValue > 0) {
-      alert('您選擇的優惠券已過期或不符合條件，請重新選擇！');
+      showAlert('您選擇的優惠券已過期或不符合條件，請重新選擇！', '優惠券無效');
       return;
     }
 
@@ -645,7 +714,7 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        alert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}`);
+        showAlert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}`, '下單成功');
         saveCartToStorage([]);
         setSelectedCoupon(null);
         setUseCredit(false);
@@ -654,13 +723,13 @@ export default function Home() {
         setIsPaying(false);
       }, 1500);
     } catch (error: any) {
-      alert('訂單建立失敗： ' + error.message);
+      showAlert('訂單建立失敗： ' + error.message, '下單失敗');
       setIsPaying(false);
     }
   };
 
   const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen;
+  const isAnyModalOpen = isCartOpen || isAuthOpen || isPaymentOpen || customModal.isOpen;
 
   useEffect(() => {
     if (isAnyModalOpen) {
@@ -885,26 +954,68 @@ export default function Home() {
           <h2 className="text-[18px] font-semibold text-[#382E2B]">購物車清單 ({totalCount})</h2>
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsCartOpen(false)}>&times;</button>
         </div>
+
+        {/* 批次操作工具列 */}
+        {cart.length > 0 && (
+          <div className="px-6.25 py-2.5 bg-[#FAF7F2] border-b border-[#EBE5DF] flex justify-between items-center text-xs">
+            <label className="flex items-center gap-2 cursor-pointer font-medium text-[#6E6058]">
+              <input 
+                type="checkbox"
+                checked={selectedCartIds.length === cart.length && cart.length > 0}
+                onChange={handleSelectAllCartItems}
+                className="w-4 h-4 rounded border-[#EBE5DF] accent-[#B35B48] cursor-pointer"
+              />
+              全選 ({selectedCartIds.length}/{cart.length})
+            </label>
+            <div className="flex items-center gap-2.5">
+              <button 
+                type="button"
+                onClick={handleRemoveSelectedCart}
+                disabled={selectedCartIds.length === 0}
+                className="text-rose-700 hover:underline disabled:text-stone-300 disabled:no-underline bg-none border-none cursor-pointer text-xs"
+              >
+                刪除選中
+              </button>
+              <span className="text-[#EBE5DF]">|</span>
+              <button 
+                type="button"
+                onClick={handleClearCart}
+                className="text-[#7A6E65] hover:text-[#B35B48] bg-none border-none cursor-pointer text-xs transition"
+              >
+                一鍵清空
+              </button>
+            </div>
+          </div>
+        )}
         
         <div className="grow overflow-y-auto p-6.25">
           {cart.length === 0 ? (
             <p className="text-center text-[#888] mt-12.5">購物車目前是空的喔</p>
           ) : (
-            cart.map(item => (
-              <div key={item.id} className="flex gap-3.75 mb-6.25 items-center bg-white p-3 rounded-lg border border-[#EBE5DF]">
-                <div className="w-15 h-17.5 bg-[#F4F0EA] rounded-md flex justify-center items-center text-[11px] text-[#7A6E65]">ITEM</div>
-                <div className="grow">
-                  <div className="text-[13px] font-medium mb-1 text-[#382E2B]">{item.name}</div>
-                  <div className="text-[13px] font-semibold mb-2.5 text-[#B35B48]">HKD {Number(item.price).toFixed(1)}</div>
-                  <div className="flex items-center gap-3">
-                    <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, -1)}>-</button>
-                    <span className="text-[13px]">{item.quantity}</span>
-                    <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, 1)}>+</button>
-                    <button className="bg-none border-none text-[#A3958B] text-[12px] cursor-pointer ml-auto hover:text-[#B35B48]" onClick={() => removeFromCart(item.id)}>移除</button>
+            cart.map(item => {
+              const isSelected = selectedCartIds.includes(item.id);
+              return (
+                <div key={item.id} className="flex gap-3.75 mb-6.25 items-center bg-white p-3 rounded-lg border border-[#EBE5DF]">
+                  <input 
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleToggleSelectCartItem(item.id)}
+                    className="w-4 h-4 rounded border-[#EBE5DF] accent-[#B35B48] cursor-pointer shrink-0"
+                  />
+                  <div className="w-15 h-17.5 bg-[#F4F0EA] rounded-md flex justify-center items-center text-[11px] text-[#7A6E65]">ITEM</div>
+                  <div className="grow">
+                    <div className="text-[13px] font-medium mb-1 text-[#382E2B]">{item.name}</div>
+                    <div className="text-[13px] font-semibold mb-2.5 text-[#B35B48]">HKD {Number(item.price).toFixed(1)}</div>
+                    <div className="flex items-center gap-3">
+                      <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                      <span className="text-[13px]">{item.quantity}</span>
+                      <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                      <button className="bg-none border-none text-[#A3958B] text-[12px] cursor-pointer ml-auto hover:text-[#B35B48]" onClick={() => removeFromCart(item.id)}>移除</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -986,7 +1097,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 結帳 Modal (支援 Step 1 填寫收件資料 與 Step 2 結帳再確認頁面) */}
+      {/* 結帳 Modal */}
       <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.95] w-[90%] max-w-135 max-h-[85vh] bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-[0_10px_40px_rgba(56,46,43,0.1)] z-2500 transition-all duration-400 flex flex-col overflow-hidden ${isPaymentOpen ? 'opacity-100 visible scale-100' : 'opacity-0 invisible'}`}>
         <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
           <div className="flex items-center gap-2">
@@ -1004,7 +1115,6 @@ export default function Home() {
 
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
           {checkoutStep === 1 ? (
-            /* 步驟 1：填寫收件資料表單 */
             <form onSubmit={handleProceedToReview}>
               <div className="mb-5">
                 <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
@@ -1041,7 +1151,6 @@ export default function Home() {
               </button>
             </form>
           ) : (
-            /* 步驟 2：結帳再確認頁面 */
             <div className="flex flex-col gap-5">
               <div className="bg-[#F4F0EA] p-4 rounded-xl border border-[#EBE5DF]">
                 <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5 pb-1.5 border-b border-[#EBE5DF]">📦 收件資訊</h3>
@@ -1106,6 +1215,42 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 🌟 全域自定義網頁主題彈出介面 */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              {customModal.isConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-[#F4F0EA] text-[#382E2B] border border-[#EBE5DF] rounded-lg text-xs font-semibold hover:bg-[#EBE5DF] transition cursor-pointer"
+                >
+                  取消
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (customModal.onConfirm) customModal.onConfirm();
+                  setCustomModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] py-3 px-6.25 rounded-[30px] text-[13px] font-medium z-4000 transition-all duration-1000 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>

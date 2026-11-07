@@ -42,6 +42,38 @@ export default function AdminProductsListPage() {
   const [isDiscontinueOpen, setIsDiscontinueOpen] = useState(false);
   const [discontinueTarget, setDiscontinueTarget] = useState<Product | null>(null);
 
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    isConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    isConfirm: false,
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: false,
+    });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+      isConfirm: true,
+      onConfirm,
+    });
+  };
+
   // 吐司提示
   const [toastMsg, setToastMsg] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -122,7 +154,7 @@ export default function AdminProductsListPage() {
     const totalCount = existingImages.length + newImageFiles.length + fileArray.length;
 
     if (totalCount > 15) {
-      alert('商品圖片總數不能超過 15 張！');
+      showAlert('商品圖片總數不能超過 15 張！', '數量限制');
       return;
     }
 
@@ -200,7 +232,7 @@ export default function AdminProductsListPage() {
       showToast('✅ 商品資料與圖片已成功更新！');
       setIsEditOpen(false);
     } catch (error: any) {
-      alert('更新失敗： ' + error.message);
+      showAlert('更新失敗： ' + error.message, '錯誤');
     } finally {
       setIsUpdating(false);
     }
@@ -238,7 +270,7 @@ export default function AdminProductsListPage() {
       setIsDiscontinueOpen(false);
       showToast('📥 商品已成功下架並移至已下架頁面！');
     } catch (error: any) {
-      alert('下架失敗： ' + error.message);
+      showAlert('下架失敗： ' + error.message, '錯誤');
     }
   };
 
@@ -259,7 +291,6 @@ export default function AdminProductsListPage() {
         />
       </div>
 
-      {/* 🌟 左右移動/橫向滾動容器外框 */}
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
         <div className="overflow-x-auto w-full p-4 md:p-6.25">
           <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
@@ -423,6 +454,41 @@ export default function AdminProductsListPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              {customModal.isConfirm && (
+                <button
+                  type="button"
+                  onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 bg-[#F4F0EA] text-[#382E2B] border border-[#EBE5DF] rounded-lg text-xs font-semibold hover:bg-[#EBE5DF] transition cursor-pointer"
+                >
+                  取消
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (customModal.onConfirm) customModal.onConfirm();
+                  setCustomModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 吐司通知 */}
