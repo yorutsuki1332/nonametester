@@ -17,6 +17,24 @@ export default function AdminTierSettingsPage() {
   const [toastMsg, setToastMsg] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
 
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+  }>({
+    isOpen: false,
+    message: '',
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+    });
+  };
+
   useEffect(() => {
     const fetchTiers = async () => {
       try {
@@ -68,10 +86,30 @@ export default function AdminTierSettingsPage() {
 
   const handleRemoveTier = (index: number) => {
     if (tiers.length <= 1) {
-      alert('至少需保留一個會員等級！');
+      showAlert('至少需保留一個會員等級！', '無法刪除');
       return;
     }
     const updated = tiers.filter((_, i) => i !== index);
+    setTiers(updated);
+  };
+
+  // 🌟 移動順序功能：向上移動
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const updated = [...tiers];
+    const temp = updated[index];
+    updated[index] = updated[index - 1];
+    updated[index - 1] = temp;
+    setTiers(updated);
+  };
+
+  // 🌟 移動順序功能：向下移動
+  const handleMoveDown = (index: number) => {
+    if (index === tiers.length - 1) return;
+    const updated = [...tiers];
+    const temp = updated[index];
+    updated[index] = updated[index + 1];
+    updated[index + 1] = temp;
     setTiers(updated);
   };
 
@@ -81,33 +119,30 @@ export default function AdminTierSettingsPage() {
     // 驗證數值
     for (const t of tiers) {
       if (isNaN(Number(t.threshold)) || isNaN(Number(t.discount))) {
-        alert(`等級「${t.name}」的門檻或折扣數值無效！`);
+        showAlert(`等級「${t.name}」的門檻或折扣數值無效！`, '輸入錯誤');
         return;
       }
       if (t.discount < 0 || t.discount > 1) {
-        alert(`等級「${t.name}」的折扣係數必須介於 0 到 1 之間（例如 0.9 代表 9 折）！`);
+        showAlert(`等級「${t.name}」的折扣係數必須介於 0 到 1 之間（例如 0.9 代表 9 折）！`, '數值範圍錯誤');
         return;
       }
     }
 
     setIsSaving(true);
     try {
-      // 依照門檻由小到大排序儲存，方便前台邏輯判斷
-      const sortedTiers = [...tiers].sort((a, b) => Number(a.threshold) - Number(b.threshold));
-
+      // 🌟 保留使用者自定的排序順序儲存
       await db.collection("settings").doc("member_tiers").set({
-        tiers: sortedTiers,
-        // 同時保留相容舊欄位（如果前台其他地方有單獨讀取）
-        goldThreshold: sortedTiers.find(t => t.id === 'gold')?.threshold || 1000,
-        goldDiscount: sortedTiers.find(t => t.id === 'gold')?.discount || 0.95,
-        diamondThreshold: sortedTiers.find(t => t.id === 'diamond')?.threshold || 3000,
-        diamondDiscount: sortedTiers.find(t => t.id === 'diamond')?.discount || 0.90,
+        tiers: tiers,
+        // 同時保留相容舊欄位
+        goldThreshold: tiers.find(t => t.id === 'gold')?.threshold || 1000,
+        goldDiscount: tiers.find(t => t.id === 'gold')?.discount || 0.95,
+        diamondThreshold: tiers.find(t => t.id === 'diamond')?.threshold || 3000,
+        diamondDiscount: tiers.find(t => t.id === 'diamond')?.discount || 0.90,
       });
 
-      setTiers(sortedTiers);
-      showToast('✅ 會員等級設定已成功儲存，已即時套用到前台！');
+      showToast('✅ 會員等級與顯示順序設定已成功儲存！');
     } catch (error: any) {
-      alert('儲存失敗： ' + error.message);
+      showAlert('儲存失敗： ' + error.message, '系統錯誤');
     } finally {
       setIsSaving(false);
     }
@@ -118,7 +153,7 @@ export default function AdminTierSettingsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-serif font-semibold mb-1 text-[#382E2B]">會員等級自定與優惠設定</h1>
-          <p className="text-[#7A6E65] text-sm">您可以自由新增、刪除或修改各會員等級的名稱、符號、升級門檻與結帳折扣率。</p>
+          <p className="text-[#7A6E65] text-sm">您可以自由新增、刪除、移動排序或修改各會員等級的名稱、符號、升級門檻與結帳折扣率。</p>
         </div>
         <button
           type="button"
@@ -136,6 +171,28 @@ export default function AdminTierSettingsPage() {
               <div>
                 <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#EBE5DF] gap-3">
                   <div className="flex items-center gap-2 grow">
+                    {/* 🌟 排序移動按鈕組 */}
+                    <div className="flex flex-col gap-0.5 shrink-0 mr-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveUp(index)}
+                        disabled={index === 0}
+                        className="w-6 h-5 flex items-center justify-center text-[10px] bg-[#FAF7F2] border border-[#EBE5DF] rounded text-[#6E6058] hover:bg-[#EBE5DF] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        title="向上移動順序"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveDown(index)}
+                        disabled={index === tiers.length - 1}
+                        className="w-6 h-5 flex items-center justify-center text-[10px] bg-[#FAF7F2] border border-[#EBE5DF] rounded text-[#6E6058] hover:bg-[#EBE5DF] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        title="向下移動順序"
+                      >
+                        ▼
+                      </button>
+                    </div>
+
                     <input
                       type="text"
                       value={tier.badge}
@@ -206,9 +263,32 @@ export default function AdminTierSettingsPage() {
           disabled={isSaving}
           className="w-full py-4 bg-[#B35B48] text-white rounded-xl font-semibold text-sm hover:bg-[#9B4C3A] transition cursor-pointer shadow-xs"
         >
-          {isSaving ? '正在儲存所有等級設定...' : '儲存所有會員等級並即時生效'}
+          {isSaving ? '正在儲存所有等級設定...' : '儲存所有會員等級與順序並即時生效'}
         </button>
       </form>
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 吐司通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-3000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>

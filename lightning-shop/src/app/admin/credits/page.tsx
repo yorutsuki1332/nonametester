@@ -25,6 +25,9 @@ export default function AdminCreditsPage() {
   
   // 會員訂單清單與選取的退款訂單
   const [userOrders, setUserOrders] = useState<Order[]>([]);
+  // 🌟 記錄該會員所有已經發放過退款的訂單 ID 集合
+  const [refundedOrderIds, setRefundedOrderIds] = useState<{ [orderId: string]: boolean }>({});
+  
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [selectedOrderTotal, setSelectedOrderTotal] = useState<number>(0);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -33,6 +36,24 @@ export default function AdminCreditsPage() {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  const [customModal, setCustomModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+  }>({
+    isOpen: false,
+    message: '',
+  });
+
+  const showAlert = (message: string, title = '提示訊息') => {
+    setCustomModal({
+      isOpen: true,
+      title,
+      message,
+    });
+  };
 
   // 吐司通知
   const [toastMsg, setToastMsg] = useState('');
@@ -44,7 +65,7 @@ export default function AdminCreditsPage() {
       const list: UserProfile[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data() as any;
-        const { id: _, ...rest } = data; // 排除 data 裡的 id 避免重複
+        const { id: _, ...rest } = data;
         list.push({ id: doc.id, ...rest } as UserProfile);
       });
       setUsers(list);
@@ -52,10 +73,11 @@ export default function AdminCreditsPage() {
     return () => unsubscribe();
   }, []);
 
-  // 當選取特定會員時，讀取該會員的訂單列表
+  // 當選取特定會員時，讀取該會員的訂單列表與已發放過退款的紀錄
   useEffect(() => {
     if (!selectedUser) {
       setUserOrders([]);
+      setRefundedOrderIds({});
       setSelectedOrderId('');
       setSelectedOrderTotal(0);
       setAmount('');
@@ -64,28 +86,40 @@ export default function AdminCreditsPage() {
     }
 
     setIsLoadingOrders(true);
-    const fetchOrders = async () => {
+    const fetchUserData = async () => {
       try {
-        const snap = await db.collection("orders")
+        // 1. 讀取該會員的訂單
+        const ordersSnap = await db.collection("orders")
           .where("accountId", "==", selectedUser.id)
           .get();
         
         const list: Order[] = [];
-        snap.forEach(doc => {
+        ordersSnap.forEach(doc => {
           const data = doc.data() as any;
-          const { id: _, ...rest } = data; // 🌟 這裡也排除訂單 data 裡的 id，徹底解決 TypeScript 覆寫警告
+          const { id: _, ...rest } = data;
           list.push({ id: doc.id, ...rest } as Order);
         });
-        
         setUserOrders(list);
+
+        // 2. 讀取該會員的 credit_logs 找出已經發放過退款的 orderId
+        const logsSnap = await db.collection("users").doc(selectedUser.id).collection("credit_logs").get();
+        const refundedMap: { [orderId: string]: boolean } = {};
+        logsSnap.forEach(doc => {
+          const logData = doc.data();
+          if (logData.orderId) {
+            refundedMap[logData.orderId] = true;
+          }
+        });
+        setRefundedOrderIds(refundedMap);
+
       } catch (err) {
-        console.error("載入會員訂單失敗:", err);
+        console.error("載入會員資料與訂單失敗:", err);
       } finally {
         setIsLoadingOrders(false);
       }
     };
 
-    fetchOrders();
+    fetchUserData();
   }, [selectedUser]);
 
   const showToast = (msg: string) => {
@@ -107,11 +141,16 @@ export default function AdminCreditsPage() {
 
   // 選擇退款訂單變更 Handler
   const handleOrderChange = (orderId: string) => {
+    if (refundedOrderIds[orderId]) {
+      showAlert('此筆訂單已經發放過退款，無法重複選擇！', '無法操作');
+      return;
+    }
+
     setSelectedOrderId(orderId);
     const order = userOrders.find(o => o.id === orderId);
     if (order) {
       setSelectedOrderTotal(order.total);
-      setAmount(String(order.total)); // 預設帶入全額退款
+      setAmount(String(order.total));
       setReason(`訂單 #${order.id} 退款轉換購物金`);
     } else {
       setSelectedOrderTotal(0);
@@ -123,14 +162,28 @@ export default function AdminCreditsPage() {
   // 退款購物金 logic
   const handleGrantCredit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser) return alert('請先選擇要退款的會員！');
-    if (!selectedOrderId) return alert('請選擇要進行退款的訂單！');
+    if (!selectedUser) {
+      showAlert('請先選擇要退款的會員！', '提示');
+      return;
+    }
+    if (!selectedOrderId) {
+      showAlert('請選擇要進行退款的訂單！', '提示');
+      return;
+    }
+    if (refundedOrderIds[selectedOrderId]) {
+      showAlert('此筆訂單已經發放過退款，無法重複發放！', '重複發放');
+      return;
+    }
 
     const refundAmt = Number(amount);
-    if (!refundAmt || refundAmt <= 0) return alert('請輸入有效的退款金額！');
+    if (!refundAmt || refundAmt <= 0) {
+      showAlert('請輸入有效的退款金額！', '格式錯誤');
+      return;
+    }
     
     if (refundAmt > selectedOrderTotal) {
-      return alert(`退款金額 (HKD $${refundAmt}) 不能超過該筆訂單總額 (HKD $${selectedOrderTotal})！`);
+      showAlert(`退款金額 (HKD $${refundAmt}) 不能超過該筆訂單總額 (HKD $${selectedOrderTotal})！`, '金額超出限制');
+      return;
     }
 
     setIsSubmitting(true);
@@ -146,9 +199,9 @@ export default function AdminCreditsPage() {
         storeCredit: newCredit
       });
 
-      // 2. 寫入變動紀錄
+      // 2. 寫入變動紀錄 (附帶 orderId 以便後續檢查)
       await userRef.collection("credit_logs").add({
-        type: 'grant', // 退款轉入
+        type: 'grant',
         amount: refundAmt,
         orderId: selectedOrderId,
         reason: reason.trim() || `訂單 #${selectedOrderId} 退款購物金`,
@@ -157,12 +210,14 @@ export default function AdminCreditsPage() {
 
       showToast(`✅ 已成功就訂單 #${selectedOrderId} 退款 HKD $${refundAmt} 至會員購物金！`);
       
+      // 更新前端本地已發放紀錄快取
+      setRefundedOrderIds(prev => ({ ...prev, [selectedOrderId]: true }));
       setSelectedUser(null);
       setSelectedOrderId('');
       setAmount('');
       setReason('');
     } catch (error: any) {
-      alert('退款失敗： ' + error.message);
+      showAlert('退款失敗： ' + error.message, '系統錯誤');
     } finally {
       setIsSubmitting(false);
     }
@@ -247,11 +302,19 @@ export default function AdminCreditsPage() {
                     className="w-full p-3 border border-[#EBE5DF] rounded-xl text-sm bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer font-mono"
                   >
                     <option value="">-- 請選擇訂單 --</option>
-                    {userOrders.map(o => (
-                      <option key={o.id} value={o.id}>
-                        #{o.id} - 訂單金額: HKD ${o.total?.toFixed(1)}
-                      </option>
-                    ))}
+                    {userOrders.map(o => {
+                      const isRefunded = refundedOrderIds[o.id];
+                      return (
+                        <option 
+                          key={o.id} 
+                          value={o.id} 
+                          disabled={isRefunded}
+                          className={isRefunded ? 'text-stone-400 bg-stone-100' : ''}
+                        >
+                          #{o.id} - 訂單金額: HKD ${o.total?.toFixed(1)} {isRefunded ? ' (⚠️ 已發放過退款)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
               </div>
@@ -276,7 +339,7 @@ export default function AdminCreditsPage() {
                     max={selectedOrderTotal || undefined}
                     step="0.1"
                     required
-                    disabled={!selectedOrderId}
+                    disabled={!selectedOrderId || refundedOrderIds[selectedOrderId]}
                     className="w-full py-3 pl-16 pr-4 border border-[#EBE5DF] rounded-xl text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono disabled:bg-[#F4F0EA]"
                   />
                 </div>
@@ -297,7 +360,7 @@ export default function AdminCreditsPage() {
 
               <button 
                 type="submit" 
-                disabled={isSubmitting || !selectedOrderId}
+                disabled={isSubmitting || !selectedOrderId || refundedOrderIds[selectedOrderId]}
                 className="w-full py-4 bg-[#B35B48] text-white rounded-xl font-semibold text-sm hover:bg-[#9B4C3A] transition cursor-pointer shadow-xs disabled:bg-[#EBE5DF] disabled:text-[#8C7B70] disabled:cursor-not-allowed"
               >
                 {isSubmitting ? '退款處理中...' : `確認辦理退款至 ${selectedUser.id} 的購物金`}
@@ -311,6 +374,29 @@ export default function AdminCreditsPage() {
           )}
         </div>
       </div>
+
+      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {customModal.isOpen && (
+        <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
+          <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
+            <h3 className="text-base font-serif font-semibold text-[#382E2B] mb-2.5">
+              {customModal.title || '提示訊息'}
+            </h3>
+            <p className="text-xs text-[#6E6058] mb-6 whitespace-pre-wrap leading-relaxed">
+              {customModal.message}
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCustomModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-2 bg-[#B35B48] text-white rounded-lg text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer"
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 吐司通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-3000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
