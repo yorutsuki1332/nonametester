@@ -144,15 +144,33 @@ export default function ProductDetailClient({
 
   const addToCart = () => {
     if (!product) return;
-    let cart = JSON.parse(localStorage.getItem('villa_atelier_cart') || '[]');
+
+    // 🌟 根據登入狀態決定對應的 localStorage Key，與首頁完全同步
+    const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
+    
+    let cart = [];
+    try {
+      const savedCart = localStorage.getItem(cartKey);
+      if (savedCart) cart = JSON.parse(savedCart);
+    } catch (e) {
+      cart = [];
+    }
+
     const item = cart.find((x: any) => x.id === product.id);
     if (item) {
       item.quantity += quantity;
     } else {
-      cart.push({ id: product.id, name: product.name, price: Number(product.price), quantity });
+      cart.push({ 
+        id: product.id, 
+        name: product.name, 
+        price: Number(product.price), 
+        quantity 
+      });
     }
-    localStorage.setItem('villa_atelier_cart', JSON.stringify(cart));
+
+    localStorage.setItem(cartKey, JSON.stringify(cart));
     showToast(`已將「${product.name}」放入購物車`);
+    
     setTimeout(() => {
       router.push('/');
     }, 1000);
