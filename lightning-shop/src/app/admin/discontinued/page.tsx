@@ -24,6 +24,9 @@ export default function AdminDiscontinuedListPage() {
   const [filteredList, setFilteredList] = useState<DiscontinuedProduct[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
+  // 🌟 勾選選取重新上架狀態
+  const [selectedProductIds, setSelectedProductIds] = useState<{ [id: string]: boolean }>({});
+
   // 編輯 Modal 狀態
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editId, setEditId] = useState('');
@@ -43,7 +46,10 @@ export default function AdminDiscontinuedListPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DiscontinuedProduct | null>(null);
 
-  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  // 🌟 批次重新上架確認 Modal 狀態
+  const [isBatchRestoreOpen, setIsBatchRestoreOpen] = useState(false);
+
+  // 自定義網頁主題彈窗狀態
   const [customModal, setCustomModal] = useState<{
     isOpen: boolean;
     title?: string;
@@ -119,6 +125,25 @@ export default function AdminDiscontinuedListPage() {
     setToastMsg(message);
     setIsToastShow(true);
     setTimeout(() => setIsToastShow(false), 3000);
+  };
+
+  // 🌟 全選 / 取消全選
+  const handleSelectAllToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allMap: { [id: string]: boolean } = {};
+      filteredList.forEach(p => { allMap[p.id] = true; });
+      setSelectedProductIds(allMap);
+    } else {
+      setSelectedProductIds({});
+    }
+  };
+
+  // 單一勾選切換
+  const handleCheckboxToggle = (productId: string) => {
+    setSelectedProductIds(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
   };
 
   // 開啟修改 Modal
@@ -237,7 +262,7 @@ export default function AdminDiscontinuedListPage() {
     }
   };
 
-  // 重新上架
+  // 單筆重新上架
   const restoreProduct = async (id: string) => {
     const product = discontinuedMap[id];
     if (!product) return;
@@ -261,6 +286,53 @@ export default function AdminDiscontinuedListPage() {
     }
   };
 
+  // 🌟 開啟批次重新上架確認
+  const openBatchRestoreModal = () => {
+    const count = Object.values(selectedProductIds).filter(Boolean).length;
+    if (count === 0) {
+      showAlert('請先勾選至少一項要重新上架的商品！', '未選取商品');
+      return;
+    }
+    setIsBatchRestoreOpen(true);
+  };
+
+  // 執行批次重新上架
+  const confirmBatchRestore = async () => {
+    try {
+      const idsToProcess = Object.keys(selectedProductIds).filter(id => selectedProductIds[id]);
+      
+      const batch = db.batch();
+      idsToProcess.forEach(id => {
+        const product = discontinuedMap[id];
+        if (product) {
+          // 1. 寫入 products
+          const prodRef = db.collection("products").doc(id);
+          batch.set(prodRef, {
+            name: product.name,
+            sku: product.sku || id,
+            category: product.category,
+            tag: product.tag || "",
+            price: product.price,
+            description: product.description || "",
+            images: product.images || [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // 2. 從 discontinued_products 刪除
+          const discRef = db.collection("discontinued_products").doc(id);
+          batch.delete(discRef);
+        }
+      });
+
+      await batch.commit();
+      setSelectedProductIds({});
+      setIsBatchRestoreOpen(false);
+      showToast(`✅ 已成功將 ${idsToProcess.length} 件商品重新上架！`);
+    } catch (error: any) {
+      showAlert('批次上架失敗： ' + error.message, '錯誤');
+    }
+  };
+
   // 永久刪除
   const openDeleteModal = (id: string) => {
     const product = discontinuedMap[id];
@@ -281,14 +353,16 @@ export default function AdminDiscontinuedListPage() {
     }
   };
 
+  const selectedCount = Object.values(selectedProductIds).filter(Boolean).length;
+
   return (
     <>
       <div className="mb-6.25">
         <h1 className="text-[24px] font-serif font-semibold mb-1 text-[#382E2B]">已下架貨品</h1>
-        <p className="text-[#7A6E65] text-[14px]">管理目前所有已下架的選品，可選擇重新上架或永久刪除。</p>
+        <p className="text-[#7A6E65] text-[14px]">管理目前所有已下架的選品，可選擇單筆重新上架、勾選多筆批次上架或永久刪除。</p>
       </div>
 
-      <div className="mb-6.25">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6.25">
         <input 
           type="text" 
           value={searchKeyword}
@@ -296,6 +370,17 @@ export default function AdminDiscontinuedListPage() {
           className="w-full max-w-100 p-[12px_18px] border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48] transition"
           placeholder="🔍 搜尋選品名稱或分類..." 
         />
+
+        {/* 🌟 批次重新上架按鈕 */}
+        {selectedCount > 0 && (
+          <button
+            type="button"
+            onClick={openBatchRestoreModal}
+            className="bg-[#B35B48] text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-[#9B4C3A] transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>✨</span> 批次重新上架已選項目 ({selectedCount})
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
@@ -303,6 +388,14 @@ export default function AdminDiscontinuedListPage() {
           <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
             <thead className="hidden md:table-header-group">
               <tr className="border-b-2 border-[#EBE5DF]">
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    onChange={handleSelectAllToggle}
+                    checked={filteredList.length > 0 && filteredList.every(p => selectedProductIds[p.id])}
+                    className="cursor-pointer accent-[#B35B48]"
+                  />
+                </th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品編號</th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品名稱</th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">分類</th>
@@ -312,12 +405,20 @@ export default function AdminDiscontinuedListPage() {
             </thead>
             <tbody>
               {allList.length === 0 ? (
-                <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">目前沒有已下架的商品</td></tr>
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前沒有已下架的商品</td></tr>
               ) : filteredList.length === 0 ? (
-                <tr><td colSpan={5} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的已下架商品</td></tr>
+                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的已下架商品</td></tr>
               ) : (
                 filteredList.map(p => (
                   <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2] transition">
+                    <td className="py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={!!selectedProductIds[p.id]}
+                        onChange={() => handleCheckboxToggle(p.id)}
+                        className="cursor-pointer accent-[#B35B48]"
+                      />
+                    </td>
                     <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] whitespace-break-spaces md:whitespace-nowrap">
                       <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
                       {p.id}
@@ -448,7 +549,31 @@ export default function AdminDiscontinuedListPage() {
         </>
       )}
 
-      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {/* 🌟 批次重新上架確認 Modal */}
+      {isBatchRestoreOpen && (
+        <>
+          <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={() => setIsBatchRestoreOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-137.5 bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-2xl z-3000 flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
+              <h2 className="text-[18px] font-serif font-semibold text-[#382E2B]">確認批次重新上架</h2>
+              <button className="bg-transparent border-none text-[26px] cursor-pointer text-[#7A6E65]" onClick={() => setIsBatchRestoreOpen(false)}>&times;</button>
+            </div>
+            <div className="p-6">
+              <p className="text-[14px] text-[#6E6058] mb-6.25 leading-relaxed">
+                確定要將已勾選的 {selectedCount} 件商品重新上架嗎？上架後將移回現時上架貨品清單。
+              </p>
+              <button type="button" onClick={confirmBatchRestore} className="w-full bg-[#B35B48] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#9B4C3A] transition shadow-xs">
+                確認重新上架
+              </button>
+              <button type="button" onClick={() => setIsBatchRestoreOpen(false)} className="w-full bg-[#F4F0EA] text-[#382E2B] p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#EBE5DF] transition mt-2.5">
+                取消
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 全域自定義網頁主題彈出介面 */}
       {customModal.isOpen && (
         <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">

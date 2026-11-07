@@ -23,6 +23,9 @@ export default function AdminProductsListPage() {
   const [filteredList, setFilteredList] = useState<Product[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
+  // 🌟 勾選選取下架狀態
+  const [selectedProductIds, setSelectedProductIds] = useState<{ [id: string]: boolean }>({});
+
   // 編輯 Modal 狀態
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editId, setEditId] = useState('');
@@ -38,11 +41,12 @@ export default function AdminProductsListPage() {
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // 下架 Modal 狀態
+  // 下架 Modal 狀態 (支援單筆或批量)
   const [isDiscontinueOpen, setIsDiscontinueOpen] = useState(false);
   const [discontinueTarget, setDiscontinueTarget] = useState<Product | null>(null);
+  const [isBatchDiscontinue, setIsBatchDiscontinue] = useState(false);
 
-  // 🌟 自定義網頁主題彈窗狀態 (替代 alert)
+  // 自定義網頁主題彈窗狀態
   const [customModal, setCustomModal] = useState<{
     isOpen: boolean;
     title?: string;
@@ -120,6 +124,25 @@ export default function AdminProductsListPage() {
     setToastMsg(message);
     setIsToastShow(true);
     setTimeout(() => setIsToastShow(false), 3000);
+  };
+
+  // 🌟 全選 / 取消全選
+  const handleSelectAllToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allMap: { [id: string]: boolean } = {};
+      filteredList.forEach(p => { allMap[p.id] = true; });
+      setSelectedProductIds(allMap);
+    } else {
+      setSelectedProductIds({});
+    }
+  };
+
+  // 單一勾選切換
+  const handleCheckboxToggle = (productId: string) => {
+    setSelectedProductIds(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
   };
 
   // 開啟修改 Modal
@@ -238,50 +261,96 @@ export default function AdminProductsListPage() {
     }
   };
 
-  // 下架相關
-  const openDiscontinueModalFromEdit = () => {
+  // 從修改視窗內觸發的單筆下架
+  const openSingleDiscontinueModalFromEdit = () => {
     const product = productsMap[editId];
     setIsEditOpen(false);
     if (product) {
       setDiscontinueTarget(product);
+      setIsBatchDiscontinue(false);
       setIsDiscontinueOpen(true);
     }
   };
 
+  // 🌟 批次選取下架
+  const openBatchDiscontinueModal = () => {
+    const count = Object.values(selectedProductIds).filter(Boolean).length;
+    if (count === 0) {
+      showAlert('請先勾選至少一項要下架的商品！', '未選取商品');
+      return;
+    }
+    setIsBatchDiscontinue(true);
+    setIsDiscontinueOpen(true);
+  };
+
+  // 執行下架確認
   const confirmDiscontinue = async () => {
-    if (!discontinueTarget) return;
-    const productId = discontinueTarget.id;
-
     try {
-      await db.collection("discontinued_products").doc(productId).set({
-        name: discontinueTarget.name,
-        sku: discontinueTarget.sku || productId,
-        category: discontinueTarget.category,
-        tag: discontinueTarget.tag || "",
-        price: discontinueTarget.price,
-        description: discontinueTarget.description || "",
-        images: discontinueTarget.images || [],
-        createdAt: discontinueTarget.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
-        discontinuedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      if (isBatchDiscontinue) {
+        const idsToProcess = Object.keys(selectedProductIds).filter(id => selectedProductIds[id]);
+        
+        // 批次執行 Firestore 寫入 discontinued_products 並刪除 products
+        const batch = db.batch();
+        idsToProcess.forEach(id => {
+          const p = productsMap[id];
+          if (p) {
+            const discRef = db.collection("discontinued_products").doc(id);
+            batch.set(discRef, {
+              name: p.name,
+              sku: p.sku || id,
+              category: p.category,
+              tag: p.tag || "",
+              price: p.price,
+              description: p.description || "",
+              images: p.images || [],
+              createdAt: p.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+              discontinuedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
 
-      await db.collection("products").doc(productId).delete();
+            const prodRef = db.collection("products").doc(id);
+            batch.delete(prodRef);
+          }
+        });
 
-      setIsDiscontinueOpen(false);
-      showToast('📥 商品已成功下架並移至已下架頁面！');
+        await batch.commit();
+        setSelectedProductIds({});
+        setIsDiscontinueOpen(false);
+        showToast(`📥 已成功批次下架 ${idsToProcess.length} 件商品！`);
+
+      } else if (discontinueTarget) {
+        const productId = discontinueTarget.id;
+        await db.collection("discontinued_products").doc(productId).set({
+          name: discontinueTarget.name,
+          sku: discontinueTarget.sku || productId,
+          category: discontinueTarget.category,
+          tag: discontinueTarget.tag || "",
+          price: discontinueTarget.price,
+          description: discontinueTarget.description || "",
+          images: discontinueTarget.images || [],
+          createdAt: discontinueTarget.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+          discontinuedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+
+        await db.collection("products").doc(productId).delete();
+
+        setIsDiscontinueOpen(false);
+        showToast('📥 商品已成功下架並移至已下架頁面！');
+      }
     } catch (error: any) {
       showAlert('下架失敗： ' + error.message, '錯誤');
     }
   };
 
+  const selectedCount = Object.values(selectedProductIds).filter(Boolean).length;
+
   return (
     <>
       <div className="mb-6.25">
         <h1 className="text-[24px] font-serif font-semibold mb-1 text-[#382E2B]">現時上架貨品</h1>
-        <p className="text-[#7A6E65] text-[14px]">管理目前所有在雲端資料庫中的選品清單，可直接進行修改或下架。</p>
+        <p className="text-[#7A6E65] text-[14px]">管理目前所有在雲端資料庫中的選品清單，可直接進行修改或勾選多筆批次下架。</p>
       </div>
 
-      <div className="mb-6.25">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6.25">
         <input 
           type="text" 
           value={searchKeyword}
@@ -289,6 +358,17 @@ export default function AdminProductsListPage() {
           className="w-full max-w-100 p-[12px_18px] border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48] transition"
           placeholder="🔍 搜尋選品名稱或分類..." 
         />
+        
+        {/* 🌟 批次操作按鈕 */}
+        {selectedCount > 0 && (
+          <button
+            type="button"
+            onClick={openBatchDiscontinueModal}
+            className="bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-800 transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
+          >
+            <span>🗑️</span> 批次下架已選項目 ({selectedCount})
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] w-full overflow-hidden">
@@ -296,6 +376,14 @@ export default function AdminProductsListPage() {
           <table className="w-full md:min-w-187.5 border-collapse text-left text-[14px]">
             <thead className="hidden md:table-header-group">
               <tr className="border-b-2 border-[#EBE5DF]">
+                <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] w-12 text-center">
+                  <input 
+                    type="checkbox" 
+                    onChange={handleSelectAllToggle}
+                    checked={filteredList.length > 0 && filteredList.every(p => selectedProductIds[p.id])}
+                    className="cursor-pointer accent-[#B35B48]"
+                  />
+                </th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品編號</th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">商品名稱</th>
                 <th className="p-3.75 text-[#7A6E65] font-semibold text-[15px] whitespace-nowrap">分類</th>
@@ -306,12 +394,20 @@ export default function AdminProductsListPage() {
             </thead>
             <tbody>
               {allProductsList.length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">目前尚無任何上架商品</td></tr>
+                <tr><td colSpan={7} className="text-center text-[#7A6E65] py-7.5">目前尚無任何上架商品</td></tr>
               ) : filteredList.length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的商品</td></tr>
+                <tr><td colSpan={7} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的商品</td></tr>
               ) : (
                 filteredList.map(p => (
                   <tr key={p.id} className="block md:table-row bg-white md:bg-transparent border md:border-none border-[#EBE5DF] rounded-lg md:rounded-none mb-3.75 md:mb-0 p-3.75 md:p-0 shadow-xs md:shadow-none hover:bg-[#FAF7F2] transition">
+                    <td className="py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={!!selectedProductIds[p.id]}
+                        onChange={() => handleCheckboxToggle(p.id)}
+                        className="cursor-pointer accent-[#B35B48]"
+                      />
+                    </td>
                     <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] whitespace-break-spaces md:whitespace-nowrap">
                       <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品編號</span>
                       {p.id}
@@ -339,8 +435,9 @@ export default function AdminProductsListPage() {
                       HKD {Number(p.price).toFixed(1)}
                     </td>
                     <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 md:border-b border-[#EBE5DF] md:align-middle mt-3 md:mt-0 pt-3 md:pt-3.75 md:whitespace-nowrap md:text-right">
+                      {/* 🌟 列表中僅保留修改按鈕，已移除一鍵下架按鈕 */}
                       <button 
-                        className="w-full md:w-auto bg-[#B35B48] text-white border-none px-4 p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-rose-800 transition shadow-xs" 
+                        className="w-full md:w-auto bg-[#B35B48] text-white border-none px-4 p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" 
                         onClick={() => openEditModal(p.id)}
                       >
                         修改
@@ -423,7 +520,7 @@ export default function AdminProductsListPage() {
                 <button type="submit" disabled={isUpdating} className="w-full bg-[#B35B48] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#9B4C3A] transition mt-2 shadow-xs">
                   {isUpdating ? '正在上傳至 Vercel Blob 並更新資料...' : '儲存修改'}
                 </button>
-                <button type="button" onClick={openDiscontinueModalFromEdit} className="w-full bg-rose-700 text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition mt-3 shadow-xs">
+                <button type="button" onClick={openSingleDiscontinueModalFromEdit} className="w-full bg-rose-700 text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition mt-3 shadow-xs">
                   下架商品
                 </button>
               </form>
@@ -432,8 +529,8 @@ export default function AdminProductsListPage() {
         </>
       )}
 
-      {/* 下架確認 Modal */}
-      {isDiscontinueOpen && discontinueTarget && (
+      {/* 下架確認 Modal (支援單筆或批量) */}
+      {isDiscontinueOpen && (
         <>
           <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={() => setIsDiscontinueOpen(false)} />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-137.5 bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl shadow-2xl z-2500 flex flex-col overflow-hidden">
@@ -443,7 +540,10 @@ export default function AdminProductsListPage() {
             </div>
             <div className="p-6">
               <p className="text-[14px] text-[#6E6058] mb-6.25 leading-relaxed">
-                確定要將「{discontinueTarget.name}」下架嗎？下架後將移至已下架頁面。
+                {isBatchDiscontinue 
+                  ? `確定要將已勾選的 ${selectedCount} 件商品批次下架嗎？下架後將統一移至已下架頁面。`
+                  : `確定要將「${discontinueTarget?.name}」下架嗎？下架後將移至已下架頁面。`
+                }
               </p>
               <button type="button" onClick={confirmDiscontinue} className="w-full bg-rose-700 text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-rose-800 transition shadow-xs">
                 確認下架
@@ -456,7 +556,7 @@ export default function AdminProductsListPage() {
         </>
       )}
 
-      {/* 🌟 全域自定義網頁主題彈出介面 (替代 alert) */}
+      {/* 全域自定義網頁主題彈出介面 */}
       {customModal.isOpen && (
         <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">
