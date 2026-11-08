@@ -1,0 +1,28 @@
+---
+description: Next.js App Router 網店專案開發規範與程式碼風格
+globs: ["src/**/*.ts", "src/**/*.tsx"]
+alwaysApply: false
+---
+
+# Next.js 網店專案開發規範
+
+## 1. 核心技術棧
+- Framework: Next.js (App Router `app/` 目錄)
+- Language: TypeScript
+- Styling: Tailwind CSS
+- State/Data Fetching: Server Actions / React Hooks
+
+## 2. 程式碼編寫原則
+- **Server Components 優先**：預設所有新建立的頁面與元件皆為 Server Component，唯有需要互動（如 `useState`, `useEffect`, 點擊事件）時才在最上方標註 `'use client'`。
+- **命名規範**：
+  - 元件檔案與命名使用 **PascalCase**（例如 `ProductCard.tsx`）。
+  - 一般函式與變數使用 `camelCase`。
+- **絕對路徑匯入**：一律使用 `@/` 別名（例如 `import { Button } from '@/components/ui/button'`），嚴禁使用長串相對路徑（如 `../../components/...`）。
+
+## 3. 網店業務邏輯與表單
+- 表單驗證：若涉及結帳、購物車或使用者輸入，請搭配使用 Zod 進行型別與資料驗證。
+- 錯誤與載入狀態：頁面與非同步請求務必考慮對應的 `loading.tsx` 與 `error.tsx` 狀態處理。
+
+## 4. AI 回應風格要求
+- 寫扣時請直接給出核心修改後的完整程式碼片段，避免省略過多上下文。
+- 程式碼結構保持簡潔，並適當加上必要的 TypeScript 介面型別定義。
