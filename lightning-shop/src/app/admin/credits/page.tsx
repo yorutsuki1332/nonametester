@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { errorMessage, withoutDocumentId } from '@/lib/errors';
 
 interface UserProfile {
   id: string; // accountId (Doc ID)
@@ -15,7 +16,7 @@ interface Order {
   id: string;
   total: number;
   status: string;
-  createdAt: any;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export default function AdminCreditsPage() {
@@ -64,62 +65,75 @@ export default function AdminCreditsPage() {
     const unsubscribe = db.collection("users").onSnapshot((snapshot) => {
       const list: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as any;
-        const { id: _, ...rest } = data;
-        list.push({ id: doc.id, ...rest } as UserProfile);
+        list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as UserProfile);
       });
       setUsers(list);
     });
     return () => unsubscribe();
   }, []);
 
+  const resetOrderForm = () => {
+    setUserOrders([]);
+    setRefundedOrderIds({});
+    setSelectedOrderId('');
+    setSelectedOrderTotal(0);
+    setAmount('');
+    setReason('');
+  };
+
+  const selectUser = (user: UserProfile) => {
+    setSelectedUser(user);
+    resetOrderForm();
+    setIsLoadingOrders(true);
+  };
+
+  const clearSelectedUser = () => {
+    setSelectedUser(null);
+    resetOrderForm();
+    setIsLoadingOrders(false);
+  };
+
   // 當選取特定會員時，讀取該會員的訂單列表與已發放過退款的紀錄
   useEffect(() => {
-    if (!selectedUser) {
-      setUserOrders([]);
-      setRefundedOrderIds({});
-      setSelectedOrderId('');
-      setSelectedOrderTotal(0);
-      setAmount('');
-      setReason('');
-      return;
-    }
+    if (!selectedUser) return;
 
-    setIsLoadingOrders(true);
+    let cancelled = false;
+    const accountId = selectedUser.id;
+
     const fetchUserData = async () => {
       try {
-        // 1. 讀取該會員的訂單
         const ordersSnap = await db.collection("orders")
-          .where("accountId", "==", selectedUser.id)
+          .where("accountId", "==", accountId)
           .get();
         
         const list: Order[] = [];
         ordersSnap.forEach(doc => {
-          const data = doc.data() as any;
-          const { id: _, ...rest } = data;
-          list.push({ id: doc.id, ...rest } as Order);
+          list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Order);
         });
-        setUserOrders(list);
 
-        // 2. 讀取該會員的 credit_logs 找出已經發放過退款的 orderId
-        const logsSnap = await db.collection("users").doc(selectedUser.id).collection("credit_logs").get();
+        const logsSnap = await db.collection("users").doc(accountId).collection("credit_logs").get();
         const refundedMap: { [orderId: string]: boolean } = {};
         logsSnap.forEach(doc => {
           const logData = doc.data();
-          if (logData.orderId) {
+          if (typeof logData.orderId === 'string') {
             refundedMap[logData.orderId] = true;
           }
         });
-        setRefundedOrderIds(refundedMap);
 
+        if (cancelled) return;
+        setUserOrders(list);
+        setRefundedOrderIds(refundedMap);
       } catch (err) {
         console.error("載入會員資料與訂單失敗:", err);
       } finally {
-        setIsLoadingOrders(false);
+        if (!cancelled) setIsLoadingOrders(false);
       }
     };
 
-    fetchUserData();
+    void fetchUserData();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedUser]);
 
   const showToast = (msg: string) => {
@@ -212,12 +226,9 @@ export default function AdminCreditsPage() {
       
       // 更新前端本地已發放紀錄快取
       setRefundedOrderIds(prev => ({ ...prev, [selectedOrderId]: true }));
-      setSelectedUser(null);
-      setSelectedOrderId('');
-      setAmount('');
-      setReason('');
-    } catch (error: any) {
-      showAlert('退款失敗： ' + error.message, '系統錯誤');
+      clearSelectedUser();
+    } catch (error: unknown) {
+      showAlert('退款失敗： ' + errorMessage(error), '系統錯誤');
     } finally {
       setIsSubmitting(false);
     }
@@ -249,7 +260,7 @@ export default function AdminCreditsPage() {
               filteredUsers.map(u => (
                 <div 
                   key={u.id}
-                  onClick={() => setSelectedUser(u)}
+                  onClick={() => selectUser(u)}
                   className={`p-3.5 rounded-xl border cursor-pointer transition flex justify-between items-center ${
                     selectedUser?.id === u.id
                       ? 'border-[#B35B48] bg-[#E6D5CC]/30 shadow-xs'
@@ -281,7 +292,7 @@ export default function AdminCreditsPage() {
                   <span className="text-xs text-[#7A6E65] block">當前選中的會員</span>
                   <span className="font-bold text-sm text-[#382E2B]">{selectedUser.name || selectedUser.id} ({selectedUser.email})</span>
                 </div>
-                <button type="button" onClick={() => setSelectedUser(null)} className="text-xs text-rose-700 underline cursor-pointer">重新選擇</button>
+                <button type="button" onClick={clearSelectedUser} className="text-xs text-rose-700 underline cursor-pointer">重新選擇</button>
               </div>
 
               <div>

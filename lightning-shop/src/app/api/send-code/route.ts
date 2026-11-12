@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { errorMessage } from '@/lib/errors';
 
 export async function POST(request: Request) {
   try {
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: { message: err.message } }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: { message: errorMessage(err) } }, { status: 500 });
   }
 }

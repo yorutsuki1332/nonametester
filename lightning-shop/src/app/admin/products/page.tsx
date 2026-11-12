@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
+import { errorMessage, withoutDocumentId } from '@/lib/errors';
 
 interface Product {
   id: string;
@@ -14,13 +16,12 @@ interface Product {
   description?: string;
   images?: string[];
   sku?: string;
-  createdAt?: any;
+  createdAt?: firebase.firestore.Timestamp;
 }
 
 export default function AdminProductsListPage() {
   const [productsMap, setProductsMap] = useState<{ [key: string]: Product }>({});
   const [allProductsList, setAllProductsList] = useState<Product[]>([]);
-  const [filteredList, setFilteredList] = useState<Product[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // 🌟 勾選選取下架狀態
@@ -68,16 +69,6 @@ export default function AdminProductsListPage() {
     });
   };
 
-  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
-    setCustomModal({
-      isOpen: true,
-      title,
-      message,
-      isConfirm: true,
-      onConfirm,
-    });
-  };
-
   // 吐司提示
   const [toastMsg, setToastMsg] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -89,9 +80,7 @@ export default function AdminProductsListPage() {
       const list: Product[] = [];
 
       querySnapshot.forEach((doc) => {
-        const data = doc.data() as any;
-        const { id: _, ...rest } = data;
-        const product = { id: doc.id, ...rest } as Product;
+        const product = { id: doc.id, ...withoutDocumentId(doc.data()) } as Product;
         map[doc.id] = product;
         list.push(product);
       });
@@ -103,21 +92,16 @@ export default function AdminProductsListPage() {
     return () => unsubscribe();
   }, []);
 
-  // 搜尋過濾
-  useEffect(() => {
+  const filteredList = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) {
-      setFilteredList(allProductsList);
-      return;
-    }
+    if (!keyword) return allProductsList;
 
-    const filtered = allProductsList.filter(p => {
+    return allProductsList.filter(p => {
       const skuMatch = p.id && p.id.toLowerCase().includes(keyword);
       const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
       const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
       return skuMatch || nameMatch || categoryMatch;
     });
-    setFilteredList(filtered);
   }, [searchKeyword, allProductsList]);
 
   const showToast = (message: string) => {
@@ -254,8 +238,8 @@ export default function AdminProductsListPage() {
 
       showToast('✅ 商品資料與圖片已成功更新！');
       setIsEditOpen(false);
-    } catch (error: any) {
-      showAlert('更新失敗： ' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('更新失敗： ' + errorMessage(error), '錯誤');
     } finally {
       setIsUpdating(false);
     }
@@ -336,8 +320,8 @@ export default function AdminProductsListPage() {
         setIsDiscontinueOpen(false);
         showToast('📥 商品已成功下架並移至已下架頁面！');
       }
-    } catch (error: any) {
-      showAlert('下架失敗： ' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('下架失敗： ' + errorMessage(error), '錯誤');
     }
   };
 
@@ -499,13 +483,13 @@ export default function AdminProductsListPage() {
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">
                     {existingImages.map((url, idx) => (
                       <div key={`existing-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#EBE5DF] overflow-hidden bg-[#F4F0EA] flex items-center justify-center">
-                        <img src={url} alt="既有圖片" className="w-full h-full object-cover" />
+                        <Image src={url} alt="既有圖片" fill unoptimized sizes="80px" className="object-cover" />
                         <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-[#382E2B]/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-700">&times;</button>
                       </div>
                     ))}
                     {newImagePreviews.map((url, idx) => (
                       <div key={`new-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#EBE5DF] overflow-hidden bg-[#F4F0EA] flex items-center justify-center">
-                        <img src={url} alt="新選取圖片" className="w-full h-full object-cover" />
+                        <Image src={url} alt="新選取圖片" fill unoptimized sizes="80px" className="object-cover" />
                         <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-[#382E2B]/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-700">&times;</button>
                       </div>
                     ))}

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { errorCode, errorMessage, withoutDocumentId } from '@/lib/errors';
 
 interface UserProfile {
   accountId: string;
@@ -23,7 +24,7 @@ interface Order {
   id: string;
   total: number;
   status: 'pending' | 'paid' | 'preparing' | 'shipping' | 'completed' | 'cancelled';
-  createdAt: any;
+  createdAt: firebase.firestore.Timestamp;
   items: Array<{
     id: string;
     name: string;
@@ -53,7 +54,7 @@ interface CreditLog {
   type: 'grant' | 'use';
   amount: number;
   reason: string;
-  createdAt: any;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 interface FavoriteItem {
@@ -83,7 +84,7 @@ const COUNTRY_CODES = [
 export default function AccountPage() {
   const router = useRouter();
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -137,16 +138,6 @@ export default function AccountPage() {
     });
   };
 
-  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
-    setCustomModal({
-      isOpen: true,
-      title,
-      message,
-      isConfirm: true,
-      onConfirm,
-    });
-  };
-
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -162,9 +153,10 @@ export default function AccountPage() {
   useEffect(() => {
     const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
       if (doc.exists) {
-        const data = doc.data() as any;
-        if (data?.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) {
-          const sorted = [...data.tiers].sort((a, b) => Number(a.threshold) - Number(b.threshold));
+        const data = doc.data();
+        const tiers = data?.tiers;
+        if (Array.isArray(tiers) && tiers.length > 0) {
+          const sorted = [...(tiers as TierItem[])].sort((a, b) => Number(a.threshold) - Number(b.threshold));
           setTierList(sorted);
         }
       }
@@ -207,8 +199,7 @@ export default function AccountPage() {
               const now = new Date().getTime();
 
               snapshot.forEach((doc) => {
-                const { id, ...data } = doc.data() as any;
-                const coupon = { id: doc.id, ...data } as Coupon;
+                const coupon = { id: doc.id, ...withoutDocumentId(doc.data()) } as Coupon;
                 const isTargetUser = !coupon.targetAccountId || coupon.targetAccountId === docId;
 
                 if (isTargetUser) {
@@ -235,8 +226,7 @@ export default function AccountPage() {
               .onSnapshot((snapshot) => {
                 const logs: CreditLog[] = [];
                 snapshot.forEach((doc) => {
-                  const { id, ...data } = doc.data() as any;
-                  logs.push({ id: doc.id, ...data });
+                  logs.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as CreditLog);
                 });
                 setCreditLogs(logs);
               });
@@ -262,26 +252,18 @@ export default function AccountPage() {
               });
           }
 
-          let ordersQuery: any = null;
-          if (docId) {
-            ordersQuery = db.collection("orders")
-              .where("accountId", "==", docId)
-              .orderBy("createdAt", "desc");
-          } else {
-            ordersQuery = db.collection("orders")
-              .where("email", "==", user.email)
-              .orderBy("createdAt", "desc");
-          }
+          const ordersQuery: firebase.firestore.Query = docId
+            ? db.collection("orders").where("accountId", "==", docId).orderBy("createdAt", "desc")
+            : db.collection("orders").where("email", "==", user.email || '').orderBy("createdAt", "desc");
 
-          const unsubscribeOrders = ordersQuery.onSnapshot((snapshot: any) => {
+          const unsubscribeOrders = ordersQuery.onSnapshot((snapshot) => {
             const list: Order[] = [];
-            snapshot.forEach((doc: any) => {
-              const { id, ...data } = doc.data() as any;
-              list.push({ id: doc.id, ...data });
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Order);
             });
             setOrders(list);
             setLoading(false);
-          }, (err: any) => {
+          }, (err) => {
             console.error("Orders fetch error:", err);
             setLoading(false);
           });
@@ -391,8 +373,8 @@ export default function AccountPage() {
       } : null);
 
       showToast('✅ 個人資料已確認修改並成功儲存！');
-    } catch (error: any) {
-      showAlert('更新失敗：' + error.message, '系統提示');
+    } catch (error: unknown) {
+      showAlert('更新失敗：' + errorMessage(error), '系統提示');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -462,12 +444,12 @@ export default function AccountPage() {
 
       showAlert('您的帳戶已成功註銷，感謝您過去的陪伴。', '註銷成功');
       router.push('/');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('帳戶註銷失敗:', error);
-      if (error.code === 'auth/requires-recent-login') {
+      if (errorCode(error) === 'auth/requires-recent-login') {
         showAlert('為了您的帳戶安全，此操作需要重新驗證身分。\n請先點擊「登出」，重新登入帳戶後，再立即執行一次註銷操作。', '安全驗證');
       } else {
-        showAlert('註銷失敗：' + (error.message || '未知錯誤'), '註銷失敗');
+        showAlert('註銷失敗：' + errorMessage(error), '註銷失敗');
       }
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
@@ -485,8 +467,8 @@ export default function AccountPage() {
     try {
       await db.collection("users").doc(profile.accountId).collection("favorites").doc(productId).delete();
       showToast('已移除該收藏商品');
-    } catch (err: any) {
-      showAlert('移除失敗：' + err.message, '操作失敗');
+    } catch (err: unknown) {
+      showAlert('移除失敗：' + errorMessage(err), '操作失敗');
     }
   };
 
@@ -517,6 +499,29 @@ export default function AccountPage() {
 
   const currentCountryConfig = COUNTRY_CODES.find(c => c.code === phoneCountry) || COUNTRY_CODES[0];
   const isAnyModalOpen = isDeleteModalOpen || customModal.isOpen;
+
+  useEffect(() => {
+    document.body.style.overflow = isAnyModalOpen ? 'hidden' : 'unset';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isAnyModalOpen]);
+
+  const accountTabs: { id: 'orders' | 'coupons' | 'credits' | 'favorites' | 'level' | 'profile'; label: string; count?: number }[] = [
+    { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
+    { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
+    { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
+    { id: 'favorites', label: '❤️ 我的收藏', count: favorites.length },
+    { id: 'level', label: '👑 會員等級權益' },
+    { id: 'profile', label: '⚙️ 個人資料與安全' }
+  ];
+
+  const orderFilters: { id: 'all' | 'pending' | 'shipped' | 'delivered'; label: string }[] = [
+    { id: 'all', label: '全部訂單' },
+    { id: 'pending', label: '待處理 / 備貨中' },
+    { id: 'shipped', label: '配送中' },
+    { id: 'delivered', label: '已送達完成' }
+  ];
 
   if (loading) {
     return (
@@ -595,17 +600,10 @@ export default function AccountPage() {
         </div>
 
         <div className="flex border-b border-[#EBE5DF] mb-8 overflow-x-auto no-scrollbar gap-2 md:gap-0.5">
-          {[
-            { id: 'orders', label: '📦 訂單記錄與進度', count: orders.length },
-            { id: 'coupons', label: '🎟️ 專屬優惠卷', count: coupons.length },
-            { id: 'credits', label: '💰 購物金紀錄', count: creditLogs.length },
-            { id: 'favorites', label: '❤️ 我的收藏', count: favorites.length },
-            { id: 'level', label: '👑 會員等級權益' },
-            { id: 'profile', label: '⚙️ 個人資料與安全' }
-          ].map(tab => (
+          {accountTabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`pb-3.5 px-2 text-sm font-medium border-b-2 whitespace-nowrap transition flex items-center gap-2 cursor-pointer ${
                 activeTab === tab.id
                   ? 'border-[#B35B48] text-[#B35B48] font-semibold'
@@ -627,15 +625,10 @@ export default function AccountPage() {
         {activeTab === 'orders' && (
           <div className="space-y-6">
             <div className="flex gap-2 mb-4 overflow-x-auto">
-              {[
-                { id: 'all', label: '全部訂單' },
-                { id: 'pending', label: '待處理 / 備貨中' },
-                { id: 'shipped', label: '配送中' },
-                { id: 'delivered', label: '已送達完成' }
-              ].map(f => (
+              {orderFilters.map(f => (
                 <button
                   key={f.id}
-                  onClick={() => setOrderFilter(f.id as any)}
+                  onClick={() => setOrderFilter(f.id)}
                   className={`px-3.5 py-1.5 text-xs rounded-lg transition border cursor-pointer ${
                     orderFilter === f.id
                       ? 'bg-[#B35B48] text-white font-semibold border-[#B35B48]'

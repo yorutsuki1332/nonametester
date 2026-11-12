@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import Link from 'next/link';
+import { errorMessage } from '@/lib/errors';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -64,9 +65,9 @@ function VerifyContent() {
           setStatus('error');
           setMessage('❌ 驗證碼不正確或已失效。');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
-        setMessage('驗證過程發生錯誤：' + err.message);
+        setMessage('驗證過程發生錯誤：' + errorMessage(err));
       }
     }
 

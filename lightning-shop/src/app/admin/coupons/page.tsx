@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { errorMessage, withoutDocumentId } from '@/lib/errors';
 
 interface UserProfile {
   id: string; // accountId
@@ -87,9 +88,7 @@ export default function AdminCouponsPage() {
     const unsubscribeCoupons = db.collection("coupons").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Coupon[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as any;
-        const { id: _, ...rest } = data;
-        list.push({ id: doc.id, ...rest } as Coupon);
+        list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Coupon);
       });
       setCoupons(list);
     });
@@ -97,9 +96,7 @@ export default function AdminCouponsPage() {
     const unsubscribeUsers = db.collection("users").onSnapshot((snapshot) => {
       const userList: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as any;
-        const { id: _, ...rest } = data;
-        userList.push({ id: doc.id, ...rest } as UserProfile);
+        userList.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as UserProfile);
       });
       setUsers(userList);
     });
@@ -208,8 +205,8 @@ export default function AdminCouponsPage() {
       setHasNoExpiry(true);
       setStartTime('');
       setEndTime('');
-    } catch (error: any) {
-      showAlert('發放失敗： ' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('發放失敗： ' + errorMessage(error), '錯誤');
     }
   };
 
@@ -218,8 +215,8 @@ export default function AdminCouponsPage() {
       try {
         await db.collection("coupons").doc(couponId).delete();
         showToast('⚠️ 優惠券已刪除');
-      } catch (error: any) {
-        showAlert('刪除失敗：' + error.message, '錯誤');
+      } catch (error: unknown) {
+        showAlert('刪除失敗：' + errorMessage(error), '錯誤');
       }
     }, '刪除確認');
   };
@@ -265,7 +262,7 @@ export default function AdminCouponsPage() {
               <label className="text-xs font-semibold text-[#6E6058]">有效條件 <span className="text-[#B35B48] ml-1">*</span></label>
               <select 
                 value={conditionType} 
-                onChange={(e) => handleConditionTypeChange(e.target.value as any)}
+                onChange={(e) => handleConditionTypeChange(e.target.value as 'infinite' | 'counts' | 'periods')}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer"
               >
                 <option value="infinite">永久有效</option>
@@ -385,7 +382,7 @@ export default function AdminCouponsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">折扣類型</label>
-              <select value={discountType} onChange={(e) => setDiscountType(e.target.value as any)} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer">
+              <select value={discountType} onChange={(e) => setDiscountType(e.target.value as 'fixed' | 'percent')} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer">
                 <option value="fixed">固定金額折抵 ($)</option>
                 <option value="percent">百分比折扣 (%)</option>
               </select>

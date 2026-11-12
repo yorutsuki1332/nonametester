@@ -1,9 +1,47 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
+import { errorMessage } from '@/lib/errors';
+
+async function loadNextSkuIndex(year: number) {
+  try {
+    const [productSnapshot, discontinuedSnapshot] = await Promise.all([
+      db.collection("products").get(),
+      db.collection("discontinued_products").get()
+    ]);
+
+    let maxIndex = 0;
+    const yearStr = String(year);
+
+    const evaluateSnapshot = (querySnapshot: firebase.firestore.QuerySnapshot) => {
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const sku = typeof data.sku === 'string' ? data.sku : doc.id;
+        if (sku.includes(yearStr)) {
+          const regex = new RegExp(yearStr + '(\\d{3})');
+          const match = sku.match(regex);
+          if (match && match[1]) {
+            const idx = parseInt(match[1], 10);
+            if (idx > maxIndex) {
+              maxIndex = idx;
+            }
+          }
+        }
+      });
+    };
+
+    evaluateSnapshot(productSnapshot);
+    evaluateSnapshot(discontinuedSnapshot);
+    return maxIndex + 1;
+  } catch (error) {
+    console.log("讀取資料庫失敗:", error);
+    return 1;
+  }
+}
 
 export default function AdminAddProductPage() {
   const [productName, setProductName] = useState('');
@@ -14,9 +52,8 @@ export default function AdminAddProductPage() {
   const [salePrice, setSalePrice] = useState('');
   const [productDesc, setProductDesc] = useState('');
   
-  const [productSKU, setProductSKU] = useState('');
   const [nextIndex, setNextIndex] = useState(1);
-  const [currentYear, setCurrentYear] = useState(2026);
+  const [currentYear] = useState(() => new Date().getFullYear());
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [uploadedPreviews, setUploadedPreviews] = useState<string[]>([]);
@@ -46,58 +83,19 @@ export default function AdminAddProductPage() {
     });
   };
 
-  useEffect(() => {
-    initAutoSku();
-    setCurrentYear(new Date().getFullYear());
-  }, []);
+  const productSKU = skuRegion && skuGender
+    ? `${skuRegion}${currentYear}${String(nextIndex).padStart(3, '0')}${skuGender}`
+    : '';
 
   useEffect(() => {
-    if (!skuRegion || !skuGender) {
-      setProductSKU('');
-      return;
-    }
-    const paddedIndex = String(nextIndex).padStart(3, '0');
-    setProductSKU(`${skuRegion}${currentYear}${paddedIndex}${skuGender}`);
-  }, [skuRegion, skuGender, nextIndex, currentYear]);
-
-  const initAutoSku = async () => {
-    const year = new Date().getFullYear();
-    setCurrentYear(year);
-    try {
-      const [productSnapshot, discontinuedSnapshot] = await Promise.all([
-        db.collection("products").get(), 
-        db.collection("discontinued_products").get()
-      ]);
-
-      let maxIndex = 0;
-      const yearStr = String(year);
-
-      const evaluateSnapshot = (querySnapshot: firebase.firestore.QuerySnapshot) => {
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const sku = data.sku || doc.id;
-          if (sku && sku.includes(yearStr)) {
-            const regex = new RegExp(yearStr + '(\\d{3})');
-            const match = sku.match(regex);
-            if (match && match[1]) {
-              const idx = parseInt(match[1], 10);
-              if (idx > maxIndex) {
-                maxIndex = idx;
-              }
-            }
-          }
-        })
-      };
-
-      evaluateSnapshot(productSnapshot);
-      evaluateSnapshot(discontinuedSnapshot);
-
-      setNextIndex(maxIndex + 1);
-    } catch (error) {
-      console.log("讀取資料庫失敗:", error);
-      setNextIndex(1);
-    }
-  };
+    let cancelled = false;
+    loadNextSkuIndex(currentYear).then((index) => {
+      if (!cancelled) setNextIndex(index);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentYear]);
 
   const processFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -196,9 +194,9 @@ export default function AdminAddProductPage() {
       setProductDesc('');
       setUploadedFiles([]);
       setUploadedPreviews([]);
-      initAutoSku();
-    } catch (error: any) {
-      showAlert('上架失敗： ' + error.message, '系統錯誤');
+      setNextIndex(await loadNextSkuIndex(currentYear));
+    } catch (error: unknown) {
+      showAlert('上架失敗： ' + errorMessage(error), '系統錯誤');
     } finally {
       setIsSubmitting(false);
     }
@@ -309,7 +307,7 @@ export default function AdminAddProductPage() {
               <div className="grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-3 mt-2.5">
                 {uploadedPreviews.map((src, index) => (
                   <div key={index} className="relative w-90px h-90px rounded-lg border border-[#EBE5DF] overflow-hidden bg-[#F4F0EA] flex items-center justify-center">
-                    <img src={src} alt="預覽圖" className="w-full h-full object-cover" />
+                    <Image src={src} alt="預覽圖" fill unoptimized sizes="90px" className="object-cover" />
                     <button type="button" onClick={() => removeImage(index)} className="absolute top-1 right-1 bg-[rgba(56,46,43,0.7)] text-white border-none rounded-full w-5 h-5 text-[11px] flex items-center justify-center cursor-pointer hover:bg-[#B35B48] transition">&times;</button>
                   </div>
                 ))}
@@ -326,7 +324,7 @@ export default function AdminAddProductPage() {
           </div>
 
           <div className="flex flex-col-reverse md:flex-row justify-end gap-2.5 md:gap-4 mt-10 pt-5 border-t border-[#EBE5DF]">
-            <button type="button" onClick={initAutoSku} className="w-full md:w-auto py-3 px-7 rounded-full text-sm font-medium bg-transparent text-[#7A6E65] border border-[#EBE5DF] hover:bg-[#F4F0EA] hover:text-[#382E2B] transition cursor-pointer">重新載入序號</button>
+            <button type="button" onClick={() => { void loadNextSkuIndex(currentYear).then(setNextIndex); }} className="w-full md:w-auto py-3 px-7 rounded-full text-sm font-medium bg-transparent text-[#7A6E65] border border-[#EBE5DF] hover:bg-[#F4F0EA] hover:text-[#382E2B] transition cursor-pointer">重新載入序號</button>
             <button type="submit" disabled={isSubmitting} className="w-full md:w-auto py-3 px-7 rounded-full text-sm font-medium bg-[#B35B48] text-white hover:bg-[#9B4C3A] hover:-translate-y-0.5 hover:shadow-[0_5px_15px_rgba(179,91,72,0.2)] transition cursor-pointer">
               {isSubmitting ? '正在同時上傳圖片與建立商品...' : '確認上架商品'}
             </button>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import type { OrderEmailItem } from '@/lib/errors';
 
 export async function POST(request: Request) {
   try {
@@ -8,7 +9,7 @@ export async function POST(request: Request) {
     const { email, orderId, total, items } = await request.json();
 
     const itemsListHtml = items
-      .map((item: any) => `<li>${item.name} x ${item.quantity} - HKD $${item.price * item.quantity}</li>`)
+      .map((item: OrderEmailItem) => `<li>${item.name} x ${item.quantity} - HKD $${item.price * item.quantity}</li>`)
       .join('');
 
     const data = await resend.emails.send({

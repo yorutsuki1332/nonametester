@@ -13,7 +13,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <link rel="icon" href="/favicon.ico" sizes="any" />
       <body className="bg-[#FAF7F2] text-[#382E2B] font-sans antialiased overflow-x-hidden selection:bg-[#E6D5CC]">
         {children}
       </body>

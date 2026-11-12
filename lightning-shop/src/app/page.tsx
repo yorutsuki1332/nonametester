@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import { errorMessage, withoutDocumentId } from '@/lib/errors';
+import MegaMenu from '@/components/MegaMenu';
 
 interface Product {
   id: string;
@@ -55,11 +57,39 @@ interface TierItem {
   discount: number;
 }
 
+function filterCatalog(list: Product[], keyword: string, category: string) {
+  let result = list;
+
+  if (category !== 'all') {
+    result = result.filter(p => p.category && p.category.trim() === category);
+  }
+
+  const lower = keyword.trim().toLowerCase();
+  if (lower) {
+    result = result.filter(p => {
+      const nameMatch = p.name && p.name.toLowerCase().includes(lower);
+      const catMatch = p.category && p.category.toLowerCase().includes(lower);
+      const tagMatch = p.tag && p.tag.toLowerCase().includes(lower);
+      return nameMatch || catMatch || tagMatch;
+    });
+  }
+
+  return result;
+}
+
+const CATEGORY_MARK: Record<string, string> = {
+  BAGS: '👜',
+  ACCESSORY: '💍',
+  'DAILY WEAR': '👕',
+};
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const catalogQuery = useRef({ keyword: '', category: 'all' });
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -71,7 +101,7 @@ export default function Home() {
   // 結帳步驟控制 (1: 填寫收件資料, 2: 結帳再確認頁面)
   const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
 
-  // 🌟 自定義網頁主題彈窗狀態 (替代 alert / confirm)
+  // 自定義網頁主題彈窗狀態
   const [customModal, setCustomModal] = useState<{
     isOpen: boolean;
     title?: string;
@@ -125,7 +155,7 @@ export default function Home() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [inputVerificationCode, setInputVerificationCode] = useState('');
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
   const [currentAccountId, setCurrentAccountId] = useState('');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
@@ -147,16 +177,16 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('villa_atelier_cart_guest');
-    if (savedCart) {
-      try { setCart(JSON.parse(savedCart)); } catch (e) {}
-    }
+    catalogQuery.current = { keyword: searchKeyword, category: selectedCategory };
+  }, [searchKeyword, selectedCategory]);
 
+  useEffect(() => {
     const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
       if (doc.exists) {
-        const data = doc.data() as any;
-        if (data?.tiers && Array.isArray(data.tiers) && data.tiers.length > 0) {
-          const sorted = [...data.tiers].sort((a, b) => Number(b.threshold) - Number(a.threshold));
+        const data = doc.data();
+        const tiers = data?.tiers;
+        if (Array.isArray(tiers) && tiers.length > 0) {
+          const sorted = [...(tiers as TierItem[])].sort((a, b) => Number(b.threshold) - Number(a.threshold));
           setTierList(sorted);
         }
       }
@@ -165,12 +195,14 @@ export default function Home() {
     const unsubscribeProducts = db.collection("products").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       const list: Product[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as any;
-        const { id: _, ...rest } = data;
-        list.push({ id: doc.id, ...rest });
+        list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Product);
       });
+      const { keyword, category } = catalogQuery.current;
       setProducts(list);
-      setFilteredProducts(list);
+      setFilteredProducts(filterCatalog(list, keyword, category));
+      setCatalogReady(true);
+    }, () => {
+      setCatalogReady(true);
     });
 
     let unsubscribeOrders: (() => void) | null = null;
@@ -190,7 +222,7 @@ export default function Home() {
         const userCartKey = `villa_atelier_cart_${user.uid}`;
         const userSavedCart = localStorage.getItem(userCartKey);
         if (userSavedCart) {
-          try { setCart(JSON.parse(userSavedCart)); } catch (e) { setCart([]); }
+          try { setCart(JSON.parse(userSavedCart)); } catch { setCart([]); }
         } else {
           setCart([]);
         }
@@ -226,7 +258,7 @@ export default function Home() {
                   }
                 });
                 setUserTotalSpent(spent);
-              }, (err) => {
+              }, () => {
                 if (user.email) {
                   db.collection("orders").where("email", "==", user.email).onSnapshot((eSnap) => {
                     let spent = 0;
@@ -254,7 +286,7 @@ export default function Home() {
             setUserTotalSpent(0);
             setUserProfile(null);
           }
-        } catch (e) {
+        } catch {
           setCurrentAccountId('會員');
           setUserStoreCredit(0);
           setUserTotalSpent(0);
@@ -270,7 +302,7 @@ export default function Home() {
         
         const guestCart = localStorage.getItem('villa_atelier_cart_guest');
         if (guestCart) {
-          try { setCart(JSON.parse(guestCart)); } catch (e) { setCart([]); }
+          try { setCart(JSON.parse(guestCart)); } catch { setCart([]); }
         } else {
           setCart([]);
         }
@@ -286,9 +318,7 @@ export default function Home() {
           const now = new Date().getTime();
 
           snapshot.forEach((doc) => {
-            const data = doc.data() as any;
-            const { id: _, ...rest } = data;
-            const coupon = { id: doc.id, ...rest } as Coupon;
+            const coupon = { id: doc.id, ...withoutDocumentId(doc.data()) } as Coupon;
 
             if (coupon.targetAccountId && coupon.targetAccountId.trim() !== '' && coupon.targetAccountId !== loggedInAccountId) {
               return; 
@@ -325,36 +355,22 @@ export default function Home() {
   }, []);
 
   const filterProducts = (keyword: string, category: string) => {
-    let result = products;
-
-    if (category !== 'all') {
-      result = result.filter(p => p.category && p.category.trim() === category);
-    }
-
-    const lower = keyword.trim().toLowerCase();
-    if (lower) {
-      result = result.filter(p => {
-        const nameMatch = p.name && p.name.toLowerCase().includes(lower);
-        const catMatch = p.category && p.category.toLowerCase().includes(lower);
-        return nameMatch || catMatch;
-      });
-    }
-
-    setFilteredProducts(result);
+    setFilteredProducts(filterCatalog(products, keyword, category));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const keyword = e.target.value;
+    catalogQuery.current = { keyword, category: selectedCategory };
     setSearchKeyword(keyword);
     filterProducts(keyword, selectedCategory);
   };
 
-  const handleCategorySelect = (category: string) => {
+  const handleMegaSelect = (category: string, keyword: string) => {
+    catalogQuery.current = { keyword, category };
+    setSearchKeyword(keyword);
     setSelectedCategory(category);
-    filterProducts(searchKeyword, category);
+    filterProducts(keyword, category);
   };
-
-  const categories = ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -369,7 +385,6 @@ export default function Home() {
     setSelectedCartIds(prev => prev.filter(id => newCart.some(item => item.id === id)));
   };
 
-  // 🌟 購物車勾選與移除相關操作 (使用自定義彈窗)
   const handleToggleSelectCartItem = (id: string) => {
     setSelectedCartIds(prev => 
       prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
@@ -606,8 +621,8 @@ export default function Home() {
         showToast('登入成功！');
         setIsAuthOpen(false);
       }
-    } catch (error: any) {
-      showAlert('操作失敗： ' + error.message, '系統提示');
+    } catch (error: unknown) {
+      showAlert('操作失敗： ' + errorMessage(error), '系統提示');
     }
   };
 
@@ -722,8 +737,8 @@ export default function Home() {
         setCheckoutStep(1);
         setIsPaying(false);
       }, 1500);
-    } catch (error: any) {
-      showAlert('訂單建立失敗： ' + error.message, '下單失敗');
+    } catch (error: unknown) {
+      showAlert('訂單建立失敗： ' + errorMessage(error), '下單失敗');
       setIsPaying(false);
     }
   };
@@ -786,22 +801,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* 分類導覽 */}
-      <div className="fixed top-18.75 left-0 w-full bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#EBE5DF] z-900 px-4 py-2.5 overflow-x-auto whitespace-nowrap no-scrollbar shadow-[0_4px_12px_rgba(56,46,43,0.02)] flex items-center gap-2 md:justify-center">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => handleCategorySelect(cat)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition cursor-pointer shrink-0 ${
-              selectedCategory === cat 
-                ? 'bg-[#B35B48] text-white shadow-xs font-semibold' 
-                : 'bg-[#F4F0EA] text-[#6E6058] hover:bg-[#EBE5DF]'
-            }`}
-          >
-            {cat === 'all' ? '✨ 全部選品' :  cat === 'DAILY WEAR' ? '👕 日常穿搭' : cat === 'ACCESSORY' ? '💍 首飾配件' : cat === 'BAGS' ? '👜 包包' : cat}
-          </button>
-        ))}
-      </div>
+      {/* 🌟 引入影片中的精緻 MegaMenu 主選單 */}
+      <MegaMenu selectedCategory={selectedCategory} onSelect={handleMegaSelect} />
 
       <div className={`fixed inset-0 bg-[#382E2B]/30 backdrop-blur-[3px] z-1500 transition-all duration-400 ${isAnyModalOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => { setIsCartOpen(false); setIsAuthOpen(false); setIsPaymentOpen(false); }} />
 
@@ -885,7 +886,9 @@ export default function Home() {
         <h2 className="text-[18px] font-serif tracking-[3px] mb-10 text-center text-[#382E2B]">全站選品 / CURATED ITEMS</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
           {filteredProducts.length === 0 ? (
-            <p className="text-center text-[#888] col-span-full py-10">沒有找到符合條件的選品。</p>
+            <p className="text-center text-[#888] col-span-full py-10">
+              {catalogReady ? '沒有找到符合條件的選品。' : '正在載入選品...'}
+            </p>
           ) : (
             filteredProducts.map(p => {
               const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
@@ -927,7 +930,10 @@ export default function Home() {
                           ))}
                         </>
                       ) : (
-                        <span className="text-[13px] text-[#A3958B]">{p.category || 'NO IMAGE'}</span>
+                        <div className="flex flex-col items-center gap-2 px-6 text-center">
+                          <span className="text-[28px]">{CATEGORY_MARK[p.category] || '✨'}</span>
+                          <span className="text-[13px] text-[#A3958B]">{p.name}</span>
+                        </div>
                       )}
                     </div>
                     <div className="flex flex-col grow p-4">
@@ -1215,7 +1221,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🌟 全域自定義網頁主題彈出介面 */}
+      {/* 全域自定義網頁主題彈出介面 */}
       {customModal.isOpen && (
         <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-5000 flex items-center justify-center p-4">
           <div className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-2xl w-full max-w-sm p-6 shadow-[0_10px_40px_rgba(56,46,43,0.15)] animate-in fade-in zoom-in duration-200">

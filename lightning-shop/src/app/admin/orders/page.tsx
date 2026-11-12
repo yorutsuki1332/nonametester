@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
+import firebase from 'firebase/compat/app';
+import { errorMessage } from '@/lib/errors';
 
 interface OrderItem {
   id: string;
@@ -18,13 +20,12 @@ interface Order {
   total?: number;
   status?: 'pending' | 'paid' | 'preparing' | 'shipping' | 'completed' | 'cancelled';
   items?: OrderItem[];
-  createdAt?: any;
+  createdAt?: firebase.firestore.Timestamp;
 }
 
 export default function AdminOrdersListPage() {
   const [ordersMap, setOrdersMap] = useState<{ [key: string]: Order }>({});
   const [allList, setAllList] = useState<Order[]>([]);
-  const [filteredList, setFilteredList] = useState<Order[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // 訂單詳情 Modal 狀態
@@ -61,37 +62,26 @@ export default function AdminOrdersListPage() {
     return () => unsubscribe();
   }, []);
 
-  // 搜尋過濾
-  useEffect(() => {
+  const filteredList = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) {
-      setFilteredList(allList);
-      return;
-    }
+    if (!keyword) return allList;
 
-    const filtered = allList.filter(o => {
+    return allList.filter(o => {
       const idMatch = o.id && o.id.toLowerCase().includes(keyword);
       const nameMatch = o.name && o.name.toLowerCase().includes(keyword);
       const emailMatch = o.email && o.email.toLowerCase().includes(keyword);
       return idMatch || nameMatch || emailMatch;
     });
-    setFilteredList(filtered);
   }, [searchKeyword, allList]);
 
   const handleOrderEmailDisplay = (email?: string) => {
     if (!email) return '未提供';
-    try {
-      const [deleted, deleteId, emailPart] = email.split('_');
-      if (deleted === 'deleted' && deleteId && emailPart) {
-        const emailDisplay = `${emailPart}
+    const [deleted, deleteId, emailPart] = email.split('_');
+    if (deleted === 'deleted' && deleteId && emailPart) {
+      return `${emailPart}
         [已刪除帳號]`;
-        return emailDisplay;
-      } else{
-        return email;
-      }
-    } catch (error: any) {
-      console.error('Error occurred while processing email:', error);
     }
+    return email;
   };
 
   const showToast = (message: string) => {
@@ -132,8 +122,8 @@ export default function AdminOrdersListPage() {
         completed: '已完成訂單',
       };
       showToast(`✅ 訂單狀態已更新為：${statusNames[targetStatus] || targetStatus}`);
-    } catch (error: any) {
-      alert('更新失敗：' + error.message);
+    } catch (error: unknown) {
+      alert('更新失敗：' + errorMessage(error));
     }
   };
 
@@ -149,8 +139,8 @@ export default function AdminOrdersListPage() {
       await db.collection("orders").doc(selectedOrder.id).update({ status: 'cancelled' });
       setIsCancelOpen(false);
       showToast('⚠️ 訂單已更改為取消狀態！');
-    } catch (error: any) {
-      alert('操作失敗：' + error.message);
+    } catch (error: unknown) {
+      alert('操作失敗：' + errorMessage(error));
     }
   };
 

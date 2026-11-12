@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
+import { errorMessage } from '@/lib/errors';
 
 interface TierItem {
   id: string;
@@ -67,7 +68,7 @@ export default function AdminTierSettingsPage() {
     setTimeout(() => setIsToastShow(false), 3000);
   };
 
-  const handleTierChange = (index: number, field: keyof TierItem, value: any) => {
+  const handleTierChange = (index: number, field: keyof TierItem, value: TierItem[keyof TierItem]) => {
     const updated = [...tiers];
     updated[index] = { ...updated[index], [field]: value };
     setTiers(updated);
@@ -141,8 +142,8 @@ export default function AdminTierSettingsPage() {
       });
 
       showToast('✅ 會員等級與顯示順序設定已成功儲存！');
-    } catch (error: any) {
-      showAlert('儲存失敗： ' + error.message, '系統錯誤');
+    } catch (error: unknown) {
+      showAlert('儲存失敗： ' + errorMessage(error), '系統錯誤');
     } finally {
       setIsSaving(false);
     }

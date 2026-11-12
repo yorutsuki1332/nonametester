@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
+import { errorMessage } from '@/lib/errors';
 
 interface DiscontinuedProduct {
   id: string;
@@ -14,14 +16,13 @@ interface DiscontinuedProduct {
   description?: string;
   images?: string[];
   sku?: string;
-  createdAt?: any;
-  discontinuedAt?: any;
+  createdAt?: firebase.firestore.Timestamp;
+  discontinuedAt?: firebase.firestore.Timestamp;
 }
 
 export default function AdminDiscontinuedListPage() {
   const [discontinuedMap, setDiscontinuedMap] = useState<{ [key: string]: DiscontinuedProduct }>({});
   const [allList, setAllList] = useState<DiscontinuedProduct[]>([]);
-  const [filteredList, setFilteredList] = useState<DiscontinuedProduct[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // 🌟 勾選選取重新上架狀態
@@ -71,16 +72,6 @@ export default function AdminDiscontinuedListPage() {
     });
   };
 
-  const showConfirm = (message: string, onConfirm: () => void, title = '確認操作') => {
-    setCustomModal({
-      isOpen: true,
-      title,
-      message,
-      isConfirm: true,
-      onConfirm,
-    });
-  };
-
   // 吐司提示
   const [toastMsg, setToastMsg] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
@@ -104,21 +95,16 @@ export default function AdminDiscontinuedListPage() {
     return () => unsubscribe();
   }, []);
 
-  // 搜尋過濾
-  useEffect(() => {
+  const filteredList = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) {
-      setFilteredList(allList);
-      return;
-    }
+    if (!keyword) return allList;
 
-    const filtered = allList.filter(p => {
+    return allList.filter(p => {
       const skuMatch = p.id && p.id.toLowerCase().includes(keyword);
       const nameMatch = p.name && p.name.toLowerCase().includes(keyword);
       const categoryMatch = p.category && p.category.toLowerCase().includes(keyword);
       return skuMatch || nameMatch || categoryMatch;
     });
-    setFilteredList(filtered);
   }, [searchKeyword, allList]);
 
   const showToast = (message: string) => {
@@ -255,8 +241,8 @@ export default function AdminDiscontinuedListPage() {
 
       showToast('✅ 已下架商品資料與圖片已成功更新！');
       setIsEditOpen(false);
-    } catch (error: any) {
-      showAlert('更新失敗： ' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('更新失敗： ' + errorMessage(error), '錯誤');
     } finally {
       setIsUpdating(false);
     }
@@ -281,8 +267,8 @@ export default function AdminDiscontinuedListPage() {
 
       await db.collection("discontinued_products").doc(id).delete();
       showToast('✅ 商品已重新上架！');
-    } catch (error: any) {
-      showAlert('操作失敗：' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('操作失敗：' + errorMessage(error), '錯誤');
     }
   };
 
@@ -328,8 +314,8 @@ export default function AdminDiscontinuedListPage() {
       setSelectedProductIds({});
       setIsBatchRestoreOpen(false);
       showToast(`✅ 已成功將 ${idsToProcess.length} 件商品重新上架！`);
-    } catch (error: any) {
-      showAlert('批次上架失敗： ' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('批次上架失敗： ' + errorMessage(error), '錯誤');
     }
   };
 
@@ -348,8 +334,8 @@ export default function AdminDiscontinuedListPage() {
       await db.collection("discontinued_products").doc(deleteTarget.id).delete();
       setIsDeleteOpen(false);
       showToast('🗑️ 商品已永久刪除！');
-    } catch (error: any) {
-      showAlert('刪除失敗：' + error.message, '錯誤');
+    } catch (error: unknown) {
+      showAlert('刪除失敗：' + errorMessage(error), '錯誤');
     }
   };
 
@@ -498,13 +484,13 @@ export default function AdminDiscontinuedListPage() {
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">
                     {existingImages.map((url, idx) => (
                       <div key={`existing-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#EBE5DF] overflow-hidden bg-[#F4F0EA] flex items-center justify-center">
-                        <img src={url} alt="既有圖片" className="w-full h-full object-cover" />
+                        <Image src={url} alt="既有圖片" fill unoptimized sizes="80px" className="object-cover" />
                         <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-[#382E2B]/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-700">&times;</button>
                       </div>
                     ))}
                     {newImagePreviews.map((url, idx) => (
                       <div key={`new-${idx}`} className="relative w-20 h-20 rounded-lg border border-[#EBE5DF] overflow-hidden bg-[#F4F0EA] flex items-center justify-center">
-                        <img src={url} alt="新選取圖片" className="w-full h-full object-cover" />
+                        <Image src={url} alt="新選取圖片" fill unoptimized sizes="80px" className="object-cover" />
                         <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-[#382E2B]/60 text-white border-none rounded-full w-4.5 h-4.5 text-[10px] flex items-center justify-center cursor-pointer hover:bg-rose-700">&times;</button>
                       </div>
                     ))}

@@ -1,0 +1,257 @@
+.mega-bar {
+  position: fixed;
+  top: 75px;
+  left: 0;
+  width: 100%;
+  z-index: 900;
+  background: rgba(250, 247, 242, 0.96);
+  border-bottom: 1px solid #efe6de;
+  backdrop-filter: blur(10px);
+}
+
+.mega-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 6% 12px;
+}
+
+.mega-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #5c514c;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mega-pill svg,
+.mega-side-item svg,
+.mega-feature-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mega-pill.is-active {
+  background: #c56b58;
+  color: #fff;
+}
+
+.mega-caret {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.mega-caret.is-open {
+  transform: rotate(225deg) translateY(-1px);
+}
+
+.mega-panel {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 300px;
+  gap: 22px;
+  margin: 0 4% 16px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #f0e7e0;
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(61, 50, 44, 0.08);
+}
+
+.mega-side {
+  background: #faf7f2;
+  border-radius: 14px;
+  padding: 14px 10px;
+}
+
+.mega-side-label {
+  margin: 2px 8px 10px;
+  font-size: 11px;
+  color: #b0a39b;
+}
+
+.mega-side-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #3d322c;
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mega-side-item span {
+  flex: 1;
+}
+
+.mega-side-item .mega-chevron {
+  color: #c8bbb3;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.mega-side-item.is-active {
+  background: #c56b58;
+  color: #fff;
+}
+
+.mega-side-item.is-active .mega-chevron {
+  color: #fff;
+}
+
+.mega-main-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.mega-main-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #3d322c;
+}
+
+.mega-main-head p {
+  margin: 0;
+  font-size: 12px;
+  color: #9a8d86;
+}
+
+.mega-view-all {
+  border: 0;
+  background: transparent;
+  color: #3d322c;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mega-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.mega-columns h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #3d322c;
+}
+
+.mega-columns button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #8d817a;
+  text-align: left;
+  padding: 5px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mega-columns button:hover,
+.mega-view-all:hover {
+  color: #c56b58;
+}
+
+.mega-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mega-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid #f0e7e0;
+  border-radius: 14px;
+  background: #faf8f6;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: #3d322c;
+}
+
+.mega-feature.is-hot {
+  background: linear-gradient(90deg, #fff 0%, #f8efd8 100%);
+  border-color: #f3e6cc;
+}
+
+.mega-feature-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #fff;
+  color: #c56b58;
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: transform 0.35s ease;
+  box-shadow: 0 1px 0 rgba(61, 50, 44, 0.04);
+}
+
+.mega-feature:hover .mega-feature-icon {
+  transform: scale(1.08);
+}
+
+.mega-feature small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #c56b58;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.mega-feature strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.mega-feature em {
+  font-style: normal;
+  font-size: 12px;
+  color: #8d817a;
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .mega-panel,
+  .mega-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .mega-panel {
+    margin: 0 16px 16px;
+    max-height: min(70vh, 640px);
+    overflow: auto;
+  }
+}

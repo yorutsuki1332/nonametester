@@ -1,8 +1,9 @@
 import { Resend } from 'resend';
+import type { OrderEmailItem } from '@/lib/errors';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function sendOrderConfirmationEmail(toEmail: string, orderId: string, total: number, items: any[]) {
+export async function sendOrderConfirmationEmail(toEmail: string, orderId: string, total: number, items: OrderEmailItem[]) {
   try {
     const itemsListHtml = items.map(item => `<li>${item.name} x ${item.quantity} - HKD $${item.price * item.quantity}</li>`).join('');
 

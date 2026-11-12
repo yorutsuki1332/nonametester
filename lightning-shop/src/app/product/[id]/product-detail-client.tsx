@@ -16,12 +16,19 @@ interface Product {
   images?: string[];
 }
 
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export default function ProductDetailClient({ 
   initialId,
   initialProduct 
 }: { 
   initialId: string; 
-  initialProduct: any 
+  initialProduct: Product | null
 }) {
   const router = useRouter();
 
@@ -31,7 +38,7 @@ export default function ProductDetailClient({
   const [navSearch, setNavSearch] = useState('');
 
   // 會員與收藏狀態
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
   const [currentAccountId, setCurrentAccountId] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
 
@@ -148,15 +155,18 @@ export default function ProductDetailClient({
     // 🌟 根據登入狀態決定對應的 localStorage Key，與首頁完全同步
     const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
     
-    let cart = [];
+    let cart: CartItem[] = [];
     try {
       const savedCart = localStorage.getItem(cartKey);
-      if (savedCart) cart = JSON.parse(savedCart);
-    } catch (e) {
+      if (savedCart) {
+        const parsed: unknown = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) cart = parsed as CartItem[];
+      }
+    } catch {
       cart = [];
     }
 
-    const item = cart.find((x: any) => x.id === product.id);
+    const item = cart.find((x) => x.id === product.id);
     if (item) {
       item.quantity += quantity;
     } else {
@@ -277,8 +287,9 @@ export default function ProductDetailClient({
             )}
           </div>
         ) : (
-          <div className="relative w-full h-87.5 md:h-125 bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl overflow-hidden flex items-center justify-center text-[15px] text-[#8C7B70]">
-            <span>{product.category || 'NO IMAGE'} 示意圖</span>
+          <div className="relative w-full h-87.5 md:h-125 bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl overflow-hidden flex flex-col items-center justify-center gap-3 text-[#8C7B70]">
+            <span className="text-[40px]">{product.category === 'BAGS' ? '👜' : product.category === 'ACCESSORY' ? '💍' : product.category === 'DAILY WEAR' ? '👕' : '✨'}</span>
+            <span className="text-[15px] px-6 text-center">{product.name}</span>
           </div>
         )}
 
