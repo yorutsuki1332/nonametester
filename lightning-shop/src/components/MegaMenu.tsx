@@ -243,8 +243,11 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
 
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollLockRef = useRef<{ y: number } | null>(null);
 
   const openedByHover = useRef(false);
+
+  const isMobileMenu = () => window.matchMedia('(max-width: 767px)').matches;
 
   useEffect(() => {
     return () => {
@@ -253,9 +256,54 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
     };
   }, []);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+
+    const lockPage = () => {
+      if (scrollLockRef.current) return;
+      const y = window.scrollY;
+      scrollLockRef.current = { y };
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${y}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+    };
+
+    const unlockPage = () => {
+      const locked = scrollLockRef.current;
+      if (!locked) return;
+      scrollLockRef.current = null;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, locked.y);
+    };
+
+    const applyLock = () => {
+      if (isOpen && mq.matches) lockPage();
+      else unlockPage();
+    };
+
+    applyLock();
+    mq.addEventListener('change', applyLock);
+    return () => {
+      mq.removeEventListener('change', applyLock);
+      unlockPage();
+    };
+  }, [isOpen]);
+
   const replayFade = (catKey: string) => {
     setActiveCat(catKey);
     setFadeTick((tick) => tick + 1);
+  };
+
+  const closeMenu = () => {
+    setIsOpen(false);
   };
 
   const openMenu = () => {
@@ -266,13 +314,15 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
   };
 
   const scheduleCloseMenu = () => {
+    if (isMobileMenu()) return;
     closeTimerRef.current = setTimeout(() => {
-      setIsOpen(false);
+      closeMenu();
     }, 180);
   };
 
   // 左側分類 120ms 防誤觸延遲偵測 (Hover Intent)
   const handleCategoryMouseEnter = (catKey: string) => {
+    if (isMobileMenu()) return;
     if (switchTimerRef.current) clearTimeout(switchTimerRef.current);
     switchTimerRef.current = setTimeout(() => {
       replayFade(catKey);
@@ -285,7 +335,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
 
   const handleSelectAndClose = (catKey: string, keyword = '') => {
     onSelect(catKey, keyword);
-    setIsOpen(false);
+    closeMenu();
   };
 
   const currentData = MENU_DATA[activeCat] || MENU_DATA.all;
@@ -293,7 +343,9 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
   return (
     <div
       onMouseLeave={scheduleCloseMenu}
-      className="fixed top-18.75 left-0 w-full bg-[#FAF6F0]/95 backdrop-blur-md border-b border-[#EFE7DF] z-900 shadow-[0_4px_12px_rgba(56,46,43,0.03)]"
+      className={`fixed top-18.75 left-0 w-full bg-[#FAF6F0]/95 backdrop-blur-md border-b border-[#EFE7DF] z-900 shadow-[0_4px_12px_rgba(56,46,43,0.03)] ${
+        isOpen ? 'max-md:bottom-0 max-md:flex max-md:flex-col' : ''
+      }`}
     >
       {/* 膠囊導覽列 */}
       <div className="max-w-7xl mx-auto px-[6%] py-2.5 flex items-center justify-start md:justify-center gap-2.5 overflow-x-auto no-scrollbar">
@@ -301,6 +353,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
         <button
           type="button"
           onMouseEnter={() => {
+            if (isMobileMenu()) return;
             openedByHover.current = true;
             openMenu();
           }}
@@ -310,7 +363,8 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
               openMenu();
               return;
             }
-            setIsOpen((open) => !open);
+            if (isOpen) closeMenu();
+            else openMenu();
           }}
           className={`flex items-center gap-2 px-5 py-2 rounded-full font-medium text-xs sm:text-sm shadow-xs transition shrink-0 cursor-pointer ${
             isOpen || selectedCategory === 'all'
@@ -334,7 +388,9 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
         {/* 快捷膠囊分類 (滑鼠移入同樣可直接開啟並切換至該分類) */}
         <button
           type="button"
-          onMouseEnter={openMenu}
+          onMouseEnter={() => {
+            if (!isMobileMenu()) openMenu();
+          }}
           onClick={() => handleSelectAndClose('BAGS', '')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
             selectedCategory === 'BAGS' && !isOpen
@@ -347,7 +403,9 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
 
         <button
           type="button"
-          onMouseEnter={openMenu}
+          onMouseEnter={() => {
+            if (!isMobileMenu()) openMenu();
+          }}
           onClick={() => handleSelectAndClose('ACCESSORY', '')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
             selectedCategory === 'ACCESSORY' && !isOpen
@@ -360,7 +418,9 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
 
         <button
           type="button"
-          onMouseEnter={openMenu}
+          onMouseEnter={() => {
+            if (!isMobileMenu()) openMenu();
+          }}
           onClick={() => handleSelectAndClose('DAILY WEAR', '')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
             selectedCategory === 'DAILY WEAR' && !isOpen
@@ -378,12 +438,13 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
           onMouseEnter={() => {
             if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
           }}
-          className="absolute left-0 right-0 top-full bg-white shadow-2xl border-t border-[#EAE0D5] z-50"
+          className="mega-panel-in bg-white border-t border-[#EAE0D5] z-50 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:overflow-hidden md:absolute md:left-0 md:right-0 md:top-full md:shadow-2xl"
         >
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row min-h-95">
+          <div className="max-w-7xl mx-auto flex min-h-0 flex-1 flex-col overflow-hidden md:min-h-95 md:flex-row md:overflow-visible">
             {/* 左側：4大分類 (含 120ms Hover Intent 偵測) */}
-            <div className="w-full md:w-64 bg-[#FAF6F0] border-b md:border-b-0 md:border-r border-[#EFE7DF] p-3 space-y-1.5 shrink-0">
-              <div className="px-3 py-1.5 text-[11px] font-medium text-[#9C897B] tracking-wider uppercase">
+            <div className="w-full shrink-0 overflow-hidden border-[#EFE7DF] bg-[#FAF6F0] max-md:border-b max-md:px-2 max-md:py-2 md:w-64 md:overflow-visible md:border-b-0 md:border-r md:p-3">
+              <div className="max-md:flex max-md:items-center max-md:gap-2 max-md:overflow-x-auto md:space-y-1.5">
+              <div className="hidden px-3 py-1.5 text-[11px] font-medium text-[#9C897B] tracking-wider uppercase md:block">
                 瀏覽商品種類
               </div>
               {CATEGORY_ORDER.map((catKey) => {
@@ -400,7 +461,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
                       replayFade(catKey);
                       onSelect(catKey, '');
                     }}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition cursor-pointer ${
+                    className={`flex items-center justify-between rounded-xl text-sm transition cursor-pointer max-md:w-auto max-md:shrink-0 max-md:px-3 max-md:py-2 md:w-full md:px-4 md:py-3 ${
                       isActive
                         ? 'font-bold bg-[#A8573E] text-white shadow-xs'
                         : 'font-medium text-[#5C4D42] hover:bg-[#F2ECE4]'
@@ -409,16 +470,17 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
                     <span className="flex items-center gap-2.5">
                       <span>{item.emoji}</span> {item.title}
                     </span>
-                    <span className={isActive ? '' : 'opacity-50'}>
+                    <span className={`hidden md:inline ${isActive ? '' : 'opacity-50'}`}>
                       {isActive ? '→' : '›'}
                     </span>
                   </button>
                 );
               })}
+              </div>
             </div>
 
             {/* 右側：子分類文字連結 + 2張精選圖文推薦卡片 */}
-            <div key={fadeTick} className="mega-fade-in flex-1 p-6 sm:p-8 bg-white">
+            <div key={fadeTick} className="mega-fade-in min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white p-6 sm:p-8 md:overflow-visible">
               <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-5 border-b border-[#EFE7DF]">
                 <div>
                   <h3 className="text-lg font-bold text-[#3D312A] flex items-center gap-2">

@@ -16,7 +16,16 @@ interface Product {
   tag?: string;
   images?: string[];
   description?: string;
+  createdAt?: firebase.firestore.Timestamp;
 }
+
+type CatalogSort = 'newest' | 'price-desc' | 'hot';
+
+const SORT_OPTIONS: { id: CatalogSort; label: string }[] = [
+  { id: 'newest', label: '最新上架' },
+  { id: 'price-desc', label: '價格高至低' },
+  { id: 'hot', label: '熱銷程度' },
+];
 
 interface CartItem {
   id: string;
@@ -57,11 +66,38 @@ interface TierItem {
   discount: number;
 }
 
-function filterCatalog(list: Product[], keyword: string, category: string) {
+function createdAtMs(product: Product) {
+  const createdAt = product.createdAt;
+  if (!createdAt) return 0;
+  if (typeof createdAt.toMillis === 'function') return createdAt.toMillis();
+  return typeof createdAt.seconds === 'number' ? createdAt.seconds * 1000 : 0;
+}
+
+function hotRank(tag?: string) {
+  return tag && tag.trim().toUpperCase() === 'HOT' ? 0 : 1;
+}
+
+function sortCatalog(list: Product[], sort: CatalogSort) {
+  const result = [...list];
+  if (sort === 'price-desc') {
+    result.sort((a, b) => Number(b.price) - Number(a.price) || createdAtMs(b) - createdAtMs(a));
+  } else if (sort === 'hot') {
+    result.sort((a, b) => hotRank(a.tag) - hotRank(b.tag) || createdAtMs(b) - createdAtMs(a));
+  } else {
+    result.sort((a, b) => createdAtMs(b) - createdAtMs(a));
+  }
+  return result;
+}
+
+function filterCatalog(list: Product[], keyword: string, category: string, hotOnly = false, sort: CatalogSort = 'newest') {
   let result = list;
 
   if (category !== 'all') {
     result = result.filter(p => p.category && p.category.trim() === category);
+  }
+
+  if (hotOnly) {
+    result = result.filter(p => p.tag && p.tag.trim().toUpperCase() === 'HOT');
   }
 
   const lower = keyword.trim().toLowerCase();
@@ -74,7 +110,7 @@ function filterCatalog(list: Product[], keyword: string, category: string) {
     });
   }
 
-  return result;
+  return sortCatalog(result, sort);
 }
 
 const CATEGORY_MARK: Record<string, string> = {
@@ -89,7 +125,8 @@ export default function Home() {
   const [catalogReady, setCatalogReady] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const catalogQuery = useRef({ keyword: '', category: 'all' });
+  const [catalogSort, setCatalogSort] = useState<CatalogSort>('newest');
+  const catalogQuery = useRef({ keyword: '', category: 'all', hotOnly: false, sort: 'newest' as CatalogSort });
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -177,7 +214,12 @@ export default function Home() {
   const touchStartY = useRef(0);
 
   useEffect(() => {
-    catalogQuery.current = { keyword: searchKeyword, category: selectedCategory };
+    catalogQuery.current = {
+      keyword: searchKeyword,
+      category: selectedCategory,
+      hotOnly: catalogQuery.current.hotOnly,
+      sort: catalogQuery.current.sort,
+    };
   }, [searchKeyword, selectedCategory]);
 
   useEffect(() => {
@@ -197,9 +239,9 @@ export default function Home() {
       snapshot.forEach((doc) => {
         list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Product);
       });
-      const { keyword, category } = catalogQuery.current;
+      const { keyword, category, hotOnly, sort } = catalogQuery.current;
       setProducts(list);
-      setFilteredProducts(filterCatalog(list, keyword, category));
+      setFilteredProducts(filterCatalog(list, keyword, category, hotOnly, sort));
       setCatalogReady(true);
     }, () => {
       setCatalogReady(true);
@@ -354,22 +396,42 @@ export default function Home() {
     };
   }, []);
 
-  const filterProducts = (keyword: string, category: string) => {
-    setFilteredProducts(filterCatalog(products, keyword, category));
+  const filterProducts = (keyword: string, category: string, hotOnly = false, sort = catalogQuery.current.sort) => {
+    setFilteredProducts(filterCatalog(products, keyword, category, hotOnly, sort));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const keyword = e.target.value;
-    catalogQuery.current = { keyword, category: selectedCategory };
+    catalogQuery.current = { keyword, category: selectedCategory, hotOnly: false, sort: catalogQuery.current.sort };
     setSearchKeyword(keyword);
     filterProducts(keyword, selectedCategory);
   };
 
   const handleMegaSelect = (category: string, keyword: string) => {
-    catalogQuery.current = { keyword, category };
+    catalogQuery.current = { keyword, category, hotOnly: false, sort: catalogQuery.current.sort };
     setSearchKeyword(keyword);
     setSelectedCategory(category);
     filterProducts(keyword, category);
+  };
+
+  const handleSort = (sort: CatalogSort) => {
+    catalogQuery.current = { ...catalogQuery.current, sort };
+    setCatalogSort(sort);
+    filterProducts(catalogQuery.current.keyword, catalogQuery.current.category, catalogQuery.current.hotOnly, sort);
+  };
+
+  const showAllProducts = () => {
+    catalogQuery.current = { keyword: '', category: 'all', hotOnly: false, sort: catalogQuery.current.sort };
+    setSearchKeyword('');
+    setSelectedCategory('all');
+    filterProducts('', 'all');
+  };
+
+  const showHotPicks = () => {
+    catalogQuery.current = { keyword: '', category: 'all', hotOnly: true, sort: catalogQuery.current.sort };
+    setSearchKeyword('');
+    setSelectedCategory('all');
+    filterProducts('', 'all', true);
   };
 
   const showToast = (msg: string) => {
@@ -870,25 +932,68 @@ export default function Home() {
           <h1 className="text-[32px] md:text-[36px] font-serif tracking-[4px] mb-3.5 text-[#382E2B]">日常的美好，源於細節</h1>
           <p className="text-[13px] md:text-[14px] text-[#B35B48] font-medium tracking-[3px] uppercase">STUDIO OF ARTFUL LIVING & DESIGN</p>
         </header>
-        <div className="max-w-150 mx-auto mt-7.5 px-[4%]">
-          <input 
-            type="text" 
-            value={searchKeyword}
-            onChange={handleSearch}
-            className="w-full py-3.5 px-5 border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white transition shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48]"
-            placeholder="🔍 搜尋選品名稱或分類..." 
-          />
-        </div>
       </div>
 
       {/* 商品區 */}
       <main className="max-w-300 my-10 mx-auto px-[4%]">
-        <h2 className="text-[18px] font-serif tracking-[3px] mb-10 text-center text-[#382E2B]">全站選品 / CURATED ITEMS</h2>
+        <h2 className="text-[18px] font-serif tracking-[3px] mb-6 text-center text-[#382E2B]">全站選品 / CURATED ITEMS</h2>
+        <div className="mx-auto mb-10 flex max-w-150 flex-col items-center gap-4">
+          <input
+            type="text"
+            value={searchKeyword}
+            onChange={handleSearch}
+            className="w-full py-3.5 px-5 border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white transition shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48]"
+            placeholder="🔍 搜尋選品名稱或分類..."
+            aria-label="搜尋選品"
+          />
+          <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="排序">
+            {SORT_OPTIONS.map((option) => {
+              const active = catalogSort === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => handleSort(option.id)}
+                  className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
+                    active
+                      ? 'bg-[#B35B48] text-white'
+                      : 'border border-[#EBE5DF] bg-[#F4F0EA] text-[#5C4D42] hover:bg-[#E6DCD2]'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
           {filteredProducts.length === 0 ? (
-            <p className="text-center text-[#888] col-span-full py-10">
-              {catalogReady ? '沒有找到符合條件的選品。' : '正在載入選品...'}
-            </p>
+            <div className="col-span-full py-16 text-center">
+              {catalogReady ? (
+                <>
+                  <p className="text-[#888]">沒有找到符合條件的選品。</p>
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={showAllProducts}
+                      className="cursor-pointer rounded-full bg-[#B35B48] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#9B4C3A]"
+                    >
+                      瀏覽所有商品
+                    </button>
+                    <button
+                      type="button"
+                      onClick={showHotPicks}
+                      className="cursor-pointer rounded-full border border-[#EBE5DF] bg-[#F4F0EA] px-5 py-2.5 text-sm font-medium text-[#5C4D42] transition hover:bg-[#E6DCD2]"
+                    >
+                      查看熱門推薦
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[#888]">正在載入選品...</p>
+              )}
+            </div>
           ) : (
             filteredProducts.map(p => {
               const validImages = p.images ? p.images.filter(img => img && img.trim() !== '') : [];
