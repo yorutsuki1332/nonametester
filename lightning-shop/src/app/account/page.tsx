@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import { errorCode, errorMessage, withoutDocumentId } from '@/lib/errors';
+import SiteFooter from '@/components/SiteFooter';
 
 interface UserProfile {
   accountId: string;
@@ -535,7 +536,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen font-sans pb-20 relative">
+    <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen font-sans relative flex flex-col">
       <nav className="fixed top-0 left-0 w-full h-18.75 bg-[#FAF7F2]/95 backdrop-blur-sm flex justify-between items-center px-[6%] z-50 border-b border-[#EBE5DF]">
         <Link href="/" className="text-[18px] font-bold tracking-[3px] uppercase text-[#B35B48] no-underline">
           VILLA ATELIER
@@ -548,7 +549,7 @@ export default function AccountPage() {
         </Link>
       </nav>
 
-      <main className="max-w-4xl mx-auto pt-28 px-4 sm:px-6">
+      <main className="max-w-4xl mx-auto w-full flex-1 pt-28 px-4 sm:px-6 pb-28">
         <div className="bg-[#382E2B] text-[#FAF7F2] rounded-2xl p-6 sm:p-8 shadow-xl mb-8 relative overflow-hidden border border-[#4E403B]">
           <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-44 h-44 bg-[#B35B48]/25 rounded-full blur-2xl pointer-events-none" />
           
@@ -1139,6 +1140,7 @@ export default function AccountPage() {
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-xs font-medium z-50 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
+      <SiteFooter />
     </div>
   );
 }

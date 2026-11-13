@@ -358,6 +358,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
             openMenu();
           }}
           onClick={() => {
+            onSelect('all', '');
             if (openedByHover.current) {
               openedByHover.current = false;
               openMenu();

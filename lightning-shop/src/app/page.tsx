@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import { errorMessage, withoutDocumentId } from '@/lib/errors';
 import MegaMenu from '@/components/MegaMenu';
+import HomeBanner from '@/components/HomeBanner';
+import SiteFooter from '@/components/SiteFooter';
 
 interface Product {
   id: string;
@@ -119,7 +122,61 @@ const CATEGORY_MARK: Record<string, string> = {
   'DAILY WEAR': '👕',
 };
 
+const FREE_SHIPPING_THRESHOLD = 600;
+
+function formatShopAmount(value: number) {
+  const amount = Math.round(value * 10) / 10;
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+}
+
+function CartQuantityField({
+  quantity,
+  label,
+  onCommit,
+}: {
+  quantity: number;
+  label: string;
+  onCommit: (quantity: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(quantity));
+  const [sourceQuantity, setSourceQuantity] = useState(quantity);
+  if (sourceQuantity !== quantity) {
+    setSourceQuantity(quantity);
+    setDraft(String(quantity));
+  }
+
+  const commit = (raw: string) => {
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      setDraft(String(quantity));
+      return;
+    }
+    onCommit(Math.min(99, parsed));
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      aria-label={`${label} 數量`}
+      value={draft}
+      onChange={(event) => {
+        const next = event.target.value.replace(/\D/g, '').slice(0, 2);
+        setDraft(next);
+        const parsed = Number.parseInt(next, 10);
+        if (Number.isFinite(parsed) && parsed >= 1) onCommit(parsed);
+      }}
+      onBlur={() => commit(draft)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+      }}
+      className="w-8 bg-transparent text-center text-[13px] text-[#382E2B] outline-none"
+    />
+  );
+}
+
 export default function Home() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [catalogReady, setCatalogReady] = useState(false);
@@ -434,6 +491,21 @@ export default function Home() {
     filterProducts('', 'all', true);
   };
 
+  const showNewestArrivals = () => {
+    catalogQuery.current = { keyword: '', category: 'all', hotOnly: false, sort: 'newest' };
+    setSearchKeyword('');
+    setSelectedCategory('all');
+    setCatalogSort('newest');
+    filterProducts('', 'all', false, 'newest');
+  };
+
+  const handleBanner = (action: 'bags' | 'newest' | 'hot') => {
+    if (action === 'bags') handleMegaSelect('BAGS', '');
+    else if (action === 'newest') showNewestArrivals();
+    else showHotPicks();
+    document.getElementById('curated-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setIsToastShow(true);
@@ -497,14 +569,21 @@ export default function Home() {
     showToast(`已將「${product.name}」放入購物車`);
   };
 
+  const setCartQuantity = (productId: string, nextQuantity: number) => {
+    const quantity = Math.floor(nextQuantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      saveCartToStorage(cart.filter(item => item.id !== productId));
+      return;
+    }
+    saveCartToStorage(cart.map(item => (
+      item.id === productId ? { ...item, quantity: Math.min(99, quantity) } : item
+    )));
+  };
+
   const updateQuantity = (productId: string, change: number) => {
-    const updated = cart.map(item => {
-      if (item.id === productId) {
-        return { ...item, quantity: item.quantity + change };
-      }
-      return item;
-    }).filter(item => item.quantity > 0);
-    saveCartToStorage(updated);
+    const current = cart.find(item => item.id === productId);
+    if (!current) return;
+    setCartQuantity(productId, current.quantity + change);
   };
 
   const removeFromCart = (productId: string) => {
@@ -513,6 +592,9 @@ export default function Home() {
   };
 
   const currentSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const freeShippingGap = Math.max(0, FREE_SHIPPING_THRESHOLD - currentSubtotal);
+  const freeShippingReached = freeShippingGap === 0;
+  const freeShippingProgress = Math.min(100, (currentSubtotal / FREE_SHIPPING_THRESHOLD) * 100);
   
   const getCurrentUserTier = (): TierItem | null => {
     if (!currentUser) return null;
@@ -850,7 +932,7 @@ export default function Home() {
             </span>
           </Link>
 
-          <div className="cursor-pointer relative p-1.5 flex items-center" onClick={() => setIsCartOpen(true)}>
+          <button type="button" aria-label={`購物車，${totalCount} 件`} className="cursor-pointer relative p-1.5 flex items-center bg-transparent border-none" onClick={() => setIsCartOpen(true)}>
             <svg className="w-5.5 h-5.5 fill-none stroke-[#382E2B] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
               <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -859,7 +941,7 @@ export default function Home() {
             <div className="absolute -top-1 -right-1.5 bg-[#B35B48] text-white text-[11px] font-semibold w-4.5 h-4.5 rounded-full flex justify-center items-center shadow-xs">
               {totalCount}
             </div>
-          </div>
+          </button>
         </div>
       </nav>
 
@@ -927,16 +1009,12 @@ export default function Home() {
 
       {/* Hero 區 */}
       <div className="pt-34 px-[4%] max-w-350 mx-auto">
-        <header className="h-[35vh] bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl flex flex-col justify-center items-center text-center px-5 shadow-xs relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#C28C7A]/10 rounded-full blur-xl pointer-events-none" />
-          <h1 className="text-[32px] md:text-[36px] font-serif tracking-[4px] mb-3.5 text-[#382E2B]">日常的美好，源於細節</h1>
-          <p className="text-[13px] md:text-[14px] text-[#B35B48] font-medium tracking-[3px] uppercase">STUDIO OF ARTFUL LIVING & DESIGN</p>
-        </header>
+        <HomeBanner onAction={handleBanner} />
       </div>
 
       {/* 商品區 */}
       <main className="max-w-300 my-10 mx-auto px-[4%]">
-        <h2 className="text-[18px] font-serif tracking-[3px] mb-6 text-center text-[#382E2B]">全站選品 / CURATED ITEMS</h2>
+        <h2 id="curated-section" className="text-[18px] font-serif tracking-[3px] mb-6 text-center text-[#382E2B] scroll-mt-40">全站選品 / CURATED ITEMS</h2>
         <div className="mx-auto mb-10 flex max-w-150 flex-col items-center gap-4">
           <input
             type="text"
@@ -1106,22 +1184,27 @@ export default function Home() {
             cart.map(item => {
               const isSelected = selectedCartIds.includes(item.id);
               return (
-                <div key={item.id} className="flex gap-3.75 mb-6.25 items-center bg-white p-3 rounded-lg border border-[#EBE5DF]">
+                <div key={item.id} className="flex gap-3 mb-4 items-start bg-white p-3 rounded-lg border border-[#EBE5DF]">
                   <input 
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleToggleSelectCartItem(item.id)}
-                    className="w-4 h-4 rounded border-[#EBE5DF] accent-[#B35B48] cursor-pointer shrink-0"
+                    aria-label={`選取 ${item.name}`}
+                    className="w-4 h-4 mt-1 rounded border-[#EBE5DF] accent-[#B35B48] cursor-pointer shrink-0"
                   />
-                  <div className="w-15 h-17.5 bg-[#F4F0EA] rounded-md flex justify-center items-center text-[11px] text-[#7A6E65]">ITEM</div>
-                  <div className="grow">
-                    <div className="text-[13px] font-medium mb-1 text-[#382E2B]">{item.name}</div>
-                    <div className="text-[13px] font-semibold mb-2.5 text-[#B35B48]">HKD {Number(item.price).toFixed(1)}</div>
-                    <div className="flex items-center gap-3">
-                      <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, -1)}>-</button>
-                      <span className="text-[13px]">{item.quantity}</span>
-                      <button className="bg-[#FAF7F2] border border-[#EBE5DF] rounded-full w-6 h-6 cursor-pointer flex items-center justify-center text-xs" onClick={() => updateQuantity(item.id, 1)}>+</button>
-                      <button className="bg-none border-none text-[#A3958B] text-[12px] cursor-pointer ml-auto hover:text-[#B35B48]" onClick={() => removeFromCart(item.id)}>移除</button>
+                  <div className="grow min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-[13px] font-medium text-[#382E2B] line-clamp-2">{item.name}</div>
+                      <div className="text-[13px] font-semibold text-[#B35B48] shrink-0">HKD {formatShopAmount(item.price * item.quantity)}</div>
+                    </div>
+                    <div className="text-[12px] text-[#7A6E65] mt-1">單價 HKD {formatShopAmount(Number(item.price))}</div>
+                    <div className="flex items-center gap-3 mt-2.5">
+                      <div className="flex items-center h-8 border border-[#EBE5DF] rounded-full bg-[#FAF7F2]">
+                        <button type="button" aria-label={`減少 ${item.name} 數量`} className="w-8 h-8 bg-transparent border-none cursor-pointer text-[#382E2B]" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                        <CartQuantityField quantity={item.quantity} label={item.name} onCommit={(value) => setCartQuantity(item.id, value)} />
+                        <button type="button" aria-label={`增加 ${item.name} 數量`} className="w-8 h-8 bg-transparent border-none cursor-pointer text-[#382E2B]" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                      </div>
+                      <button type="button" aria-label={`刪除 ${item.name}`} className="ml-auto bg-none border-none text-[#A3958B] text-[12px] cursor-pointer hover:text-[#B35B48]" onClick={() => removeFromCart(item.id)}>刪除</button>
                     </div>
                   </div>
                 </div>
@@ -1132,6 +1215,27 @@ export default function Home() {
 
         {cart.length > 0 && (
           <div className="p-6.25 border-t border-[#EBE5DF] bg-[#F4F0EA]">
+            <div className="mb-4">
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12px]">
+                <span className="font-medium text-[#382E2B]">
+                  {freeShippingReached
+                    ? '已達免運門檻，本次可享免運優惠'
+                    : `還差 $${formatShopAmount(freeShippingGap)} 即可享免運優惠`}
+                </span>
+                <span className="shrink-0 text-[#7A6E65]">滿 ${FREE_SHIPPING_THRESHOLD}</span>
+              </div>
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-white border border-[#EBE5DF]"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={FREE_SHIPPING_THRESHOLD}
+                aria-valuenow={Math.min(currentSubtotal, FREE_SHIPPING_THRESHOLD)}
+                aria-label="免運門檻進度"
+              >
+                <div className="h-full bg-[#B35B48] transition-[width] duration-300" style={{ width: `${freeShippingProgress}%` }} />
+              </div>
+            </div>
+
             <div className="mb-3">
               <label className="block text-[12px] font-semibold text-[#6E6058] mb-1.5">選擇適用折扣券</label>
               <select 
@@ -1366,9 +1470,15 @@ export default function Home() {
         {toastMessage}
       </div>
 
-      <footer className="bg-[#F4F0EA] text-[#7A6E65] text-center py-10 px-5 text-[12px] mt-25 border-t border-[#EBE5DF]">
-        <p>&copy; 2026 VILLA ATELIER STUDIO. ALL RIGHTS RESERVED.</p>
-      </footer>
+      <SiteFooter
+        onMemberClick={() => {
+          if (currentUser) {
+            router.push('/account');
+            return;
+          }
+          setIsAuthOpen(true);
+        }}
+      />
     </div>
   );
 }

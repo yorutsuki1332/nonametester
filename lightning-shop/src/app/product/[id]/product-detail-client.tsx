@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
+import SiteFooter from '@/components/SiteFooter';
 
 interface Product {
   id: string;
@@ -188,8 +189,11 @@ export default function ProductDetailClient({
 
   if (!product) {
     return (
-      <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen flex items-center justify-center font-sans">
-        <div className="text-[18px] text-[#7A6E65]">選品不存在或已下架。</div>
+      <div className="bg-[#FAF7F2] text-[#382E2B] min-h-screen flex flex-col font-sans">
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-[18px] text-[#7A6E65]">選品不存在或已下架。</div>
+        </div>
+        <SiteFooter />
       </div>
     );
   }
@@ -347,6 +351,7 @@ export default function ProductDetailClient({
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-5000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>
         {toastMessage}
       </div>
+      <SiteFooter />
     </div>
   );
 }

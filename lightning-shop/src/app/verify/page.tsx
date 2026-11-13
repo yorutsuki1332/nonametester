@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import Link from 'next/link';
 import { errorMessage } from '@/lib/errors';
+import SiteFooter from '@/components/SiteFooter';
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -75,7 +76,8 @@ function VerifyContent() {
   }, [email, code, urlAccountId, urlUid]);
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#fafafa] flex flex-col">
+      <div className="flex flex-1 items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-[#f0f0f0] max-w-md w-full text-center">
         <h1 className="text-xl font-bold mb-4 uppercase tracking-wider">LIGHTNING LIFESTYLE</h1>
         <div className="my-6">
@@ -103,6 +105,8 @@ function VerifyContent() {
           )}
         </div>
       </div>
+      </div>
+      <SiteFooter />
     </div>
   );
 }
