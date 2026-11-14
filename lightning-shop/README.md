@@ -20,6 +20,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## 付款申請
+
+FPS 轉數快、PayMe、信用卡與 Apple Pay 的自行申請步驟在 [docs/payment-api-guide.md](docs/payment-api-guide.md)。略過付款的模擬下單維持不變。
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

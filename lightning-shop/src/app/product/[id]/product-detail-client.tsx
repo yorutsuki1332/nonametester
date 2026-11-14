@@ -1,18 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import SiteFooter from '@/components/SiteFooter';
+import ProductGallery from '@/components/ProductGallery';
+import { hotStockLabel } from '@/lib/stock-hint';
 
 interface Product {
   id: string;
   name: string;
   price: number;
   category: string;
+  tag?: string;
+  stock?: number | null;
   description?: string;
   images?: string[];
 }
@@ -34,8 +37,9 @@ export default function ProductDetailClient({
   const router = useRouter();
 
   const [product] = useState<Product | null>(initialProduct);
+  const stockLabel = product ? hotStockLabel(product.tag, product.stock) : null;
+  const soldOut = stockLabel === '已售完';
   const [quantity, setQuantity] = useState(1);
-  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [navSearch, setNavSearch] = useState('');
 
   // 會員與收藏狀態
@@ -46,9 +50,6 @@ export default function ProductDetailClient({
   // 吐司通知狀態
   const [toastMessage, setToastMessage] = useState('');
   const [isToastShow, setIsToastShow] = useState(false);
-
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -121,33 +122,6 @@ export default function ProductDetailClient({
 
   const updateQty = (change: number) => {
     setQuantity(prev => Math.max(1, prev + change));
-  };
-
-  const changeSlide = (index: number, length: number) => {
-    const target = (index + length) % length;
-    setActiveSlideIndex(target);
-  };
-
-  const moveSlide = (direction: number, length: number) => {
-    changeSlide(activeSlideIndex + direction, length);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (length: number, e: React.TouchEvent) => {
-    const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    const diffY = e.changedTouches[0].clientY - touchStartY.current;
-
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
-      if (diffX < 0) {
-        moveSlide(1, length);
-      } else {
-        moveSlide(-1, length);
-      }
-    }
   };
 
   const addToCart = () => {
@@ -241,56 +215,7 @@ export default function ProductDetailClient({
       <main className="max-w-275 mx-auto pt-33.75 md:pt-26.25 pb-15 px-[5%] grid grid-cols-1 md:grid-cols-2 gap-10">
         {/* 圖片展示區 */}
         {hasImages ? (
-          <div 
-            className="relative w-full h-87.5 md:h-125 bg-[#F4F0EA] rounded-2xl overflow-hidden flex items-center justify-center touch-pan-y group border border-[#EBE5DF]"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={(e) => handleTouchEnd(validImages.length, e)}
-          >
-            {validImages.map((img, idx) => (
-              <div 
-                key={idx} 
-                className={`relative w-full h-full ${idx === activeSlideIndex ? 'block' : 'hidden'}`}
-              >
-                <Image
-                  src={img}
-                  alt={product.name}
-                  fill
-                  priority={idx === 0}
-                  loading={idx === 0 ? 'eager' : 'lazy'}
-                  sizes="(max-width: 768px) 100vw, 500px"
-                  className="object-cover"
-                />
-              </div>
-            ))}
-            
-            {validImages.length > 1 && (
-              <>
-                <button 
-                  type="button"
-                  className="absolute top-1/2 -translate-y-1/2 left-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-80 md:opacity-50 md:group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
-                  onClick={() => moveSlide(-1, validImages.length)}
-                >
-                  &#10094;
-                </button>
-                <button 
-                  type="button"
-                  className="absolute top-1/2 -translate-y-1/2 right-3.75 bg-[#382E2B]/60 text-white border-none w-9 h-9 rounded-full cursor-pointer flex items-center justify-center text-[16px] opacity-80 md:opacity-50 md:group-hover:opacity-100 transition duration-300 z-5 hover:bg-[#382E2B]"
-                  onClick={() => moveSlide(1, validImages.length)}
-                >
-                  &#10095;
-                </button>
-                <div className="absolute bottom-3.75 left-1/2 -translate-x-1/2 flex gap-1.5 z-5">
-                  {validImages.map((_, idx) => (
-                    <span 
-                      key={idx} 
-                      className={`h-2 rounded-full cursor-pointer transition-all duration-300 ${idx === activeSlideIndex ? 'bg-[#B35B48] w-5 rounded-sm' : 'bg-[#EBE5DF] w-2'}`}
-                      onClick={() => changeSlide(idx, validImages.length)} 
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <ProductGallery images={validImages} name={product.name} />
         ) : (
           <div className="relative w-full h-87.5 md:h-125 bg-[#F4F0EA] border border-[#EBE5DF] rounded-2xl overflow-hidden flex flex-col items-center justify-center gap-3 text-[#8C7B70]">
             <span className="text-[40px]">{product.category === 'BAGS' ? '👜' : product.category === 'ACCESSORY' ? '💍' : product.category === 'DAILY WEAR' ? '👕' : '✨'}</span>
@@ -326,6 +251,11 @@ export default function ProductDetailClient({
           </div>
 
           <div className="text-[20px] md:text-[22px] font-semibold font-mono text-[#B35B48] mb-3.75">HKD {Number(product.price).toFixed(1)}</div>
+          {stockLabel && (
+            <p className={`-mt-2 mb-3.75 text-[13px] font-semibold ${soldOut ? 'text-[#7A6E65]' : 'text-[#B35B48]'}`}>
+              {stockLabel}
+            </p>
+          )}
           
           <div className="text-[14px] text-[#6E6058] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2">
             {descText}
@@ -339,10 +269,11 @@ export default function ProductDetailClient({
             </div>
             <button 
               type="button"
-              className="grow bg-[#B35B48] text-white p-4 border-none rounded-xl text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(179,91,72,0.2)] shadow-xs"
+              className="grow bg-[#B35B48] text-white p-4 border-none rounded-xl text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(179,91,72,0.2)] shadow-xs disabled:cursor-not-allowed disabled:bg-[#C9B8B0] disabled:hover:translate-y-0 disabled:hover:shadow-none"
               onClick={addToCart}
+              disabled={soldOut}
             >
-              加入購物車
+              {soldOut ? '已售完' : '加入購物車'}
             </button>
           </div>
         </div>

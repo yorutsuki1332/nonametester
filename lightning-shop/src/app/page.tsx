@@ -11,6 +11,7 @@ import MegaMenu from '@/components/MegaMenu';
 import HomeBanner from '@/components/HomeBanner';
 import EditorialBanners from '@/components/EditorialBanners';
 import SiteFooter from '@/components/SiteFooter';
+import { hotStockLabel } from '@/lib/stock-hint';
 
 interface Product {
   id: string;
@@ -18,6 +19,7 @@ interface Product {
   price: number;
   category: string;
   tag?: string;
+  stock?: number | null;
   images?: string[];
   description?: string;
   createdAt?: firebase.firestore.Timestamp;
@@ -139,6 +141,83 @@ const FREE_SHIPPING_THRESHOLD = 600;
 function formatShopAmount(value: number) {
   const amount = Math.round(value * 10) / 10;
   return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
+}
+
+type CheckoutPayment = 'fps' | 'payme' | 'card' | 'apple' | 'skip';
+
+const PAYMENT_OPTIONS: { id: CheckoutPayment; label: string; hint: string }[] = [
+  { id: 'fps', label: 'FPS 轉數快', hint: '即時轉帳' },
+  { id: 'payme', label: 'PayMe', hint: '電子錢包' },
+  { id: 'card', label: '信用卡', hint: 'Visa / Mastercard' },
+  { id: 'apple', label: 'Apple Pay', hint: '裝置錢包' },
+  { id: 'skip', label: '略過付款', hint: '模擬下單' },
+];
+
+const PAYMENT_LABEL: Record<CheckoutPayment, string> = {
+  fps: 'FPS 轉數快',
+  payme: 'PayMe',
+  card: '信用卡',
+  apple: 'Apple Pay',
+  skip: '略過付款（模擬）',
+};
+
+function cardBrand(digits: string) {
+  if (digits.startsWith('4')) return 'Visa';
+  if (/^5[1-5]/.test(digits) || /^2(2[2-9]|[3-6]\d|7[01]|720)/.test(digits)) return 'Mastercard';
+  if (digits.startsWith('34') || digits.startsWith('37')) return 'American Express';
+  return '信用卡';
+}
+
+function passesLuhn(digits: string) {
+  let sum = 0;
+  let alternate = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let digit = digits.charCodeAt(index) - 48;
+    if (alternate) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    alternate = !alternate;
+  }
+  return sum % 10 === 0;
+}
+
+function cardFieldError(name: string, number: string, expiry: string, cvc: string) {
+  if (!name.trim()) return '請填寫持卡人姓名';
+  const digits = number.replace(/\D/g, '');
+  if (!/^\d{13,19}$/.test(digits) || !passesLuhn(digits)) return '信用卡號碼不正確';
+  const match = expiry.match(/^(\d{2})\/(\d{2})$/);
+  if (!match) return '有效期限請用 MM/YY';
+  const month = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  if (month < 1 || month > 12) return '有效期限的月份不正確';
+  if (new Date(year, month, 1) <= new Date()) return '信用卡已過期';
+  const cvcDigits = cvc.replace(/\D/g, '');
+  const amex = digits.startsWith('34') || digits.startsWith('37');
+  if (!(amex ? /^\d{4}$/ : /^\d{3}$/).test(cvcDigits)) return '安全碼不正確';
+  return '';
+}
+
+function checkoutActionLabel(method: CheckoutPayment, total: string, paying: boolean) {
+  if (paying) return '下單處理中...';
+  if (method === 'skip') return `確認無誤，立即下單 HKD ${total}`;
+  if (method === 'fps') return `以轉數快付款 HKD ${total}`;
+  if (method === 'payme') return `以 PayMe 付款 HKD ${total}`;
+  if (method === 'card') return `以信用卡付款 HKD ${total}`;
+  return `以 Apple Pay 付款 HKD ${total}`;
+}
+
+function paymentFollowUp(method: CheckoutPayment, total: string, orderId: string, cardSummary: string) {
+  if (method === 'fps') {
+    return `\n付款方式：FPS 轉數快\n請轉帳 HKD ${total} 給 VILLA ATELIER，備註填上訂單編號 ${orderId}。`;
+  }
+  if (method === 'payme') {
+    return `\n付款方式：PayMe\n請向 VILLA ATELIER 付款 HKD ${total}，備註填上訂單編號 ${orderId}。`;
+  }
+  if (method === 'card') return `\n付款方式：${cardSummary}`;
+  if (method === 'apple') return `\n付款方式：Apple Pay\n應付金額 HKD ${total}`;
+  return '';
 }
 
 function CartQuantityField({
@@ -285,6 +364,11 @@ export default function Home() {
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [isPaying, setIsPaying] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPayment>('skip');
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
 
   // 手機滑動紀錄
   const touchStartX = useRef(0);
@@ -798,6 +882,11 @@ export default function Home() {
   const openCheckoutModal = () => {
     setIsCartOpen(false);
     setCheckoutStep(1);
+    setPaymentMethod('skip');
+    setCardName('');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvc('');
     if (userProfile) {
       if (userProfile.name) setShippingName(userProfile.name);
       if (userProfile.email) setShippingEmail(userProfile.email);
@@ -818,12 +907,23 @@ export default function Home() {
     setCheckoutStep(2);
   };
 
-  const handleCheckoutSubmit = async () => {
+  const handleCheckoutSubmit = async (method: CheckoutPayment = 'skip') => {
     if (cart.length === 0) return showAlert('購物車是空的！', '提示');
 
     if (selectedCoupon && calculateCouponDiscount() === 0 && selectedCoupon.discountValue > 0) {
       showAlert('您選擇的優惠券已過期或不符合條件，請重新選擇！', '優惠券無效');
       return;
+    }
+
+    let cardSummary = '';
+    if (method === 'card') {
+      const invalid = cardFieldError(cardName, cardNumber, cardExpiry, cardCvc);
+      if (invalid) {
+        showAlert(invalid, '信用卡資料');
+        return;
+      }
+      const digits = cardNumber.replace(/\D/g, '');
+      cardSummary = `${cardBrand(digits)} •••• ${digits.slice(-4)}`;
     }
 
     setIsPaying(true);
@@ -856,6 +956,9 @@ export default function Home() {
         couponCode: selectedCoupon ? selectedCoupon.code : null,
         total: finalTotal,
         status: 'pending',
+        paymentMethod: method,
+        paymentLabel: PAYMENT_LABEL[method],
+        ...(cardSummary ? { paymentDetail: cardSummary } : {}),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       };
 
@@ -898,10 +1001,15 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        showAlert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}`, '下單成功');
+        showAlert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}${paymentFollowUp(method, formatShopAmount(finalTotal), customOrderId, cardSummary)}`, '下單成功');
         saveCartToStorage([]);
         setSelectedCoupon(null);
         setUseCredit(false);
+        setPaymentMethod('skip');
+        setCardName('');
+        setCardNumber('');
+        setCardExpiry('');
+        setCardCvc('');
         setIsPaymentOpen(false);
         setCheckoutStep(1);
         setIsPaying(false);
@@ -1132,6 +1240,8 @@ export default function Home() {
               const hasImages = validImages.length > 0;
               const activeIdx = sliderIndexes[p.id] || 0;
               const isFavorited = !!userFavorites[p.id];
+              const stockLabel = hotStockLabel(p.tag, p.stock);
+              const soldOut = stockLabel === '已售完';
 
               return (
                 <div key={p.id} className="bg-white border border-[#EBE5DF] transition duration-400 flex flex-col rounded-xl relative hover:-translate-y-1.5 group shadow-xs overflow-hidden">
@@ -1175,13 +1285,16 @@ export default function Home() {
                     </div>
                     <div className="flex flex-col grow p-4">
                       <h3 className="text-[14px] font-medium mb-2 text-[#382E2B] line-clamp-1">{p.name}</h3>
+                      {stockLabel && (
+                        <p className={`mb-1 text-[12px] font-semibold ${soldOut ? 'text-[#7A6E65]' : 'text-[#B35B48]'}`}>{stockLabel}</p>
+                      )}
                       <div className="text-[14px] font-semibold text-[#B35B48] mb-2">HKD {Number(p.price).toFixed(1)}</div>
                     </div>
                   </Link>
 
                   <div className="p-4 pt-0">
-                    <button className="w-full bg-[#FAF7F2] border border-[#EBE5DF] rounded-lg py-2.5 text-[13px] font-medium text-[#382E2B] cursor-pointer transition hover:bg-[#B35B48] hover:text-white" onClick={() => addToCart(p.id)}>
-                      加入購物車
+                    <button className="w-full bg-[#FAF7F2] border border-[#EBE5DF] rounded-lg py-2.5 text-[13px] font-medium text-[#382E2B] cursor-pointer transition hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]" onClick={() => addToCart(p.id)} disabled={soldOut}>
+                      {soldOut ? '已售完' : '加入購物車'}
                     </button>
                   </div>
                 </div>
@@ -1384,7 +1497,7 @@ export default function Home() {
         <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
           <div className="flex items-center gap-2">
             <h2 className="text-[18px] font-semibold text-[#382E2B]">
-              {checkoutStep === 1 ? '安全結帳 (步驟 1/2：填寫收件資料)' : '訂單確認 (步驟 2/2：再確認詳情)'}
+              {checkoutStep === 1 ? '安全結帳 (步驟 1/2：填寫收件資料)' : '訂單確認 (步驟 2/2：付款方式)'}
             </h2>
             {userProfile && checkoutStep === 1 && (
               <span className="text-[10px] bg-[#B35B48] text-white px-2 py-0.5 rounded-full font-medium">
@@ -1475,21 +1588,108 @@ export default function Home() {
                 </div>
               </div>
 
+              <div>
+                <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5">付款方式</h3>
+                <div role="radiogroup" aria-label="付款方式" className="grid grid-cols-2 gap-2">
+                  {PAYMENT_OPTIONS.map((option) => {
+                    const selected = paymentMethod === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        disabled={isPaying}
+                        onClick={() => setPaymentMethod(option.id)}
+                        className={`rounded-xl border px-3 py-3 text-left transition disabled:opacity-60 ${
+                          option.id === 'skip' ? 'col-span-2' : ''
+                        } ${selected ? 'border-[#B35B48] bg-white' : 'border-[#EBE5DF] bg-[#F4F0EA] hover:border-[#CDBFB4]'}`}
+                      >
+                        <span className="block text-[13px] font-semibold text-[#382E2B]">{option.label}</span>
+                        <span className="block text-[11px] text-[#8C7B70]">{option.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {paymentMethod === 'fps' && (
+                <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
+                  <p className="font-semibold text-[#382E2B]">轉數快收款</p>
+                  <p className="mt-1">收款名稱 VILLA ATELIER</p>
+                  <p>應付金額 HKD {formatShopAmount(finalTotal)}</p>
+                  <p className="mt-1">確認後建立訂單。請以轉數快轉出相同金額，並在備註填上訂單編號。</p>
+                </div>
+              )}
+
+              {paymentMethod === 'payme' && (
+                <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
+                  <p className="font-semibold text-[#382E2B]">PayMe 收款</p>
+                  <p className="mt-1">收款人 VILLA ATELIER</p>
+                  <p>應付金額 HKD {formatShopAmount(finalTotal)}</p>
+                  <p className="mt-1">確認後建立訂單。請用 PayMe 向店家支付相同金額，並在備註填上訂單編號。</p>
+                </div>
+              )}
+
+              {paymentMethod === 'card' && (
+                <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5">
+                  <p className="mb-3 text-[12px] font-semibold text-[#382E2B]">信用卡</p>
+                  <label className="mb-2 block text-[12px] text-[#6E6058]">
+                    持卡人姓名
+                    <input value={cardName} onChange={(event) => setCardName(event.target.value)} autoComplete="cc-name" className="mt-1 w-full rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] p-2.5 text-[13px] outline-none focus:border-[#B35B48]" placeholder="與卡片相同" />
+                  </label>
+                  <label className="mb-2 block text-[12px] text-[#6E6058]">
+                    卡號
+                    <input value={cardNumber} onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, '').slice(0, 19);
+                      setCardNumber(digits.replace(/(\d{4})(?=\d)/g, '$1 '));
+                    }} inputMode="numeric" autoComplete="cc-number" className="mt-1 w-full rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] p-2.5 font-mono text-[13px] outline-none focus:border-[#B35B48]" placeholder="ACCT-000035" />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[12px] text-[#6E6058]">
+                      有效期限
+                      <input value={cardExpiry} onChange={(event) => {
+                        const digits = event.target.value.replace(/\D/g, '').slice(0, 4);
+                        setCardExpiry(digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits);
+                      }} inputMode="numeric" autoComplete="cc-exp" className="mt-1 w-full rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] p-2.5 font-mono text-[13px] outline-none focus:border-[#B35B48]" placeholder="MM/YY" />
+                    </label>
+                    <label className="block text-[12px] text-[#6E6058]">
+                      安全碼
+                      <input value={cardCvc} onChange={(event) => setCardCvc(event.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="cc-csc" className="mt-1 w-full rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] p-2.5 font-mono text-[13px] outline-none focus:border-[#B35B48]" placeholder="CVC" />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'apple' && (
+                <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
+                  <p className="font-semibold text-[#382E2B]">Apple Pay</p>
+                  <p className="mt-1">將透過 Apple Pay 支付 HKD {formatShopAmount(finalTotal)}。</p>
+                </div>
+              )}
+
+              {paymentMethod === 'skip' && (
+                <p className="text-[12px] leading-relaxed text-[#8C7B70]">模擬下單會直接建立待確認付款的訂單，不會向支付工具扣款。</p>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button 
                   type="button" 
                   onClick={() => setCheckoutStep(1)} 
-                  className="w-1/3 bg-[#FAF7F2] text-[#382E2B] border border-[#EBE5DF] p-3.5 rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-[#EBE5DF]"
+                  disabled={isPaying}
+                  className="w-1/3 bg-[#FAF7F2] text-[#382E2B] border border-[#EBE5DF] p-3.5 rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-[#EBE5DF] disabled:opacity-60"
                 >
                   返回修改
                 </button>
                 <button 
                   type="button" 
                   disabled={isPaying} 
-                  onClick={handleCheckoutSubmit} 
-                  className="w-2/3 bg-[#B35B48] text-white p-3.5 border-none rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs"
+                  onClick={() => handleCheckoutSubmit(paymentMethod)} 
+                  className={`w-2/3 p-3.5 border-none rounded-lg text-sm font-semibold cursor-pointer transition shadow-xs disabled:opacity-60 ${
+                    paymentMethod === 'apple' ? 'bg-black text-white hover:bg-[#222]' : 'bg-[#B35B48] text-white hover:bg-[#9B4C3A]'
+                  }`}
                 >
-                  {isPaying ? '下單處理中...' : `確認無誤，立即下單 HKD ${finalTotal.toFixed(1)}`}
+                  {checkoutActionLabel(paymentMethod, finalTotal.toFixed(1), isPaying)}
                 </button>
               </div>
             </div>

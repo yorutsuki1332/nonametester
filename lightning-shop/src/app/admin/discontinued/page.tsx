@@ -169,8 +169,9 @@ export default function AdminDiscontinuedListPage() {
     }
 
     const options = {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1200,
+      maxSizeMB: 1.5,
+      maxWidthOrHeight: 2400,
+      initialQuality: 0.92,
       useWebWorker: true,
     };
 
@@ -478,7 +479,7 @@ export default function AdminDiscontinuedListPage() {
                     <input type="file" accept="image/*" multiple onChange={handleEditImageSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     <div className="text-[13px] text-[#7A6E65] pointer-events-none">
                       📁 <strong className="text-[#382E2B]">點擊此處</strong> 或將圖片檔案拖曳至此新增<br/>
-                      <span className="text-[11px] text-[#8C7B70]">支援多張選取（自動高清壓縮與 Vercel Blob 上傳）</span>
+                      <span className="text-[11px] text-[#8C7B70]">可加入不同角度與細節實拍，前台可以放大檢視</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">

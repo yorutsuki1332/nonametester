@@ -13,6 +13,7 @@ interface Product {
   category: string;
   tag?: string;
   price: number;
+  stock?: number | null;
   description?: string;
   images?: string[];
   sku?: string;
@@ -34,6 +35,7 @@ export default function AdminProductsListPage() {
   const [editCategory, setEditCategory] = useState('ACCESSORY');
   const [editTag, setEditTag] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [editStock, setEditStock] = useState('');
   const [editDescription, setEditDescription] = useState('');
   
   // 圖片編輯狀態
@@ -139,6 +141,7 @@ export default function AdminProductsListPage() {
     setEditCategory(product.category || 'ACCESSORY');
     setEditTag(product.tag || '');
     setEditPrice(String(product.price || 0));
+    setEditStock(typeof product.stock === 'number' ? String(product.stock) : '');
     setEditDescription(product.description || '');
 
     setExistingImages(product.images ? [...product.images] : []);
@@ -166,8 +169,9 @@ export default function AdminProductsListPage() {
     }
 
     const options = {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1200,
+      maxSizeMB: 1.5,
+      maxWidthOrHeight: 2400,
+      initialQuality: 0.92,
       useWebWorker: true,
     };
 
@@ -230,6 +234,9 @@ export default function AdminProductsListPage() {
         category: editCategory,
         tag: editTag,
         price: parseFloat(editPrice),
+        stock: editStock.trim() === '' || !Number.isFinite(Math.floor(Number(editStock)))
+          ? null
+          : Math.max(0, Math.floor(Number(editStock))),
         description: editDescription,
         images: finalImages,
       };
@@ -470,6 +477,10 @@ export default function AdminProductsListPage() {
                   <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">商品售價 (HKD)</label>
                   <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white focus:border-[#B35B48]" step="0.1" min="0" required />
                 </div>
+                <div className="mb-5">
+                  <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">庫存數量（5 件以下會出現在儀表板）</label>
+                  <input type="number" value={editStock} onChange={(e) => setEditStock(e.target.value)} className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white focus:border-[#B35B48]" step="1" min="0" placeholder="尚未記入" />
+                </div>
 
                 <div className="mb-5">
                   <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">商品圖片 (最多 15 張)</label>
@@ -477,7 +488,7 @@ export default function AdminProductsListPage() {
                     <input type="file" accept="image/*" multiple onChange={handleEditImageSelection} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     <div className="text-[13px] text-[#7A6E65] pointer-events-none">
                       📁 <strong className="text-[#382E2B]">點擊此處</strong> 或將圖片檔案拖曳至此新增<br/>
-                      <span className="text-[11px] text-[#8C7B70]">支援多張選取（自動高清壓縮與 Vercel Blob 上傳）</span>
+                      <span className="text-[11px] text-[#8C7B70]">可加入不同角度與細節實拍，前台可以放大檢視</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-2.5 mt-2.5">

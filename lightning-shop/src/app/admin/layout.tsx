@@ -8,7 +8,7 @@ const NAV_GROUPS = [
   {
     label: '商品管理',
     items: [
-      { href: '/admin', label: '上架新商品' },
+      { href: '/admin/new', label: '上架新商品' },
       { href: '/admin/products', label: '現時上架貨品' },
       { href: '/admin/discontinued', label: '已下架貨品' },
     ],
@@ -57,6 +57,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="md:flex-1 md:overflow-y-auto md:pr-1" aria-label="後台導覽">
+          <Link
+            href="/admin"
+            className={`mb-1.5 flex items-center rounded-md px-2 py-2.5 text-[12px] font-semibold tracking-[0.5px] whitespace-nowrap transition-all md:px-3.75 md:py-3 md:text-[14px] md:tracking-[1px] ${
+              pathname === '/admin'
+                ? 'bg-[#B35B48] text-white'
+                : 'text-[#7A6E65] hover:bg-[#E6D5CC]/30 hover:text-[#382E2B] max-md:bg-[#FAF7F2]'
+            }`}
+          >
+            數據儀表板
+          </Link>
           <ul className="flex list-none gap-1.5 overflow-x-auto md:flex-col md:overflow-visible">
             {NAV_GROUPS.map((group) => {
               const open = openLabel === group.label;

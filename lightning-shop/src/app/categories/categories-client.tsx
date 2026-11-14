@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { withoutDocumentId } from '@/lib/errors';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { hotStockLabel } from '@/lib/stock-hint';
 
 interface Product {
   id: string;
@@ -16,6 +17,7 @@ interface Product {
   price: number;
   category: string;
   tag?: string;
+  stock?: number | null;
   images?: string[];
   createdAt?: firebase.firestore.Timestamp;
 }
@@ -133,7 +135,7 @@ export default function CategoriesClient() {
         selectedCategory={category}
         onMegaSelect={(nextCategory, nextKeyword) => updateQuery(nextCategory || 'all', nextKeyword, false)}
       />
-      <main className="mx-auto w-full max-w-[1200px] px-[4%] pt-36 pb-24">
+      <main className="mx-auto w-full max-w-300 px-[4%] pt-36 pb-24">
         <header className="mb-10 text-center">
           <p className="mb-2 text-[11px] tracking-[3px] text-[#A3958B] uppercase">Complete Catalog</p>
           <h1 className="font-serif text-[24px] tracking-[3px] text-[#382E2B] sm:text-[28px]">全站選品分類</h1>
@@ -190,6 +192,8 @@ export default function CategoriesClient() {
             visible.map((product, index) => {
               const image = product.images?.find((item) => item && item.trim());
               const eager = index === 0 && !!image;
+              const stockLabel = hotStockLabel(product.tag, product.stock);
+              const soldOut = stockLabel === '已售完';
               return (
                 <article key={product.id} className="relative flex flex-col overflow-hidden rounded-xl border border-[#EBE5DF] bg-white shadow-xs transition duration-400 hover:-translate-y-1.5">
                   {product.tag && (
@@ -210,6 +214,9 @@ export default function CategoriesClient() {
                     </div>
                     <div className="p-4">
                       <h2 className="mb-2 line-clamp-1 text-[14px] font-medium text-[#382E2B]">{product.name}</h2>
+                      {stockLabel && (
+                        <p className={`mb-1 text-[12px] font-semibold ${soldOut ? 'text-[#7A6E65]' : 'text-[#B35B48]'}`}>{stockLabel}</p>
+                      )}
                       <div className="text-[14px] font-semibold text-[#B35B48]">HKD {Number(product.price).toFixed(1)}</div>
                     </div>
                   </Link>
@@ -217,9 +224,10 @@ export default function CategoriesClient() {
                     <button
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="w-full cursor-pointer rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] py-2.5 text-[13px] font-medium text-[#382E2B] transition hover:bg-[#B35B48] hover:text-white"
+                      className="w-full cursor-pointer rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] py-2.5 text-[13px] font-medium text-[#382E2B] transition hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]"
+                      disabled={soldOut}
                     >
-                      加入購物車
+                      {soldOut ? '已售完' : '加入購物車'}
                     </button>
                   </div>
                 </article>
