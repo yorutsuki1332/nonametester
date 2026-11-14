@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface MegaMenuProps {
   selectedCategory: string;
@@ -236,7 +238,14 @@ const MENU_DATA: Record<string, CategoryItem> = {
 
 const CATEGORY_ORDER = ['all', 'BAGS', 'ACCESSORY', 'DAILY WEAR'] as const;
 
+const PAGE_LINKS = [
+  { href: '/categories', label: '全站目錄 / CATALOG', short: '全站目錄' },
+  { href: '/journey', label: '品牌誌 / JOURNEY', short: '品牌誌' },
+  { href: '/lookbook', label: '造型集 / LOOKBOOK', short: '造型集' },
+] as const;
+
 export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [activeCat, setActiveCat] = useState<string>('all');
   const [fadeTick, setFadeTick] = useState(0);
@@ -348,7 +357,8 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
       }`}
     >
       {/* 膠囊導覽列 */}
-      <div className="max-w-7xl mx-auto px-[6%] py-2.5 flex items-center justify-start md:justify-center gap-2.5 overflow-x-auto no-scrollbar">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 md:flex-nowrap md:justify-between md:gap-4 md:px-[6%]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap md:gap-6">
         {/* 觸發下滑選單的主按鈕 */}
         <button
           type="button"
@@ -386,51 +396,33 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
           </svg>
         </button>
 
-        {/* 快捷膠囊分類 (滑鼠移入同樣可直接開啟並切換至該分類) */}
-        <button
-          type="button"
-          onMouseEnter={() => {
-            if (!isMobileMenu()) openMenu();
-          }}
-          onClick={() => handleSelectAndClose('BAGS', '')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
-            selectedCategory === 'BAGS' && !isOpen
-              ? 'bg-[#A8573E] text-white shadow-xs'
-              : 'bg-[#F2ECE4] hover:bg-[#E6DCD2] text-[#5C4D42]'
-          }`}
-        >
-          <span>👜</span> 包包
-        </button>
+        <span className="hidden shrink-0 select-none text-[#EBE5DF] md:inline">|</span>
 
-        <button
-          type="button"
-          onMouseEnter={() => {
-            if (!isMobileMenu()) openMenu();
-          }}
-          onClick={() => handleSelectAndClose('ACCESSORY', '')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
-            selectedCategory === 'ACCESSORY' && !isOpen
-              ? 'bg-[#A8573E] text-white shadow-xs'
-              : 'bg-[#F2ECE4] hover:bg-[#E6DCD2] text-[#5C4D42]'
-          }`}
-        >
-          <span>💍</span> 首飾配件
-        </button>
+        <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 md:flex-nowrap md:gap-7" aria-label="頁面導覽">
+          {PAGE_LINKS.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`py-1 text-[13px] tracking-[1px] transition md:tracking-[1.5px] ${
+                  active ? 'font-semibold text-[#B35B48]' : 'text-[#5C4D42] hover:text-[#B35B48]'
+                }`}
+              >
+                <span className="md:hidden">{item.short}</span>
+                <span className="hidden md:inline">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        </div>
 
-        <button
-          type="button"
-          onMouseEnter={() => {
-            if (!isMobileMenu()) openMenu();
-          }}
-          onClick={() => handleSelectAndClose('DAILY WEAR', '')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition shrink-0 cursor-pointer ${
-            selectedCategory === 'DAILY WEAR' && !isOpen
-              ? 'bg-[#A8573E] text-white shadow-xs'
-              : 'bg-[#F2ECE4] hover:bg-[#E6DCD2] text-[#5C4D42]'
-          }`}
+        <Link
+          href="/"
+          className="hidden shrink-0 text-[12px] tracking-[1.5px] text-[#7A6E65] transition hover:text-[#B35B48] md:inline-flex"
         >
-          <span>👕</span> 日常穿搭
-        </button>
+          首頁 HOME
+        </Link>
       </div>
 
       {/* 下滑雙欄選單面板 (含 120ms 防誤觸切換 + 精選圖文卡片) */}

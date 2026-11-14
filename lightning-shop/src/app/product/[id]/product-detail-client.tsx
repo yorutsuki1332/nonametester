@@ -256,6 +256,7 @@ export default function ProductDetailClient({
                   alt={product.name}
                   fill
                   priority={idx === 0}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
                   sizes="(max-width: 768px) 100vw, 500px"
                   className="object-cover"
                 />

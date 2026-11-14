@@ -29,6 +29,18 @@ export default function SiteFooter({ onMemberClick }: SiteFooterProps) {
             </Link>
           )}
           <span>·</span>
+          <Link href="/categories" className={linkClass}>
+            全站目錄
+          </Link>
+          <span>·</span>
+          <Link href="/journey" className={linkClass}>
+            品牌誌
+          </Link>
+          <span>·</span>
+          <Link href="/lookbook" className={linkClass}>
+            造型集
+          </Link>
+          <span>·</span>
           <Link href="/#curated-section" className={linkClass}>
             配送說明
           </Link>
