@@ -7,6 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import SiteFooter from '@/components/SiteFooter';
 import ProductGallery from '@/components/ProductGallery';
+import ProductGuide from '@/components/ProductGuide';
 import { hotStockLabel } from '@/lib/stock-hint';
 
 interface Product {
@@ -257,9 +258,12 @@ export default function ProductDetailClient({
             </p>
           )}
           
-          <div className="text-[14px] text-[#6E6058] mb-5 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2">
+          <div className="text-[14px] text-[#6E6058] mb-3 whitespace-pre-wrap leading-[1.8] max-h-none md:h-62.5 md:max-h-62.5 overflow-y-auto pr-2">
             {descText}
           </div>
+          <a href="#size-guide" className="mb-5 inline-block text-[13px] font-semibold text-[#B35B48] underline">
+            查看公分尺寸、試穿與洗滌說明
+          </a>
           
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3.75 mt-5 mb-3">
             <div className="flex items-center justify-center border border-[#EBE5DF] rounded-xl overflow-hidden bg-white">
@@ -278,6 +282,8 @@ export default function ProductDetailClient({
           </div>
         </div>
       </main>
+
+      <ProductGuide category={product.category} name={product.name} />
 
       {/* 吐司通知 */}
       <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#382E2B] text-[#FAF7F2] px-6 py-3 rounded-full text-[13px] font-medium z-5000 transition-transform duration-500 shadow-md ${isToastShow ? 'translate-y-0' : 'translate-y-[300%]'}`}>

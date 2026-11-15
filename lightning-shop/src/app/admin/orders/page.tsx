@@ -17,6 +17,11 @@ interface Order {
   name?: string;
   email?: string;
   address?: string;
+  deliveryMethod?: string;
+  deliveryLabel?: string;
+  shippingFee?: number;
+  trackingNumber?: string;
+  trackingCarrier?: string;
   total?: number;
   status?: 'pending' | 'paid' | 'preparing' | 'shipping' | 'completed' | 'cancelled';
   items?: OrderItem[];
@@ -34,6 +39,8 @@ export default function AdminOrdersListPage() {
 
   // 通用狀態更新確認 Modal 狀態
   const [targetStatus, setTargetStatus] = useState<string>('');
+  const [trackingDraft, setTrackingDraft] = useState('');
+  const [shipTrackingDraft, setShipTrackingDraft] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // 取消/刪除確認 Modal 狀態
@@ -94,7 +101,40 @@ export default function AdminOrdersListPage() {
     const order = ordersMap[orderId];
     if (!order) return;
     setSelectedOrder(order);
+    setShipTrackingDraft(order.trackingNumber || '');
     setIsDetailOpen(true);
+  };
+
+  const deliverableEmail = (email?: string) => {
+    if (!email) return '';
+    const [deleted, deleteId, emailPart] = email.split('_');
+    if (deleted === 'deleted' && deleteId && emailPart) return emailPart;
+    return email;
+  };
+
+  const notifyShipped = async (order: Order, trackingNumber: string) => {
+    const email = deliverableEmail(order.email);
+    if (!email) return '，訂單沒有信箱，出貨通知未寄出';
+    try {
+      const mailResponse = await fetch('/api/send-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'shipped',
+          email,
+          orderId: order.id,
+          name: order.name || '',
+          trackingNumber,
+          deliveryLabel: order.deliveryLabel || '',
+          address: order.address || '',
+        }),
+      });
+      const mailResult = await mailResponse.json().catch(() => null);
+      return mailResponse.ok && mailResult?.success ? '，出貨通知已寄出' : '，出貨通知未能寄出';
+    } catch (mailError) {
+      console.error('出貨通知寄送失敗:', mailError);
+      return '，出貨通知未能寄出';
+    }
   };
 
   const closeOrderModal = () => {
@@ -104,6 +144,7 @@ export default function AdminOrdersListPage() {
   // 開啟狀態確認 Modal
   const openStatusConfirmModal = (status: string) => {
     setTargetStatus(status);
+    setTrackingDraft(status === 'shipping' ? (selectedOrder?.trackingNumber || '') : '');
     setIsDetailOpen(false);
     setIsConfirmOpen(true);
   };
@@ -111,17 +152,31 @@ export default function AdminOrdersListPage() {
   // 執行狀態更新
   const executeUpdateStatus = async () => {
     if (!selectedOrder || !targetStatus) return;
+    const trackingNumber = trackingDraft.trim();
+    if (targetStatus === 'shipping' && !trackingNumber) {
+      alert('請填寫物流追蹤編號');
+      return;
+    }
     try {
-      await db.collection("orders").doc(selectedOrder.id).update({ status: targetStatus });
+      const update: { status: string; trackingNumber?: string; trackingCarrier?: string; shippedAt?: firebase.firestore.FieldValue } = {
+        status: targetStatus,
+      };
+      if (targetStatus === 'shipping') {
+        update.trackingNumber = trackingNumber;
+        update.trackingCarrier = '順豐速遞';
+        update.shippedAt = firebase.firestore.FieldValue.serverTimestamp();
+      }
+      await db.collection("orders").doc(selectedOrder.id).update(update);
       setIsConfirmOpen(false);
-      
+
       const statusNames: { [key: string]: string } = {
         paid: '已確認付款',
         preparing: '已完成備貨',
         shipping: '已完成發貨',
         completed: '已完成訂單',
       };
-      showToast(`✅ 訂單狀態已更新為：${statusNames[targetStatus] || targetStatus}`);
+      const emailNote = targetStatus === 'shipping' ? await notifyShipped(selectedOrder, trackingNumber) : '';
+      showToast(`✅ 訂單狀態已更新為：${statusNames[targetStatus] || targetStatus}${emailNote}`);
     } catch (error: unknown) {
       alert('更新失敗：' + errorMessage(error));
     }
@@ -260,8 +315,53 @@ export default function AdminOrdersListPage() {
                 <input type="text" value={selectedOrder.email || ''} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
               </div>
               <div className="mb-5">
-                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">送貨方式</label>
+                <input type="text" value={selectedOrder.deliveryLabel ? `${selectedOrder.deliveryLabel}${Number(selectedOrder.shippingFee) > 0 ? ` · 運費 HKD ${Number(selectedOrder.shippingFee).toFixed(1)}` : ' · 免運'}` : '未記錄'} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
+              </div>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">{selectedOrder.deliveryMethod === 'sf-pickup' ? '順豐自取點' : '收件地址'}</label>
                 <input type="text" value={selectedOrder.address || ''} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white" />
+              </div>
+              <div className="mb-5">
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">物流追蹤編號</label>
+                {selectedOrder.status === 'shipping' && !selectedOrder.trackingNumber ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      value={shipTrackingDraft}
+                      onChange={(event) => setShipTrackingDraft(event.target.value)}
+                      className="w-full rounded-lg border border-[#EBE5DF] bg-white p-3 font-mono text-[14px] outline-none focus:border-[#B35B48]"
+                      placeholder="順豐運單編號"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const trackingNumber = shipTrackingDraft.trim();
+                        if (!trackingNumber) {
+                          alert('請填寫物流追蹤編號');
+                          return;
+                        }
+                        try {
+                          await db.collection("orders").doc(selectedOrder.id).update({
+                            trackingNumber,
+                            trackingCarrier: '順豐速遞',
+                            shippedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                          });
+                          const emailNote = await notifyShipped(selectedOrder, trackingNumber);
+                          setSelectedOrder({ ...selectedOrder, trackingNumber, trackingCarrier: '順豐速遞' });
+                          showToast(`已儲存追蹤編號${emailNote}`);
+                        } catch (error: unknown) {
+                          alert('儲存失敗：' + errorMessage(error));
+                        }
+                      }}
+                      className="w-full cursor-pointer rounded-lg border-none bg-[#B35B48] p-3.5 font-semibold text-white hover:bg-[#9B4C3A]"
+                    >
+                      儲存編號並寄出貨通知
+                    </button>
+                  </div>
+                ) : (
+                  <input type="text" value={selectedOrder.trackingNumber ? `${selectedOrder.trackingCarrier || '順豐速遞'} · ${selectedOrder.trackingNumber}` : '尚未出貨'} readOnly className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white font-mono" />
+                )}
               </div>
               <div className="mb-5">
                 <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">訂單總金額 (HKD)</label>
@@ -366,6 +466,19 @@ export default function AdminOrdersListPage() {
                 </span>
                 嗎？
               </p>
+              {targetStatus === 'shipping' && (
+                <label className="mb-5 block text-[13px] font-semibold text-[#6E6058]">
+                  物流追蹤編號
+                  <input
+                    value={trackingDraft}
+                    onChange={(event) => setTrackingDraft(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-[#EBE5DF] bg-white p-3 font-mono text-[14px] font-normal outline-none focus:border-[#B35B48]"
+                    placeholder="順豐運單編號"
+                    autoComplete="off"
+                  />
+                  <span className="mt-1 block text-[12px] font-normal leading-relaxed text-[#8C7B70]">確認後會把編號存進訂單，並寄出貨通知到收件信箱。</span>
+                </label>
+              )}
               <button type="button" onClick={executeUpdateStatus} className="w-full bg-[#B35B48] text-white p-4 rounded-lg font-semibold cursor-pointer hover:bg-[#9B4C3A] transition shadow-xs">
                 確認執行
               </button>

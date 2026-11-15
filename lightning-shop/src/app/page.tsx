@@ -6,12 +6,19 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { db, auth } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
-import { errorMessage, withoutDocumentId } from '@/lib/errors';
+import { errorCode, errorMessage, withoutDocumentId } from '@/lib/errors';
 import MegaMenu from '@/components/MegaMenu';
 import HomeBanner from '@/components/HomeBanner';
 import EditorialBanners from '@/components/EditorialBanners';
 import SiteFooter from '@/components/SiteFooter';
+import ShippingChoice from '@/components/ShippingChoice';
 import { hotStockLabel } from '@/lib/stock-hint';
+import {
+  FREE_SHIPPING_THRESHOLD,
+  deliveryOption,
+  shippingFeeFor,
+  type DeliveryMethod,
+} from '@/lib/shipping';
 
 interface Product {
   id: string;
@@ -136,8 +143,6 @@ const CATEGORY_MARK: Record<string, string> = {
   'DAILY WEAR': '👕',
 };
 
-const FREE_SHIPPING_THRESHOLD = 600;
-
 function formatShopAmount(value: number) {
   const amount = Math.round(value * 10) / 10;
   return Number.isInteger(amount) ? String(amount) : amount.toFixed(1);
@@ -206,6 +211,110 @@ function checkoutActionLabel(method: CheckoutPayment, total: string, paying: boo
   if (method === 'payme') return `以 PayMe 付款 HKD ${total}`;
   if (method === 'card') return `以信用卡付款 HKD ${total}`;
   return `以 Apple Pay 付款 HKD ${total}`;
+}
+
+function mergeCartItems(base: CartItem[], extra: CartItem[]) {
+  const merged = new Map<string, CartItem>();
+  for (const item of base) merged.set(item.id, { ...item });
+  for (const item of extra) {
+    const current = merged.get(item.id);
+    if (current) current.quantity = Math.min(99, current.quantity + item.quantity);
+    else merged.set(item.id, { ...item });
+  }
+  return [...merged.values()];
+}
+
+function readStoredCart(raw: string | null): CartItem[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const record = item as { id?: unknown; name?: unknown; price?: unknown; quantity?: unknown };
+      if (typeof record.id !== 'string' || typeof record.name !== 'string') return [];
+      return [{
+        id: record.id,
+        name: record.name,
+        price: Number(record.price) || 0,
+        quantity: Number(record.quantity) || 1,
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function socialAuthMessage(error: unknown) {
+  const code = errorCode(error);
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return '';
+  if (code === 'auth/popup-blocked') return '瀏覽器擋住了登入視窗。請允許彈出視窗後再試。';
+  if (code === 'auth/unauthorized-domain') return '這個網址尚未加入 Firebase 的授權網域。';
+  if (code === 'auth/operation-not-allowed') return 'Firebase 尚未啟用這個登入方式。請到 Authentication 打開 Google 或 Apple。';
+  if (code === 'auth/account-exists-with-different-credential') return '這個信箱已經用另一種方式註冊，請改用原來的登入方式。';
+  return '登入失敗： ' + errorMessage(error);
+}
+
+async function ensureProviderProfile(user: firebase.User) {
+  const snapshot = await db.collection('users').where('uid', '==', user.uid).get();
+  const active = snapshot.docs.find((doc) => !doc.data()?.isDeleted);
+  if (active) return active.id;
+
+  const localPart = (user.email || '').split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'member';
+  const stem = (localPart || 'member').slice(0, 16);
+  let accountId = `${stem}${user.uid.slice(0, 6)}`.slice(0, 22);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const candidate = attempt === 0 ? stem : `${stem}${attempt}`;
+    const doc = await db.collection('users').doc(candidate).get();
+    if (!doc.exists || doc.data()?.isDeleted) {
+      accountId = candidate;
+      break;
+    }
+  }
+
+  await db.collection('users').doc(accountId).set({
+    accountId,
+    email: user.email || '',
+    uid: user.uid,
+    name: user.displayName || '',
+    provider: user.providerData[0]?.providerId || '',
+    storeCredit: 0,
+    isDeleted: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+  return accountId;
+}
+
+function SocialSignInButtons({
+  disabled,
+  onGoogle,
+  onApple,
+}: {
+  disabled: boolean;
+  onGoogle: () => void;
+  onApple: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onGoogle}
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#EBE5DF] bg-white p-3.5 text-[14px] font-semibold text-[#382E2B] transition hover:bg-[#F4F0EA] disabled:opacity-60"
+      >
+        <span aria-hidden className="text-[16px] font-bold text-[#4285F4]">G</span>
+        以 Google 一鍵登入
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onApple}
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-none bg-black p-3.5 text-[14px] font-semibold text-white transition hover:bg-[#222] disabled:opacity-60"
+      >
+        以 Apple 一鍵登入
+      </button>
+    </div>
+  );
 }
 
 function paymentFollowUp(method: CheckoutPayment, total: string, orderId: string, cardSummary: string) {
@@ -292,7 +401,10 @@ export default function Home() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   
   // 結帳步驟控制 (1: 填寫收件資料, 2: 結帳再確認頁面)
-  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
+  const [checkoutStep, setCheckoutStep] = useState<0 | 1 | 2>(1);
+  const [returnToCheckout, setReturnToCheckout] = useState(false);
+  const [socialSigning, setSocialSigning] = useState(false);
+  const guestCartRef = useRef<CartItem[] | null>(null);
 
   // 自定義網頁主題彈窗狀態
   const [customModal, setCustomModal] = useState<{
@@ -363,6 +475,7 @@ export default function Home() {
   const [shippingName, setShippingName] = useState('');
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('home');
   const [isPaying, setIsPaying] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPayment>('skip');
   const [cardName, setCardName] = useState('');
@@ -423,12 +536,14 @@ export default function Home() {
         setCurrentUser(user);
 
         const userCartKey = `villa_atelier_cart_${user.uid}`;
-        const userSavedCart = localStorage.getItem(userCartKey);
-        if (userSavedCart) {
-          try { setCart(JSON.parse(userSavedCart)); } catch { setCart([]); }
-        } else {
-          setCart([]);
+        let nextCart = readStoredCart(localStorage.getItem(userCartKey));
+        if (guestCartRef.current && guestCartRef.current.length > 0) {
+          nextCart = mergeCartItems(nextCart, guestCartRef.current);
+          localStorage.setItem(userCartKey, JSON.stringify(nextCart));
+          localStorage.removeItem('villa_atelier_cart_guest');
+          guestCartRef.current = null;
         }
+        setCart(nextCart);
 
         try {
           const querySnapshot = await db.collection("users")
@@ -436,10 +551,15 @@ export default function Home() {
             .get();
             
           const activeDocs = querySnapshot.docs.filter(d => !d.data()?.isDeleted);
+          const providerId = user.providerData[0]?.providerId || '';
 
           if (activeDocs.length > 0) {
-            const userDocSnap = activeDocs[0];
-            loggedInAccountId = userDocSnap.id;
+            loggedInAccountId = activeDocs[0].id;
+          } else if (providerId === 'google.com' || providerId === 'apple.com') {
+            loggedInAccountId = await ensureProviderProfile(user);
+          }
+
+          if (loggedInAccountId) {
             setCurrentAccountId(loggedInAccountId);
 
             unsubscribeUserDoc = db.collection("users").doc(loggedInAccountId).onSnapshot((doc) => {
@@ -741,7 +861,10 @@ export default function Home() {
   const couponDiscountAmount = calculateCouponDiscount();
   const subtotalAfterCoupon = Math.max(0, subtotalAfterMemberDiscount - couponDiscountAmount);
   const creditToDeduct = useCredit ? Math.min(subtotalAfterCoupon, userStoreCredit) : 0;
-  const finalTotal = Math.max(0, subtotalAfterCoupon - creditToDeduct);
+  const merchandiseDue = Math.max(0, subtotalAfterCoupon - creditToDeduct);
+  const selectedDelivery = deliveryOption(deliveryMethod);
+  const shippingFee = cart.length === 0 ? 0 : shippingFeeFor(currentSubtotal, deliveryMethod);
+  const payableTotal = merchandiseDue + shippingFee;
 
   const changeSlide = (productId: string, index: number, validLength: number) => {
     const targetIndex = (index + validLength) % validLength;
@@ -860,6 +983,11 @@ export default function Home() {
           setIsRegisterMode(false);
           setRegisterStep(1);
           setIsAuthOpen(false);
+          if (returnToCheckout) {
+            setReturnToCheckout(false);
+            setCheckoutStep(1);
+            setIsPaymentOpen(true);
+          }
         }
       } else {
         const docRef = db.collection("users").doc(authAccountId);
@@ -873,15 +1001,55 @@ export default function Home() {
         
         showToast('登入成功！');
         setIsAuthOpen(false);
+        if (returnToCheckout) {
+          setReturnToCheckout(false);
+          setCheckoutStep(1);
+          setIsPaymentOpen(true);
+        }
       }
     } catch (error: unknown) {
       showAlert('操作失敗： ' + errorMessage(error), '系統提示');
     }
   };
 
+  const continueAfterSignIn = (user: firebase.User | null) => {
+    if (user?.email) setShippingEmail(user.email);
+    if (user?.displayName) setShippingName((current) => current || user.displayName || '');
+    setIsAuthOpen(false);
+    if (isPaymentOpen || returnToCheckout) {
+      setReturnToCheckout(false);
+      setCheckoutStep(1);
+      setIsPaymentOpen(true);
+    }
+  };
+
+  const signInWithProvider = async (kind: 'google' | 'apple') => {
+    guestCartRef.current = readStoredCart(localStorage.getItem('villa_atelier_cart_guest'));
+    setSocialSigning(true);
+    try {
+      const provider = kind === 'google'
+        ? new firebase.auth.GoogleAuthProvider()
+        : new firebase.auth.OAuthProvider('apple.com');
+      if (kind === 'google') provider.setCustomParameters({ prompt: 'select_account' });
+      if (kind === 'apple') {
+        provider.addScope('email');
+        provider.addScope('name');
+      }
+      const credential = await auth.signInWithPopup(provider);
+      showToast(kind === 'google' ? '已用 Google 登入' : '已用 Apple 登入');
+      continueAfterSignIn(credential.user);
+    } catch (error: unknown) {
+      guestCartRef.current = null;
+      const message = socialAuthMessage(error);
+      if (message) showAlert(message, '登入失敗');
+    } finally {
+      setSocialSigning(false);
+    }
+  };
+
   const openCheckoutModal = () => {
     setIsCartOpen(false);
-    setCheckoutStep(1);
+    setCheckoutStep(currentUser ? 1 : 0);
     setPaymentMethod('skip');
     setCardName('');
     setCardNumber('');
@@ -901,7 +1069,12 @@ export default function Home() {
     e.preventDefault();
     if (cart.length === 0) return showAlert('購物車是空的！', '提示');
     if (!shippingName.trim() || !shippingEmail.trim() || !shippingAddress.trim()) {
-      showAlert('請完整填寫收件資訊！', '資訊未完整');
+      showAlert(
+        shippingAddress.trim()
+          ? '請完整填寫收件資訊！'
+          : `請填寫${selectedDelivery.addressLabel}。`,
+        '資訊未完整',
+      );
       return;
     }
     setCheckoutStep(2);
@@ -944,17 +1117,21 @@ export default function Home() {
       const customOrderId = `${prefix}${String(maxIndex + 1).padStart(3, '0')}`;
       
       const orderData = {
-        accountId: currentAccountId || null,
+        accountId: currentAccountId && currentAccountId !== '會員' ? currentAccountId : null,
+        buyerType: currentUser ? 'member' : 'guest',
         name: shippingName.trim(),
         email: shippingEmail.trim(),
         address: shippingAddress.trim(),
+        deliveryMethod,
+        deliveryLabel: selectedDelivery.label,
+        shippingFee,
         items: cart,
         subtotal: currentSubtotal,
         memberDiscount: memberDiscountAmount,
         discount: couponDiscountAmount,
         creditDeducted: creditToDeduct,
         couponCode: selectedCoupon ? selectedCoupon.code : null,
-        total: finalTotal,
+        total: payableTotal,
         status: 'pending',
         paymentMethod: method,
         paymentLabel: PAYMENT_LABEL[method],
@@ -963,6 +1140,32 @@ export default function Home() {
       };
 
       await db.collection("orders").doc(customOrderId).set(orderData);
+
+      let emailNote = currentUser
+        ? '確認信暫時未能寄出。你可以在會員中心查看這筆訂單。'
+        : `確認信暫時未能寄出。請保留訂單編號 ${customOrderId}。`;
+      try {
+        const mailResponse = await fetch('/api/send-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'confirm',
+            email: shippingEmail.trim(),
+            orderId: customOrderId,
+            name: shippingName.trim(),
+            total: payableTotal,
+            items: cart.map((item) => ({ name: item.name, quantity: item.quantity, price: item.price })),
+            deliveryLabel: selectedDelivery.label,
+            address: shippingAddress.trim(),
+          }),
+        });
+        const mailResult = await mailResponse.json().catch(() => null);
+        if (mailResponse.ok && mailResult?.success) {
+          emailNote = `訂單確認信已寄到 ${shippingEmail.trim()}。出貨時會再寄一封信，附上物流追蹤編號。`;
+        }
+      } catch (mailError) {
+        console.error('訂單確認信寄送失敗:', mailError);
+      }
 
       if (selectedCoupon && selectedCoupon.conditionType === 'counts') {
         try {
@@ -1001,7 +1204,7 @@ export default function Home() {
       }
 
       setTimeout(() => {
-        showAlert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n總計金額：HKD ${finalTotal.toFixed(1)}${paymentFollowUp(method, formatShopAmount(finalTotal), customOrderId, cardSummary)}`, '下單成功');
+        showAlert(`🎉 下單成功！\n\n感謝您的購買，您的訂單編號為：${customOrderId}\n送貨：${selectedDelivery.label}（${shippingFee === 0 ? '免運' : `運費 HKD ${formatShopAmount(shippingFee)}`}）\n總計金額：HKD ${payableTotal.toFixed(1)}\n${emailNote}${paymentFollowUp(method, formatShopAmount(payableTotal), customOrderId, cardSummary)}`, '下單成功');
         saveCartToStorage([]);
         setSelectedCoupon(null);
         setUseCredit(false);
@@ -1101,6 +1304,16 @@ export default function Home() {
           <button className="bg-none border-none text-[26px] cursor-pointer text-[#888]" onClick={() => setIsAuthOpen(false)}>&times;</button>
         </div>
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
+          {!(isRegisterMode && registerStep === 2) && (
+            <div className="mb-5">
+              <SocialSignInButtons
+                disabled={socialSigning}
+                onGoogle={() => signInWithProvider('google')}
+                onApple={() => signInWithProvider('apple')}
+              />
+              <p className="mt-4 text-center text-[12px] text-[#8C7B70]">或使用帳戶 ID</p>
+            </div>
+          )}
           <form onSubmit={handleAuthSubmit}>
             {isRegisterMode && registerStep === 2 ? (
               <div className="mb-5">
@@ -1416,6 +1629,13 @@ export default function Home() {
               </div>
             </div>
 
+            <ShippingChoice
+              subtotal={currentSubtotal}
+              method={deliveryMethod}
+              onChange={setDeliveryMethod}
+              amountLabel={formatShopAmount}
+            />
+
             <div className="mb-3">
               <label className="block text-[12px] font-semibold text-[#6E6058] mb-1.5">選擇適用折扣券</label>
               <select 
@@ -1477,9 +1697,14 @@ export default function Home() {
               </div>
             )}
 
+            <div className="flex justify-between mb-2 text-[13px] text-[#7A6E65]">
+              <span>運費 · {selectedDelivery.label}</span>
+              <span>{shippingFee === 0 ? '免運' : `HKD ${formatShopAmount(shippingFee)}`}</span>
+            </div>
+
             <div className="flex justify-between mb-5 pt-3 border-t border-[#EBE5DF] text-[16px] font-semibold text-[#382E2B]">
               <span>訂單總計</span>
-              <span className="text-[#B35B48]">HKD {Number(finalTotal).toFixed(1)}</span>
+              <span className="text-[#B35B48]">HKD {Number(payableTotal).toFixed(1)}</span>
             </div>
 
             <button 
@@ -1497,7 +1722,11 @@ export default function Home() {
         <div className="p-6.25 border-b border-[#EBE5DF] flex justify-between items-center bg-[#F4F0EA]">
           <div className="flex items-center gap-2">
             <h2 className="text-[18px] font-semibold text-[#382E2B]">
-              {checkoutStep === 1 ? '安全結帳 (步驟 1/2：填寫收件資料)' : '訂單確認 (步驟 2/2：付款方式)'}
+              {checkoutStep === 0
+                ? '選擇結帳方式'
+                : checkoutStep === 1
+                  ? `安全結帳 (步驟 1/2：${currentUser ? '填寫收件資料' : '訪客收件資料'})`
+                  : '訂單確認 (步驟 2/2：付款方式)'}
             </h2>
             {userProfile && checkoutStep === 1 && (
               <span className="text-[10px] bg-[#B35B48] text-white px-2 py-0.5 rounded-full font-medium">
@@ -1509,8 +1738,57 @@ export default function Home() {
         </div>
 
         <div className="p-6.25 max-h-[70vh] overflow-y-auto">
-          {checkoutStep === 1 ? (
+          {checkoutStep === 0 ? (
+            <div className="flex flex-col gap-5">
+              <div className="rounded-xl border border-[#EBE5DF] bg-[#F4F0EA] p-4">
+                <h3 className="text-sm font-semibold text-[#382E2B]">免註冊快速結帳</h3>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-[#6E6058]">不用建立會員。填寫收件姓名、信箱與地址後就能完成這筆訂單，通知會寄到你留下的信箱。</p>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep(1)}
+                  className="mt-3 w-full cursor-pointer rounded-lg border-none bg-[#B35B48] p-3.5 text-[14px] font-semibold text-white transition hover:bg-[#9B4C3A]"
+                >
+                  以免註冊訪客結帳
+                </button>
+              </div>
+              <div className="flex items-center gap-3 text-[12px] text-[#8C7B70]">
+                <span className="h-px flex-1 bg-[#EBE5DF]" />
+                或快捷登入
+                <span className="h-px flex-1 bg-[#EBE5DF]" />
+              </div>
+              <div>
+                <p className="mb-3 text-[12px] leading-relaxed text-[#6E6058]">用 Google 或 Apple 登入後，可以帶入會員資料，並使用會員折扣、購物金與訂單紀錄。</p>
+                <SocialSignInButtons
+                  disabled={socialSigning}
+                  onGoogle={() => signInWithProvider('google')}
+                  onApple={() => signInWithProvider('apple')}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReturnToCheckout(true);
+                    setIsPaymentOpen(false);
+                    setIsRegisterMode(false);
+                    setRegisterStep(1);
+                    setIsAuthOpen(true);
+                  }}
+                  className="mt-3 w-full cursor-pointer border-none bg-transparent p-2 text-[13px] font-semibold text-[#B35B48] underline"
+                >
+                  改用帳戶 ID 登入
+                </button>
+              </div>
+            </div>
+          ) : checkoutStep === 1 ? (
             <form onSubmit={handleProceedToReview}>
+              {!currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep(0)}
+                  className="mb-4 cursor-pointer border-none bg-transparent p-0 text-[12px] font-semibold text-[#B35B48] underline"
+                >
+                  返回選擇登入或訪客結帳
+                </button>
+              )}
               <div className="mb-5">
                 <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件人姓名</label>
                 <input type="text" value={shippingName} onChange={(e) => setShippingName(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入真實姓名" required />
@@ -1519,9 +1797,15 @@ export default function Home() {
                 <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (接收訂單通知)</label>
                 <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
               </div>
+              <ShippingChoice
+                subtotal={currentSubtotal}
+                method={deliveryMethod}
+                onChange={setDeliveryMethod}
+                amountLabel={formatShopAmount}
+              />
               <div className="mb-6">
-                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址</label>
-                <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="請輸入完整收件地址" required />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">{selectedDelivery.addressLabel}</label>
+                <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder={selectedDelivery.addressPlaceholder} required />
               </div>
 
               <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-6 text-[13px] border border-[#EBE5DF]">
@@ -1538,7 +1822,8 @@ export default function Home() {
                 {creditToDeduct > 0 && (
                   <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
                 )}
-                <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span></div>
+                <div className="flex justify-between mb-1"><span>運費 · {selectedDelivery.label}：</span><span>{shippingFee === 0 ? '免運' : `HKD $${shippingFee.toFixed(1)}`}</span></div>
+                <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${payableTotal.toFixed(1)}</span></div>
               </div>
 
               <button type="submit" className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
@@ -1552,7 +1837,8 @@ export default function Home() {
                 <div className="text-xs text-[#6E6058] flex flex-col gap-1">
                   <p><strong className="text-[#382E2B]">收件人：</strong> {shippingName}</p>
                   <p><strong className="text-[#382E2B]">電子郵件：</strong> {shippingEmail}</p>
-                  <p><strong className="text-[#382E2B]">收件地址：</strong> {shippingAddress}</p>
+                  <p><strong className="text-[#382E2B]">送貨方式：</strong> {selectedDelivery.label}（{shippingFee === 0 ? '免運' : `運費 HKD ${formatShopAmount(shippingFee)}`}）</p>
+                  <p><strong className="text-[#382E2B]">{selectedDelivery.addressLabel}：</strong> {shippingAddress}</p>
                 </div>
               </div>
 
@@ -1581,9 +1867,10 @@ export default function Home() {
                   {creditToDeduct > 0 && (
                     <div className="flex justify-between text-[#B35B48]"><span>購物金折抵</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
                   )}
+                  <div className="flex justify-between"><span>運費 · {selectedDelivery.label}</span><span>{shippingFee === 0 ? '免運' : `HKD $${shippingFee.toFixed(1)}`}</span></div>
                   <div className="flex justify-between font-bold pt-2 border-t border-[#EBE5DF] text-sm text-[#382E2B]">
                     <span>應付總額</span>
-                    <span className="text-[#B35B48]">HKD ${finalTotal.toFixed(1)}</span>
+                    <span className="text-[#B35B48]">HKD ${payableTotal.toFixed(1)}</span>
                   </div>
                 </div>
               </div>
@@ -1617,7 +1904,7 @@ export default function Home() {
                 <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
                   <p className="font-semibold text-[#382E2B]">轉數快收款</p>
                   <p className="mt-1">收款名稱 VILLA ATELIER</p>
-                  <p>應付金額 HKD {formatShopAmount(finalTotal)}</p>
+                  <p>應付金額 HKD {formatShopAmount(payableTotal)}</p>
                   <p className="mt-1">確認後建立訂單。請以轉數快轉出相同金額，並在備註填上訂單編號。</p>
                 </div>
               )}
@@ -1626,7 +1913,7 @@ export default function Home() {
                 <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
                   <p className="font-semibold text-[#382E2B]">PayMe 收款</p>
                   <p className="mt-1">收款人 VILLA ATELIER</p>
-                  <p>應付金額 HKD {formatShopAmount(finalTotal)}</p>
+                  <p>應付金額 HKD {formatShopAmount(payableTotal)}</p>
                   <p className="mt-1">確認後建立訂單。請用 PayMe 向店家支付相同金額，並在備註填上訂單編號。</p>
                 </div>
               )}
@@ -1664,7 +1951,7 @@ export default function Home() {
               {paymentMethod === 'apple' && (
                 <div className="rounded-xl border border-[#EBE5DF] bg-white p-3.5 text-[12px] leading-relaxed text-[#6E6058]">
                   <p className="font-semibold text-[#382E2B]">Apple Pay</p>
-                  <p className="mt-1">將透過 Apple Pay 支付 HKD {formatShopAmount(finalTotal)}。</p>
+                  <p className="mt-1">將透過 Apple Pay 支付 HKD {formatShopAmount(payableTotal)}。</p>
                 </div>
               )}
 
@@ -1689,7 +1976,7 @@ export default function Home() {
                     paymentMethod === 'apple' ? 'bg-black text-white hover:bg-[#222]' : 'bg-[#B35B48] text-white hover:bg-[#9B4C3A]'
                   }`}
                 >
-                  {checkoutActionLabel(paymentMethod, finalTotal.toFixed(1), isPaying)}
+                  {checkoutActionLabel(paymentMethod, payableTotal.toFixed(1), isPaying)}
                 </button>
               </div>
             </div>

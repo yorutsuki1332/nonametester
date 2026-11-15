@@ -34,6 +34,10 @@ interface Order {
   }>;
   name?: string;
   address?: string;
+  deliveryLabel?: string;
+  shippingFee?: number;
+  trackingNumber?: string;
+  trackingCarrier?: string;
 }
 
 interface Coupon {
@@ -690,6 +694,38 @@ export default function AccountPage() {
                     </div>
                   </div>
 
+                  {order.status !== 'cancelled' && (
+                    <div className="mb-4 rounded-xl border border-[#EBE5DF] bg-white px-4 py-3">
+                      <p className="text-xs font-semibold text-[#6E6058]">物流追蹤編號</p>
+                      {order.trackingNumber ? (
+                        <>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p className="font-mono text-sm font-semibold text-[#382E2B]">{order.trackingNumber}</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(order.trackingNumber || '').then(
+                                  () => showToast('已複製物流追蹤編號'),
+                                  () => showToast('複製失敗，請手動選取編號'),
+                                );
+                              }}
+                              className="cursor-pointer rounded-md border border-[#EBE5DF] bg-[#F4F0EA] px-2 py-1 text-[11px] font-semibold text-[#382E2B]"
+                            >
+                              複製編號
+                            </button>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-[#7A6E65]">
+                            {order.trackingCarrier || '順豐速遞'}。出貨通知已寄到訂單信箱，可用此編號查詢。
+                          </p>
+                        </>
+                      ) : order.status === 'shipping' || order.status === 'completed' ? (
+                        <p className="mt-1 text-xs leading-relaxed text-[#7A6E65]">這筆訂單沒有記錄追蹤編號。</p>
+                      ) : (
+                        <p className="mt-1 text-xs leading-relaxed text-[#7A6E65]">下單後確認信會寄到訂單信箱。出貨後這裡會顯示物流追蹤編號，並再寄一封出貨通知。</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-3 mb-4">
                     {order.items?.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-center text-sm">
@@ -707,8 +743,13 @@ export default function AccountPage() {
                     ))}
                   </div>
 
-                  <div className="pt-3 border-t border-[#EBE5DF] flex justify-between items-center text-sm">
-                    <span className="text-xs text-[#7A6E65]">收件地址: {order.address || '未填寫'}</span>
+                  <div className="pt-3 border-t border-[#EBE5DF] flex justify-between items-center gap-4 text-sm">
+                    <div className="text-xs text-[#7A6E65]">
+                      {order.deliveryLabel && (
+                        <p>送貨: {order.deliveryLabel}{Number(order.shippingFee) > 0 ? ` · 運費 HKD ${Number(order.shippingFee).toFixed(1)}` : ' · 免運'}</p>
+                      )}
+                      <p>收件地址: {order.address || '未填寫'}</p>
+                    </div>
                     <div className="text-right">
                       <span className="text-xs text-[#7A6E65] mr-2">總計金額</span>
                       <span className="font-bold font-mono text-[#B35B48] text-base">HKD ${Number(order.total || 0).toFixed(1)}</span>
