@@ -111,9 +111,8 @@ export default function AdminOrdersListPage() {
 
   const deliverableEmail = (email?: string) => {
     if (!email) return '';
-    const [deleted, deleteId, emailPart] = email.split('_');
-    if (deleted === 'deleted' && deleteId && emailPart) return emailPart;
-    return email;
+    const deleted = email.match(/^deleted_\d+_(.+)$/);
+    return deleted?.[1] || email;
   };
 
   const notifyShipped = async (order: Order, trackingNumber: string) => {

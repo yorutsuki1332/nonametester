@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     label: '營運管理',
     items: [
       { href: '/admin/orders', label: '訂單管理' },
+      { href: '/admin/bundles', label: '組合商品' },
       { href: '/admin/coupons', label: '優惠券管理' },
       { href: '/admin/credits', label: '購物金管理' },
       { href: '/admin/tier', label: '會員等級' },

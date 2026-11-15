@@ -14,7 +14,7 @@ export default function ProductGuide({ category, name }: { category: string; nam
             <h3 className="text-[15px] font-semibold text-[#382E2B]">{table.title}</h3>
             <p className="mt-1 text-[12px] leading-relaxed text-[#6E6058]">{table.caption}</p>
             <div className="mt-3 overflow-x-auto rounded-xl border border-[#EBE5DF]">
-              <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
+              <table className="w-full min-w-160 border-collapse text-left text-[13px]">
                 <caption className="sr-only">{table.title}，{table.caption}</caption>
                 <thead className="bg-[#F4F0EA] text-[#6E6058]">
                   <tr>

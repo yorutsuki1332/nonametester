@@ -94,26 +94,6 @@ export default function AdminTierSettingsPage() {
     setTiers(updated);
   };
 
-  // 🌟 移動順序功能：向上移動
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    const updated = [...tiers];
-    const temp = updated[index];
-    updated[index] = updated[index - 1];
-    updated[index - 1] = temp;
-    setTiers(updated);
-  };
-
-  // 🌟 移動順序功能：向下移動
-  const handleMoveDown = (index: number) => {
-    if (index === tiers.length - 1) return;
-    const updated = [...tiers];
-    const temp = updated[index];
-    updated[index] = updated[index + 1];
-    updated[index + 1] = temp;
-    setTiers(updated);
-  };
-
   const handleSaveAll = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -131,7 +111,7 @@ export default function AdminTierSettingsPage() {
 
     setIsSaving(true);
     try {
-      // 🌟 保留使用者自定的排序順序儲存
+      // 依目前表單內容儲存等級設定
       await db.collection("settings").doc("member_tiers").set({
         tiers: tiers,
         // 同時保留相容舊欄位
@@ -141,7 +121,7 @@ export default function AdminTierSettingsPage() {
         diamondDiscount: tiers.find(t => t.id === 'diamond')?.discount || 0.90,
       });
 
-      showToast('✅ 會員等級與顯示順序設定已成功儲存！');
+      showToast('✅ 會員等級設定已成功儲存！');
     } catch (error: unknown) {
       showAlert('儲存失敗： ' + errorMessage(error), '系統錯誤');
     } finally {
@@ -154,7 +134,7 @@ export default function AdminTierSettingsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-serif font-semibold mb-1 text-[#382E2B]">會員等級自定與優惠設定</h1>
-          <p className="text-[#7A6E65] text-sm">您可以自由新增、刪除、移動排序或修改各會員等級的名稱、符號、升級門檻與結帳折扣率。</p>
+          <p className="text-[#7A6E65] text-sm">您可以自由新增、刪除或修改各會員等級的名稱、符號、升級門檻與結帳折扣率。</p>
         </div>
         <button
           type="button"
@@ -172,28 +152,6 @@ export default function AdminTierSettingsPage() {
               <div>
                 <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#EBE5DF] gap-3">
                   <div className="flex items-center gap-2 grow">
-                    {/* 🌟 排序移動按鈕組 */}
-                    <div className="flex flex-col gap-0.5 shrink-0 mr-1">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveUp(index)}
-                        disabled={index === 0}
-                        className="w-6 h-5 flex items-center justify-center text-[10px] bg-[#FAF7F2] border border-[#EBE5DF] rounded text-[#6E6058] hover:bg-[#EBE5DF] disabled:opacity-30 disabled:cursor-not-allowed transition"
-                        title="向上移動順序"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveDown(index)}
-                        disabled={index === tiers.length - 1}
-                        className="w-6 h-5 flex items-center justify-center text-[10px] bg-[#FAF7F2] border border-[#EBE5DF] rounded text-[#6E6058] hover:bg-[#EBE5DF] disabled:opacity-30 disabled:cursor-not-allowed transition"
-                        title="向下移動順序"
-                      >
-                        ▼
-                      </button>
-                    </div>
-
                     <input
                       type="text"
                       value={tier.badge}
@@ -264,7 +222,7 @@ export default function AdminTierSettingsPage() {
           disabled={isSaving}
           className="w-full py-4 bg-[#B35B48] text-white rounded-xl font-semibold text-sm hover:bg-[#9B4C3A] transition cursor-pointer shadow-xs"
         >
-          {isSaving ? '正在儲存所有等級設定...' : '儲存所有會員等級與順序並即時生效'}
+          {isSaving ? '正在儲存所有等級設定...' : '儲存所有會員等級並即時生效'}
         </button>
       </form>
 

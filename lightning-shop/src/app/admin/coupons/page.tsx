@@ -11,18 +11,31 @@ interface UserProfile {
   name?: string;
 }
 
+interface TierItem {
+  id: string;
+  name: string;
+  badge: string;
+}
+
+type CouponDiscountType = 'fixed' | 'percent' | 'rank' | 'bogo';
+
 interface Coupon {
   id: string;
   code: string;
   discountText: string;
   minSpend: number;
-  discountType: 'fixed' | 'percent';
+  discountType: CouponDiscountType;
   discountValue: number;
   usesLeft: number;
   targetAccountId?: string | null;
   conditionType?: 'infinite' | 'counts' | 'periods';
   startTime?: string | null;
   endTime?: string | null;
+  rankDiscountType?: 'fixed' | 'percent' | null;
+  targetTierId?: string | null;
+  targetTierName?: string | null;
+  buyQuantity?: number | null;
+  freeQuantity?: number | null;
 }
 
 export default function AdminCouponsPage() {
@@ -32,8 +45,13 @@ export default function AdminCouponsPage() {
   const [code, setCode] = useState('');
   const [discountText, setDiscountText] = useState('');
   const [minSpend, setMinSpend] = useState('');
-  const [discountType, setDiscountType] = useState<'fixed' | 'percent'>('fixed');
+  const [discountType, setDiscountType] = useState<CouponDiscountType>('fixed');
   const [discountValue, setDiscountValue] = useState('');
+  const [tiers, setTiers] = useState<TierItem[]>([]);
+  const [targetTierId, setTargetTierId] = useState('');
+  const [rankDiscountType, setRankDiscountType] = useState<'fixed' | 'percent'>('percent');
+  const [buyQuantity, setBuyQuantity] = useState('2');
+  const [freeQuantity, setFreeQuantity] = useState('1');
   
   // 可重複使用與次數控制
   const [isReusable, setIsReusable] = useState(true);
@@ -101,6 +119,25 @@ export default function AdminCouponsPage() {
       setUsers(userList);
     });
 
+    const fetchTiers = async () => {
+      try {
+        const doc = await db.collection('settings').doc('member_tiers').get();
+        const saved = doc.data()?.tiers;
+        if (Array.isArray(saved) && saved.length > 0) {
+          setTiers(saved);
+          return;
+        }
+      } catch (error) {
+        console.error('載入會員等級失敗:', error);
+      }
+      setTiers([
+        { id: 'silver', name: '銀卡會員 Silver', badge: '🥈' },
+        { id: 'gold', name: '金卡會員 Gold', badge: '🥇' },
+        { id: 'diamond', name: '鑽石會員 Diamond', badge: '💎' },
+      ]);
+    };
+    fetchTiers();
+
     return () => {
       unsubscribeCoupons();
       unsubscribeUsers();
@@ -139,19 +176,39 @@ export default function AdminCouponsPage() {
     e.preventDefault();
 
     const valNum = Number(discountValue);
-    if (!code || isNaN(valNum)) {
+    const buyN = Math.floor(Number(buyQuantity));
+    const freeM = Math.floor(Number(freeQuantity));
+    const selectedTier = tiers.find((tier) => tier.id === targetTierId);
+    if (!code) {
       showAlert('請填寫完整優惠券資訊！', '提示');
       return;
     }
 
-    if (valNum <= 0) {
-      showAlert('折扣數值必須大於 0！', '提示');
-      return;
-    }
-
-    if (discountType === 'percent') {
-      if (valNum < 0 || valNum > 100) {
-        showAlert('百分比折扣數值不可小於 0 或大於 100！', '提示');
+    if (discountType === 'bogo') {
+      if (buyN < 1 || freeM < 1) {
+        showAlert('買 N 送 M 的件數都必須是大於 0 的整數。', '提示');
+        return;
+      }
+    } else if (discountType === 'rank') {
+      if (!selectedTier) {
+        showAlert('請選擇可使用這張券的會員等級。', '提示');
+        return;
+      }
+      if (isNaN(valNum) || valNum <= 0) {
+        showAlert('折扣數值必須大於 0！', '提示');
+        return;
+      }
+      if (rankDiscountType === 'percent' && valNum > 100) {
+        showAlert('百分比折扣數值不可大於 100！', '提示');
+        return;
+      }
+    } else {
+      if (isNaN(valNum) || valNum <= 0) {
+        showAlert('折扣數值必須大於 0！', '提示');
+        return;
+      }
+      if (discountType === 'percent' && valNum > 100) {
+        showAlert('百分比折扣數值不可大於 100！', '提示');
         return;
       }
     }
@@ -170,20 +227,30 @@ export default function AdminCouponsPage() {
       }
     }
 
-    const finalDiscountValue = valNum.toFixed(0);
+    const couponId = code.trim().toUpperCase();
+    const finalDiscountValue = discountType === 'bogo' ? '0' : valNum.toFixed(0);
+    const defaultText = discountType === 'bogo'
+      ? `買 ${buyN} 送 ${freeM}`
+      : discountType === 'rank'
+        ? `${selectedTier?.name || '指定等級'}專屬優惠`
+        : `${couponId} 專屬優惠`;
 
     const finalUses = (isReusable || conditionType === 'infinite') 
       ? 99999 
       : (Number(usesLeft) || 1);
 
     try {
-      const couponId = code.trim().toUpperCase();
       await db.collection("coupons").doc(couponId).set({
         code: couponId,
-        discountText: discountText.trim() || `${couponId} 專屬優惠`,
+        discountText: discountText.trim() || defaultText,
         minSpend: Number(minSpend) || 0,
         discountType,
         discountValue: finalDiscountValue,
+        rankDiscountType: discountType === 'rank' ? rankDiscountType : null,
+        targetTierId: discountType === 'rank' ? selectedTier?.id || null : null,
+        targetTierName: discountType === 'rank' ? selectedTier?.name || null : null,
+        buyQuantity: discountType === 'bogo' ? buyN : null,
+        freeQuantity: discountType === 'bogo' ? freeM : null,
         usesLeft: finalUses,
         conditionType,
         startTime: !hasNoExpiry && startTime ? startTime : null,
@@ -197,6 +264,10 @@ export default function AdminCouponsPage() {
       setDiscountText('');
       setMinSpend('');
       setDiscountValue('');
+      setTargetTierId('');
+      setRankDiscountType('percent');
+      setBuyQuantity('2');
+      setFreeQuantity('1');
       setUsesLeft('1');
       setIsReusable(true);
       setTargetAccountId('');
@@ -246,7 +317,7 @@ export default function AdminCouponsPage() {
     <>
       <div className="mb-8">
         <h1 className="text-2xl font-serif font-semibold mb-1 text-[#382E2B]">優惠券管理與指定發放</h1>
-        <p className="text-[#7A6E65] text-sm">建立全站優惠券或指定特定會員帳號發放專屬折扣。</p>
+        <p className="text-[#7A6E65] text-sm">建立全站優惠券、指定會員帳號、指定會員等級，或買 N 送 M。</p>
       </div>
 
       <div className="bg-white rounded-2xl p-5 md:p-10 shadow-[0_4px_20px_rgba(56,46,43,0.03)] border border-[#EBE5DF] mb-8">
@@ -382,35 +453,79 @@ export default function AdminCouponsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">折扣類型</label>
-              <select value={discountType} onChange={(e) => setDiscountType(e.target.value as 'fixed' | 'percent')} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer">
+              <select value={discountType} onChange={(e) => setDiscountType(e.target.value as CouponDiscountType)} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer">
                 <option value="fixed">固定金額折抵 ($)</option>
                 <option value="percent">百分比折扣 (%)</option>
+                <option value="rank">指定會員等級</option>
+                <option value="bogo">買 N 送 M</option>
               </select>
             </div>
 
+            {discountType === 'rank' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-[#6E6058]">會員等級 <span className="text-[#B35B48] ml-1">*</span></label>
+                <select value={targetTierId} onChange={(e) => setTargetTierId(e.target.value)} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer" required>
+                  <option value="">選擇等級</option>
+                  {tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>{tier.badge} {tier.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {discountType === 'rank' && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-[#6E6058]">等級券折扣方式</label>
+                <select value={rankDiscountType} onChange={(e) => setRankDiscountType(e.target.value as 'fixed' | 'percent')} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition cursor-pointer">
+                  <option value="percent">百分比折扣 (%)</option>
+                  <option value="fixed">固定金額折抵 ($)</option>
+                </select>
+              </div>
+            )}
+
+            {discountType === 'bogo' ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-[#6E6058]">購買件數 N <span className="text-[#B35B48] ml-1">*</span></label>
+                  <input type="number" min={1} step={1} value={buyQuantity} onChange={(e) => setBuyQuantity(e.target.value)} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" required />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-[#6E6058]">免費件數 M <span className="text-[#B35B48] ml-1">*</span></label>
+                  <input type="number" min={1} step={1} value={freeQuantity} onChange={(e) => setFreeQuantity(e.target.value)} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" required />
+                </div>
+              </>
+            ) : (
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">
                 折扣數值 <span className="text-[#B35B48] ml-1">*</span> 
-                {discountType === 'percent' && <span className="text-[11px] text-[#8C7B70] font-normal ml-1.5">(例: 輸入 30 即扣減 30% / 7折)</span>}
+                {(discountType === 'percent' || (discountType === 'rank' && rankDiscountType === 'percent')) && <span className="text-[11px] text-[#8C7B70] font-normal ml-1.5">(例: 輸入 30 即扣減 30% / 7折)</span>}
               </label>
               <input 
                 type="number" 
                 step="any" 
                 value={discountValue} 
                 onChange={(e) => setDiscountValue(e.target.value)} 
-                placeholder={discountType === 'fixed' ? '例如：100' : '例如：30 (代表扣減 30%)'} 
+                placeholder={discountType === 'fixed' || (discountType === 'rank' && rankDiscountType === 'fixed') ? '例如：100' : '例如：30 (代表扣減 30%)'} 
                 min={0}
-                max={discountType === 'percent' ? 100 : undefined}
+                max={discountType === 'percent' || (discountType === 'rank' && rankDiscountType === 'percent') ? 100 : undefined}
                 className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" 
                 required 
               />
             </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-semibold text-[#6E6058]">最低消費門檻 ($)</label>
               <input type="number" step="any" value={minSpend} onChange={(e) => setMinSpend(e.target.value)} placeholder="0 代表無門檻" min={0} className="py-3 px-4 border border-[#EBE5DF] rounded-lg text-sm outline-none bg-[#FAF7F2] focus:border-[#B35B48] transition font-mono" />
             </div>
           </div>
+
+          {discountType === 'bogo' && (
+            <p className="mb-6 text-xs leading-relaxed text-[#6E6058]">每湊滿 N + M 件，最便宜的 M 件免費。例如買 2 送 1，購物車滿 3 件才送 1 件，滿 6 件送 2 件。</p>
+          )}
+          {discountType === 'rank' && (
+            <p className="mb-6 text-xs leading-relaxed text-[#6E6058]">只有結帳時達到所選會員等級的會員可以使用。其他等級與訪客無法套用。</p>
+          )}
 
           <button type="submit" className="w-full md:w-auto py-3 px-7 rounded-full text-sm font-medium bg-[#B35B48] text-white hover:bg-[#9B4C3A] transition cursor-pointer shadow-xs">
             發放優惠券
@@ -442,13 +557,17 @@ export default function AdminCouponsPage() {
                   const isExpired = c.endTime ? new Date(c.endTime).getTime() < now : false;
 
                   let displayDiscount = '';
-                  if (c.discountType === 'fixed') {
+                  if (c.discountType === 'bogo') {
+                    displayDiscount = `買 ${c.buyQuantity || 0} 送 ${c.freeQuantity || 0}`;
+                  } else if (c.discountType === 'rank' && c.rankDiscountType === 'fixed') {
+                    displayDiscount = `${c.targetTierName || '指定等級'} 折 HKD $${c.discountValue}`;
+                  } else if (c.discountType === 'fixed') {
                     displayDiscount = `折 HKD $${c.discountValue}`;
                   } else {
-                    const rawVal = c.discountValue;
-                    const offPercent = rawVal;
-                    const discountFold = (100 - Number(offPercent)) / 10;
-                    displayDiscount = `-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
+                    const offPercent = Number(c.discountValue);
+                    const discountFold = (100 - offPercent) / 10;
+                    const rankPrefix = c.discountType === 'rank' ? `${c.targetTierName || '指定等級'} ` : '';
+                    displayDiscount = `${rankPrefix}-${offPercent}% OFF (${discountFold.toFixed(1)}折)`;
                   }
 
                   return (

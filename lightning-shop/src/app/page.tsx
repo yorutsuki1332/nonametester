@@ -10,6 +10,7 @@ import { errorCode, errorMessage, withoutDocumentId } from '@/lib/errors';
 import MegaMenu from '@/components/MegaMenu';
 import HomeBanner from '@/components/HomeBanner';
 import EditorialBanners from '@/components/EditorialBanners';
+import BundleShelf from '@/components/BundleShelf';
 import SiteFooter from '@/components/SiteFooter';
 import ShippingChoice from '@/components/ShippingChoice';
 import { hotStockLabel } from '@/lib/stock-hint';
@@ -19,6 +20,8 @@ import {
   shippingFeeFor,
   type DeliveryMethod,
 } from '@/lib/shipping';
+import { SF_REGIONS, sfPickupLabel } from '@/lib/sf-stores';
+import SfStorePicker from '@/components/SfStorePicker';
 
 interface Product {
   id: string;
@@ -34,12 +37,6 @@ interface Product {
 
 type CatalogSort = 'newest' | 'price-desc' | 'hot';
 
-const SORT_OPTIONS: { id: CatalogSort; label: string }[] = [
-  { id: 'newest', label: '最新上架' },
-  { id: 'price-desc', label: '價格高至低' },
-  { id: 'hot', label: '熱銷程度' },
-];
-
 interface CartItem {
   id: string;
   name: string;
@@ -52,13 +49,18 @@ interface Coupon {
   code: string;
   discountText: string;
   minSpend: number;
-  discountType: 'fixed' | 'percent';
+  discountType: 'fixed' | 'percent' | 'rank' | 'bogo';
   discountValue: number;
   usesLeft: number;
   targetAccountId?: string | null;
   conditionType?: 'infinite' | 'counts' | 'periods';
   startTime?: string | null;
   endTime?: string | null;
+  rankDiscountType?: 'fixed' | 'percent' | null;
+  targetTierId?: string | null;
+  targetTierName?: string | null;
+  buyQuantity?: number | null;
+  freeQuantity?: number | null;
 }
 
 interface UserProfile {
@@ -126,6 +128,22 @@ function filterCatalog(list: Product[], keyword: string, category: string, hotOn
   return sortCatalog(result, sort);
 }
 
+function buyNGetMDiscount(items: CartItem[], buyN: number, freeM: number, tierRate: number) {
+  const paid = Math.floor(Number(buyN));
+  const free = Math.floor(Number(freeM));
+  if (paid < 1 || free < 1) return 0;
+  const units: number[] = [];
+  items.forEach((item) => {
+    const unit = Number(item.price) * tierRate;
+    const qty = Math.max(0, Math.floor(Number(item.quantity)));
+    for (let index = 0; index < qty; index += 1) units.push(unit);
+  });
+  const freeCount = Math.floor(units.length / (paid + free)) * free;
+  if (freeCount <= 0) return 0;
+  units.sort((a, b) => a - b);
+  return units.slice(0, freeCount).reduce((sum, price) => sum + price, 0);
+}
+
 function useQueryFlag(name: string) {
   return useSyncExternalStore(
     (onStoreChange) => {
@@ -136,6 +154,12 @@ function useQueryFlag(name: string) {
     () => false,
   );
 }
+
+const CATEGORY_LABEL: Record<string, string> = {
+  BAGS: '精選包袋',
+  ACCESSORY: '質感飾品',
+  'DAILY WEAR': '日常服飾',
+};
 
 const CATEGORY_MARK: Record<string, string> = {
   BAGS: '👜',
@@ -384,7 +408,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [catalogSort, setCatalogSort] = useState<CatalogSort>('newest');
   const [hotOnly, setHotOnly] = useState(false);
-  const [curatedLimit, setCuratedLimit] = useState<4 | 8>(8);
+  const [curatedLimit, setCuratedLimit] = useState<3 | 6>(6);
   const catalogQuery = useRef({ keyword: '', category: 'all', hotOnly: false, sort: 'newest' as CatalogSort });
   
   // 互動狀態
@@ -476,6 +500,9 @@ export default function Home() {
   const [shippingEmail, setShippingEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('home');
+  const [sfRegion, setSfRegion] = useState('');
+  const [sfStoreId, setSfStoreId] = useState('');
+  const [sfStoreNote, setSfStoreNote] = useState('');
   const [isPaying, setIsPaying] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPayment>('skip');
   const [cardName, setCardName] = useState('');
@@ -697,12 +724,6 @@ export default function Home() {
     filterProducts(keyword, category, false);
   };
 
-  const handleSort = (sort: CatalogSort) => {
-    catalogQuery.current = { keyword: searchKeyword, category: selectedCategory, hotOnly, sort };
-    setCatalogSort(sort);
-    filterProducts(searchKeyword, selectedCategory, hotOnly, sort);
-  };
-
   const showAllProducts = () => {
     catalogQuery.current = { keyword: '', category: 'all', hotOnly: false, sort: catalogSort };
     setSearchKeyword('');
@@ -740,6 +761,22 @@ export default function Home() {
     setIsToastShow(true);
     setTimeout(() => setIsToastShow(false), 2500);
   };
+
+  useEffect(() => {
+    const syncCart = () => {
+      const cartKey = currentUser ? `villa_atelier_cart_${currentUser.uid}` : 'villa_atelier_cart_guest';
+      const saved = localStorage.getItem(cartKey);
+      if (!saved) return;
+      try {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) setCart(parsed);
+      } catch {
+        /* 保留目前購物車 */
+      }
+    };
+    window.addEventListener('villa-cart-updated', syncCart);
+    return () => window.removeEventListener('villa-cart-updated', syncCart);
+  }, [currentUser]);
 
   const saveCartToStorage = (newCart: CartItem[]) => {
     setCart(newCart);
@@ -847,13 +884,28 @@ export default function Home() {
       if (now < start || now > end) return 0;
     }
 
-    if (currentSubtotal < selectedCoupon.minSpend) return 0;
-    
+    if (currentSubtotal < Number(selectedCoupon.minSpend || 0)) return 0;
+
+    const discountValue = Number(selectedCoupon.discountValue) || 0;
     if (selectedCoupon.discountType === 'fixed') {
-      return Math.min(subtotalAfterMemberDiscount, selectedCoupon.discountValue);
-    } else if (selectedCoupon.discountType === 'percent') {
-      const percentVal = selectedCoupon.discountValue < 1 ? selectedCoupon.discountValue : selectedCoupon.discountValue / 100;
+      return Math.min(subtotalAfterMemberDiscount, discountValue);
+    }
+    if (selectedCoupon.discountType === 'percent') {
+      const percentVal = discountValue < 1 ? discountValue : discountValue / 100;
       return subtotalAfterMemberDiscount * percentVal;
+    }
+    if (selectedCoupon.discountType === 'rank') {
+      if (!currentTier || currentTier.id !== selectedCoupon.targetTierId) return 0;
+      const mode = selectedCoupon.rankDiscountType === 'fixed' ? 'fixed' : 'percent';
+      if (mode === 'fixed') return Math.min(subtotalAfterMemberDiscount, discountValue);
+      const percentVal = discountValue < 1 ? discountValue : discountValue / 100;
+      return subtotalAfterMemberDiscount * percentVal;
+    }
+    if (selectedCoupon.discountType === 'bogo') {
+      return Math.min(
+        subtotalAfterMemberDiscount,
+        buyNGetMDiscount(cart, Number(selectedCoupon.buyQuantity), Number(selectedCoupon.freeQuantity), memberTierRate),
+      );
     }
     return 0;
   };
@@ -863,6 +915,8 @@ export default function Home() {
   const creditToDeduct = useCredit ? Math.min(subtotalAfterCoupon, userStoreCredit) : 0;
   const merchandiseDue = Math.max(0, subtotalAfterCoupon - creditToDeduct);
   const selectedDelivery = deliveryOption(deliveryMethod);
+  const sfPickupText = sfPickupLabel(sfRegion, sfStoreId, sfStoreNote);
+  const checkoutAddress = deliveryMethod === 'sf-pickup' ? sfPickupText : shippingAddress.trim();
   const shippingFee = cart.length === 0 ? 0 : shippingFeeFor(currentSubtotal, deliveryMethod);
   const payableTotal = merchandiseDue + shippingFee;
 
@@ -1072,7 +1126,7 @@ export default function Home() {
       showAlert(
         shippingAddress.trim()
           ? '請完整填寫收件資訊！'
-          : `請填寫${selectedDelivery.addressLabel}。`,
+          : '請填寫收件地址或順豐自取點。',
         '資訊未完整',
       );
       return;
@@ -1083,8 +1137,17 @@ export default function Home() {
   const handleCheckoutSubmit = async (method: CheckoutPayment = 'skip') => {
     if (cart.length === 0) return showAlert('購物車是空的！', '提示');
 
-    if (selectedCoupon && calculateCouponDiscount() === 0 && selectedCoupon.discountValue > 0) {
+    if (selectedCoupon && calculateCouponDiscount() === 0 && (
+      Number(selectedCoupon.discountValue) > 0
+      || selectedCoupon.discountType === 'bogo'
+      || selectedCoupon.discountType === 'rank'
+    )) {
       showAlert('您選擇的優惠券已過期或不符合條件，請重新選擇！', '優惠券無效');
+      return;
+    }
+
+    if (deliveryMethod === 'sf-pickup' && !checkoutAddress) {
+      showAlert('請先選擇地區與順豐站，或直接填寫順豐站編號 / 地點。', '自取點未填');
       return;
     }
 
@@ -1121,7 +1184,9 @@ export default function Home() {
         buyerType: currentUser ? 'member' : 'guest',
         name: shippingName.trim(),
         email: shippingEmail.trim(),
-        address: shippingAddress.trim(),
+        address: checkoutAddress,
+        sfRegion: deliveryMethod === 'sf-pickup' && checkoutAddress === sfPickupLabel(sfRegion, sfStoreId, '') ? sfRegion || null : null,
+        sfStoreId: deliveryMethod === 'sf-pickup' && checkoutAddress === sfPickupLabel(sfRegion, sfStoreId, '') ? sfStoreId || null : null,
         deliveryMethod,
         deliveryLabel: selectedDelivery.label,
         shippingFee,
@@ -1156,7 +1221,7 @@ export default function Home() {
             total: payableTotal,
             items: cart.map((item) => ({ name: item.name, quantity: item.quantity, price: item.price })),
             deliveryLabel: selectedDelivery.label,
-            address: shippingAddress.trim(),
+            address: checkoutAddress,
           }),
         });
         const mailResult = await mailResponse.json().catch(() => null);
@@ -1375,7 +1440,7 @@ export default function Home() {
             <span>精選 {Math.min(curatedLimit, filteredProducts.length)} 件日常單品 · 共 {products.length} 件館藏</span>
             <span className="text-[#EBE5DF]">|</span>
             <div className="inline-flex items-center rounded-full border border-[#EBE5DF] bg-[#F4F0EA] p-0.5 text-[11px]">
-              {([4, 8] as const).map((limit) => (
+              {([3, 6] as const).map((limit) => (
                 <button
                   key={limit}
                   type="button"
@@ -1399,28 +1464,22 @@ export default function Home() {
             placeholder="🔍 搜尋選品名稱或分類..."
             aria-label="搜尋選品"
           />
-          <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="排序">
-            {SORT_OPTIONS.map((option) => {
-              const active = catalogSort === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => handleSort(option.id)}
-                  className={`cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition ${
-                    active
-                      ? 'bg-[#B35B48] text-white'
-                      : 'border border-[#EBE5DF] bg-[#F4F0EA] text-[#5C4D42] hover:bg-[#E6DCD2]'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
+          {(selectedCategory !== 'all' || hotOnly) && (
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[12px] text-[#6E6058]">
+              <span>
+                目前顯示{selectedCategory !== 'all' ? ` ${CATEGORY_LABEL[selectedCategory] || selectedCategory}` : ''}{hotOnly ? ' 熱銷單品' : ''}
+              </span>
+              <button
+                type="button"
+                onClick={showAllProducts}
+                className="cursor-pointer rounded-full border border-[#EBE5DF] bg-white px-3 py-1 text-[12px] text-[#382E2B] transition hover:bg-[#F4F0EA]"
+              >
+                清除條件
+              </button>
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[50px_30px]">
+        <div className="grid grid-cols-1 gap-[50px_30px] sm:grid-cols-2 lg:grid-cols-3">
           {filteredProducts.slice(0, curatedLimit).length === 0 ? (
             <div className="col-span-full py-16 text-center">
               {catalogReady ? (
@@ -1527,6 +1586,7 @@ export default function Home() {
           </div>
         )}
 
+        <BundleShelf />
         <EditorialBanners />
       </main>
 
@@ -1629,13 +1689,6 @@ export default function Home() {
               </div>
             </div>
 
-            <ShippingChoice
-              subtotal={currentSubtotal}
-              method={deliveryMethod}
-              onChange={setDeliveryMethod}
-              amountLabel={formatShopAmount}
-            />
-
             <div className="mb-3">
               <label className="block text-[12px] font-semibold text-[#6E6058] mb-1.5">選擇適用折扣券</label>
               <select 
@@ -1647,11 +1700,17 @@ export default function Home() {
                 }}
               >
                 <option value="">-- 不使用折扣券 --</option>
-                {availableCoupons.map(coupon => (
-                  <option key={coupon.id} value={coupon.code} disabled={currentSubtotal < coupon.minSpend}>
-                    {coupon.discountText} {coupon.targetAccountId ? '【專屬優惠】' : ''} {currentSubtotal < coupon.minSpend ? `[滿 $${coupon.minSpend} 可用]` : ''}
-                  </option>
-                ))}
+                {availableCoupons.map(coupon => {
+                  const belowMin = currentSubtotal < Number(coupon.minSpend || 0);
+                  const rankBlocked = coupon.discountType === 'rank' && (!currentTier || currentTier.id !== coupon.targetTierId);
+                  const rankNote = coupon.discountType === 'rank' ? `【${coupon.targetTierName || '指定等級'}】` : '';
+                  const bogoNote = coupon.discountType === 'bogo' ? `【買 ${coupon.buyQuantity || 0} 送 ${coupon.freeQuantity || 0}】` : '';
+                  return (
+                    <option key={coupon.id} value={coupon.code} disabled={belowMin || rankBlocked}>
+                      {coupon.discountText} {coupon.targetAccountId ? '【專屬優惠】' : ''} {rankNote} {bogoNote} {belowMin ? `[滿 $${coupon.minSpend} 可用]` : ''} {rankBlocked ? '[等級不符]' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -1697,14 +1756,11 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex justify-between mb-2 text-[13px] text-[#7A6E65]">
-              <span>運費 · {selectedDelivery.label}</span>
-              <span>{shippingFee === 0 ? '免運' : `HKD ${formatShopAmount(shippingFee)}`}</span>
-            </div>
+            <p className="mb-2 text-[12px] leading-relaxed text-[#7A6E65]">運費在確認訂單時選擇送貨方式後計算。</p>
 
             <div className="flex justify-between mb-5 pt-3 border-t border-[#EBE5DF] text-[16px] font-semibold text-[#382E2B]">
-              <span>訂單總計</span>
-              <span className="text-[#B35B48]">HKD {Number(payableTotal).toFixed(1)}</span>
+              <span>商品合計</span>
+              <span className="text-[#B35B48]">HKD {Number(merchandiseDue).toFixed(1)}</span>
             </div>
 
             <button 
@@ -1797,15 +1853,9 @@ export default function Home() {
                 <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">電子郵件 (接收訂單通知)</label>
                 <input type="email" value={shippingEmail} onChange={(e) => setShippingEmail(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="example@email.com" required />
               </div>
-              <ShippingChoice
-                subtotal={currentSubtotal}
-                method={deliveryMethod}
-                onChange={setDeliveryMethod}
-                amountLabel={formatShopAmount}
-              />
               <div className="mb-6">
-                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">{selectedDelivery.addressLabel}</label>
-                <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder={selectedDelivery.addressPlaceholder} required />
+                <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">收件地址或順豐自取點</label>
+                <input type="text" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} className="w-full p-3 border border-[#EBE5DF] bg-white rounded-lg text-[14px] outline-none transition focus:border-[#B35B48]" placeholder="住宅地址，或順豐站、智能櫃、便利店" required />
               </div>
 
               <div className="bg-[#F4F0EA] p-3.5 rounded-lg mb-6 text-[13px] border border-[#EBE5DF]">
@@ -1822,8 +1872,8 @@ export default function Home() {
                 {creditToDeduct > 0 && (
                   <div className="flex justify-between mb-1 text-[#B35B48]"><span>購物金折抵：</span><span>- HKD ${creditToDeduct.toFixed(1)}</span></div>
                 )}
-                <div className="flex justify-between mb-1"><span>運費 · {selectedDelivery.label}：</span><span>{shippingFee === 0 ? '免運' : `HKD $${shippingFee.toFixed(1)}`}</span></div>
-                <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>應付總額：</span><span className="text-[#B35B48]">HKD ${payableTotal.toFixed(1)}</span></div>
+                <div className="flex justify-between font-semibold pt-2 border-t border-[#EBE5DF] text-[14px]"><span>商品合計：</span><span className="text-[#B35B48]">HKD ${merchandiseDue.toFixed(1)}</span></div>
+                <p className="mt-2 text-[12px] leading-relaxed text-[#8C7B70]">送貨方式與運費在下一步的訂單確認頁選擇。</p>
               </div>
 
               <button type="submit" className="w-full bg-[#B35B48] text-white p-4 border-none rounded-lg text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] shadow-xs">
@@ -1832,13 +1882,45 @@ export default function Home() {
             </form>
           ) : (
             <div className="flex flex-col gap-5">
+              <ShippingChoice
+                subtotal={currentSubtotal}
+                method={deliveryMethod}
+                onChange={(method) => {
+                  setDeliveryMethod(method);
+                  if (method === 'sf-pickup' && !sfStoreNote.trim() && shippingAddress.trim()) {
+                    setSfStoreNote(shippingAddress.trim());
+                  }
+                }}
+                amountLabel={formatShopAmount}
+              />
+              {deliveryMethod === 'sf-pickup' && (
+                <SfStorePicker
+                  regionId={sfRegion}
+                  storeId={sfStoreId}
+                  note={sfStoreNote}
+                  onRegionChange={(nextRegion) => {
+                    const previousStore = sfPickupLabel(sfRegion, sfStoreId, '');
+                    setSfRegion(nextRegion);
+                    setSfStoreId('');
+                    if (!sfStoreNote.trim() || sfStoreNote.trim() === previousStore) setSfStoreNote('');
+                  }}
+                  onStoreChange={(nextStoreId) => {
+                    setSfStoreId(nextStoreId);
+                    if (!nextStoreId) return;
+                    const region = SF_REGIONS.find((item) => item.id === sfRegion);
+                    const store = region?.stores.find((item) => item.id === nextStoreId);
+                    if (region && store) setSfStoreNote(`${region.label} · ${store.name}（${store.id}）`);
+                  }}
+                  onNoteChange={setSfStoreNote}
+                />
+              )}
               <div className="bg-[#F4F0EA] p-4 rounded-xl border border-[#EBE5DF]">
                 <h3 className="text-sm font-semibold text-[#382E2B] mb-2.5 pb-1.5 border-b border-[#EBE5DF]">📦 收件資訊</h3>
                 <div className="text-xs text-[#6E6058] flex flex-col gap-1">
                   <p><strong className="text-[#382E2B]">收件人：</strong> {shippingName}</p>
                   <p><strong className="text-[#382E2B]">電子郵件：</strong> {shippingEmail}</p>
                   <p><strong className="text-[#382E2B]">送貨方式：</strong> {selectedDelivery.label}（{shippingFee === 0 ? '免運' : `運費 HKD ${formatShopAmount(shippingFee)}`}）</p>
-                  <p><strong className="text-[#382E2B]">{selectedDelivery.addressLabel}：</strong> {shippingAddress}</p>
+                  <p><strong className="text-[#382E2B]">{selectedDelivery.addressLabel}：</strong> {deliveryMethod === 'sf-pickup' ? (checkoutAddress || '尚未選擇順豐站') : shippingAddress}</p>
                 </div>
               </div>
 

@@ -52,6 +52,10 @@ interface Coupon {
   conditionType?: 'infinite' | 'counts' | 'periods';
   startTime?: string | null;
   endTime?: string | null;
+  rankDiscountType?: 'fixed' | 'percent' | null;
+  targetTierName?: string | null;
+  buyQuantity?: number | null;
+  freeQuantity?: number | null;
 }
 
 interface CreditLog {
@@ -782,7 +786,13 @@ export default function AccountPage() {
                         </span>
                         <div className="flex flex-row gap-4">
                           <p className="text-xs text-[#7A6E65]">
-                            {coupon.discountType === 'percent' ? `${coupon.discountValue}% 折扣` : `HKD $${coupon.discountValue} 現金折抵`}
+                            {coupon.discountType === 'bogo'
+                              ? `買 ${coupon.buyQuantity || 0} 送 ${coupon.freeQuantity || 0}`
+                              : coupon.discountType === 'rank'
+                                ? `${coupon.targetTierName || '指定等級'} · ${coupon.rankDiscountType === 'fixed' ? `HKD $${coupon.discountValue} 折抵` : `${coupon.discountValue}% 折扣`}`
+                                : coupon.discountType === 'percent'
+                                  ? `${coupon.discountValue}% 折扣`
+                                  : `HKD $${coupon.discountValue} 現金折抵`}
                           </p>
                           <p className="text-xs text-[#7A6E65]">
                             {coupon.minSpend > 0 ? `滿 HKD $${coupon.minSpend} 可使用` : '無最低消費限制'}
