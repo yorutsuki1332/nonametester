@@ -44,6 +44,11 @@ export default function AdminProductsListPage() {
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const [isPriceOpen, setIsPriceOpen] = useState(false);
+  const [priceDrafts, setPriceDrafts] = useState<{ [id: string]: string }>({});
+  const [uniformPrice, setUniformPrice] = useState('');
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+
   // 下架 Modal 狀態 (支援單筆或批量)
   const [isDiscontinueOpen, setIsDiscontinueOpen] = useState(false);
   const [discontinueTarget, setDiscontinueTarget] = useState<Product | null>(null);
@@ -263,6 +268,66 @@ export default function AdminProductsListPage() {
     }
   };
 
+  const selectedIds = Object.keys(selectedProductIds).filter((id) => selectedProductIds[id] && productsMap[id]);
+
+  const parseShopPrice = (value: string) => {
+    const price = Number(value);
+    if (!Number.isFinite(price) || price <= 0) return null;
+    return Math.round(price * 10) / 10;
+  };
+
+  const openBatchPriceModal = () => {
+    if (selectedIds.length === 0) {
+      showAlert('請先勾選至少一項要改價的商品！', '未選取商品');
+      return;
+    }
+    const drafts: { [id: string]: string } = {};
+    selectedIds.forEach((id) => {
+      drafts[id] = String(productsMap[id].price ?? '');
+    });
+    setPriceDrafts(drafts);
+    setUniformPrice('');
+    setIsPriceOpen(true);
+  };
+
+  const applyUniformPrice = () => {
+    const price = parseShopPrice(uniformPrice);
+    if (price === null) {
+      showAlert('請輸入大於 0 的價格。', '價格不正確');
+      return;
+    }
+    setPriceDrafts((current) => {
+      const next = { ...current };
+      Object.keys(next).forEach((id) => {
+        next[id] = String(price);
+      });
+      return next;
+    });
+  };
+
+  const confirmBatchPrice = async () => {
+    const updates = selectedIds.map((id) => ({ id, price: parseShopPrice(priceDrafts[id] || '') }));
+    if (updates.some((item) => item.price === null)) {
+      showAlert('每一件商品都要填大於 0 的價格。', '價格不正確');
+      return;
+    }
+    setIsSavingPrice(true);
+    try {
+      const batch = db.batch();
+      updates.forEach((item) => {
+        batch.update(db.collection('products').doc(item.id), { price: item.price });
+      });
+      await batch.commit();
+      setSelectedProductIds({});
+      setIsPriceOpen(false);
+      showToast(`已更新 ${updates.length} 件商品的價格`);
+    } catch (error: unknown) {
+      showAlert('批次改價失敗： ' + errorMessage(error), '錯誤');
+    } finally {
+      setIsSavingPrice(false);
+    }
+  };
+
   // 🌟 批次選取下架
   const openBatchDiscontinueModal = () => {
     const count = Object.values(selectedProductIds).filter(Boolean).length;
@@ -338,7 +403,7 @@ export default function AdminProductsListPage() {
     <>
       <div className="mb-6.25">
         <h1 className="text-[24px] font-serif font-semibold mb-1 text-[#382E2B]">現時上架貨品</h1>
-        <p className="text-[#7A6E65] text-[14px]">管理目前所有在雲端資料庫中的選品清單，可直接進行修改或勾選多筆批次下架。</p>
+        <p className="text-[#7A6E65] text-[14px]">勾選多件上架貨品後，可以批次修改價格或批次下架。</p>
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6.25">
@@ -352,13 +417,22 @@ export default function AdminProductsListPage() {
         
         {/* 🌟 批次操作按鈕 */}
         {selectedCount > 0 && (
-          <button
-            type="button"
-            onClick={openBatchDiscontinueModal}
-            className="bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-800 transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span>🗑️</span> 批次下架已選項目 ({selectedCount})
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={openBatchPriceModal}
+              className="cursor-pointer rounded-xl bg-[#382E2B] px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#4E403B]"
+            >
+              批次修改價格 ({selectedCount})
+            </button>
+            <button
+              type="button"
+              onClick={openBatchDiscontinueModal}
+              className="bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:bg-rose-800 transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>🗑️</span> 批次下架已選項目 ({selectedCount})
+            </button>
+          </div>
         )}
       </div>
 
@@ -372,6 +446,7 @@ export default function AdminProductsListPage() {
                     type="checkbox" 
                     onChange={handleSelectAllToggle}
                     checked={filteredList.length > 0 && filteredList.every(p => selectedProductIds[p.id])}
+                    aria-label="全選目前列出的商品"
                     className="cursor-pointer accent-[#B35B48]"
                   />
                 </th>
@@ -396,6 +471,7 @@ export default function AdminProductsListPage() {
                         type="checkbox" 
                         checked={!!selectedProductIds[p.id]}
                         onChange={() => handleCheckboxToggle(p.id)}
+                        aria-label={`選取 ${p.name}`}
                         className="cursor-pointer accent-[#B35B48]"
                       />
                     </td>
@@ -519,6 +595,63 @@ export default function AdminProductsListPage() {
                   下架商品
                 </button>
               </form>
+            </div>
+          </div>
+        </>
+      )}
+
+      {isPriceOpen && (
+        <>
+          <div className="fixed inset-0 bg-[#382E2B]/40 backdrop-blur-xs z-1500" onClick={() => !isSavingPrice && setIsPriceOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex max-h-[85vh] w-[90%] max-w-137.5 flex-col overflow-hidden rounded-2xl border border-[#EBE5DF] bg-[#FAF7F2] shadow-2xl z-2500">
+            <div className="flex items-center justify-between border-b border-[#EBE5DF] bg-[#F4F0EA] p-6">
+              <h2 className="font-serif text-[18px] font-semibold text-[#382E2B]">批次修改價格</h2>
+              <button type="button" className="cursor-pointer border-none bg-transparent text-[26px] text-[#7A6E65]" onClick={() => !isSavingPrice && setIsPriceOpen(false)}>&times;</button>
+            </div>
+            <div className="overflow-y-auto p-6">
+              <p className="mb-4 text-[13px] leading-relaxed text-[#6E6058]">已選 {selectedIds.length} 件。可以逐件填新價格，或先填一個價格再套用到全部。</p>
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={uniformPrice}
+                  onChange={(event) => setUniformPrice(event.target.value)}
+                  placeholder="同一價格 HKD"
+                  className="w-full rounded-lg border border-[#EBE5DF] bg-white p-3 text-[14px] outline-none focus:border-[#B35B48]"
+                />
+                <button type="button" onClick={applyUniformPrice} className="cursor-pointer whitespace-nowrap rounded-lg border border-[#EBE5DF] bg-white px-4 py-3 text-[13px] font-semibold text-[#382E2B] hover:bg-[#F4F0EA]">
+                  套用到全部
+                </button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {selectedIds.map((id) => {
+                  const product = productsMap[id];
+                  return (
+                    <label key={id} className="grid gap-1 rounded-lg border border-[#EBE5DF] bg-white p-3 text-[13px] sm:grid-cols-[1fr_8rem] sm:items-center">
+                      <span>
+                        <span className="block font-semibold text-[#382E2B]">{product.name}</span>
+                        <span className="text-[#8C7B70]">現價 HKD {Number(product.price).toFixed(1)}</span>
+                      </span>
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        aria-label={`${product.name} 的新價格`}
+                        value={priceDrafts[id] || ''}
+                        onChange={(event) => setPriceDrafts((current) => ({ ...current, [id]: event.target.value }))}
+                        className="w-full rounded-lg border border-[#EBE5DF] p-2.5 text-[14px] outline-none focus:border-[#B35B48]"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              <button type="button" disabled={isSavingPrice} onClick={confirmBatchPrice} className="mt-5 w-full cursor-pointer rounded-lg border-none bg-[#B35B48] p-4 font-semibold text-white hover:bg-[#9B4C3A] disabled:opacity-60">
+                {isSavingPrice ? '正在更新價格...' : '確認修改價格'}
+              </button>
+              <button type="button" disabled={isSavingPrice} onClick={() => setIsPriceOpen(false)} className="mt-2.5 w-full cursor-pointer rounded-lg bg-[#F4F0EA] p-4 font-semibold text-[#382E2B] hover:bg-[#EBE5DF] disabled:opacity-60">
+                取消
+              </button>
             </div>
           </div>
         </>
