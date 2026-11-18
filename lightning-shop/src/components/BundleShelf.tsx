@@ -74,7 +74,7 @@ export default function BundleShelf() {
   };
 
   return (
-    <section className="mt-16" aria-label="組合商品">
+    <section id="bundles" className="mt-16 scroll-mt-36" aria-label="組合商品">
       <h2 className="mb-6 text-center font-serif text-[18px] tracking-[3px] text-[#382E2B]">組合優惠 / BUNDLES</h2>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {bundles.map((bundle) => {

@@ -84,3 +84,26 @@ body {
 .home-banner-in {
   animation: home-banner-in 0.45s ease-out;
 }
+
+.affordance {
+  transition-property: transform, box-shadow, background-color, color, border-color;
+  transition-duration: 220ms;
+  transition-timing-function: ease;
+}
+
+.affordance:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 8px 18px rgba(56, 46, 43, 0.1);
+}
+
+.affordance:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 6px rgba(56, 46, 43, 0.08);
+}
+
+.affordance:disabled,
+.affordance:disabled:hover,
+.affordance:disabled:active {
+  transform: none;
+  box-shadow: none;
+}

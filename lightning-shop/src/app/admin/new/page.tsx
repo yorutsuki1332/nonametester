@@ -6,6 +6,8 @@ import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
 import { errorMessage } from '@/lib/errors';
+import VariantFields from '@/components/VariantFields';
+import { variantFields, type CatalogColor } from '@/lib/catalog';
 
 function parseStock(value: string) {
   if (value.trim() === '') return null;
@@ -58,6 +60,11 @@ export default function AdminAddProductPage() {
   const [salePrice, setSalePrice] = useState('');
   const [stock, setStock] = useState('');
   const [productDesc, setProductDesc] = useState('');
+  const [bagType, setBagType] = useState('');
+  const [colorGroup, setColorGroup] = useState('');
+  const [colorName, setColorName] = useState('');
+  const [colorHex, setColorHex] = useState('');
+  const [extraColors, setExtraColors] = useState<CatalogColor[]>([]);
   
   const [nextIndex, setNextIndex] = useState(1);
   const [currentYear] = useState(() => new Date().getFullYear());
@@ -187,6 +194,14 @@ export default function AdminAddProductPage() {
         description: productDesc,
         images: imageUrls,
         stock: parseStock(stock),
+        ...variantFields({
+          id: productSKU,
+          bagType,
+          colorGroup,
+          colorName,
+          colorHex,
+          colors: extraColors,
+        }),
       };
 
       await db.collection("products").doc(productSKU).set(newProduct);
@@ -202,6 +217,11 @@ export default function AdminAddProductPage() {
       setSalePrice('');
       setStock('');
       setProductDesc('');
+      setBagType('');
+      setColorGroup('');
+      setColorName('');
+      setColorHex('');
+      setExtraColors([]);
       setUploadedFiles([]);
       setUploadedPreviews([]);
       setNextIndex(await loadNextSkuIndex(currentYear));
@@ -278,6 +298,20 @@ export default function AdminAddProductPage() {
               </select>
             </div>
           </div>
+
+          <h2 className="text-base font-semibold mb-5 pb-2.5 border-b border-[#EBE5DF] text-[#382E2B]">包款與顏色</h2>
+          <VariantFields
+            bagType={bagType}
+            colorGroup={colorGroup}
+            colorName={colorName}
+            colorHex={colorHex}
+            colors={extraColors}
+            onBagType={setBagType}
+            onColorGroup={setColorGroup}
+            onColorName={setColorName}
+            onColorHex={setColorHex}
+            onColors={setExtraColors}
+          />
 
           <h2 className="text-base font-semibold mb-5 pb-2.5 border-b border-[#EBE5DF] text-[#382E2B]">價格設定</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

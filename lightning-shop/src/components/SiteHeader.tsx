@@ -81,7 +81,7 @@ export default function SiteHeader({ selectedCategory = '', onMegaSelect }: Site
         <div className="flex items-center gap-4">
           <Link
             href={uid ? '/account' : '/?login=1'}
-            className="group flex items-center justify-center gap-1.5 rounded-md border border-[#EBE5DF] bg-[#F4F0EA] p-2 text-[13px] font-medium text-[#382E2B] transition hover:bg-[#C28C7A] hover:text-white md:px-3 md:py-1.5"
+            className="affordance group flex items-center justify-center gap-1.5 rounded-md border border-[#EBE5DF] bg-[#F4F0EA] p-2 text-[13px] font-medium text-[#382E2B] hover:bg-[#C28C7A] hover:text-white md:px-3 md:py-1.5"
             title={uid ? `會員中心 (${accountId})` : '會員登入 / 註冊'}
           >
             <svg
@@ -97,7 +97,7 @@ export default function SiteHeader({ selectedCategory = '', onMegaSelect }: Site
               {uid ? `會員中心${accountId ? ` (${accountId})` : ''}` : '會員登入 / 註冊'}
             </span>
           </Link>
-          <Link href="/?cart=1" aria-label={`購物車，${cartCount} 件`} className="relative flex items-center p-1.5">
+          <Link href="/?cart=1" aria-label={`購物車，${cartCount} 件`} className="affordance relative flex items-center p-1.5">
             <svg className="h-5.5 w-5.5 fill-none stroke-[#382E2B] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
               <line x1="3" y1="6" x2="21" y2="6"></line>

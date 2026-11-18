@@ -8,7 +8,10 @@ import firebase from 'firebase/compat/app';
 import SiteFooter from '@/components/SiteFooter';
 import ProductGallery from '@/components/ProductGallery';
 import ProductGuide from '@/components/ProductGuide';
+import ColorSwatches from '@/components/ColorSwatches';
 import { hotStockLabel } from '@/lib/stock-hint';
+import { withoutDocumentId } from '@/lib/errors';
+import type { CatalogColor, CatalogItem } from '@/lib/catalog';
 
 interface Product {
   id: string;
@@ -19,6 +22,11 @@ interface Product {
   stock?: number | null;
   description?: string;
   images?: string[];
+  bagType?: string;
+  colorName?: string;
+  colorHex?: string;
+  colorGroup?: string;
+  colors?: CatalogColor[];
 }
 
 interface CartItem {
@@ -42,6 +50,7 @@ export default function ProductDetailClient({
   const soldOut = stockLabel === '已售完';
   const [quantity, setQuantity] = useState(1);
   const [navSearch, setNavSearch] = useState('');
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
 
   // 會員與收藏狀態
   const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
@@ -57,6 +66,13 @@ export default function ProductDetailClient({
     setIsToastShow(true);
     setTimeout(() => setIsToastShow(false), 2500);
   };
+
+  useEffect(() => {
+    const unsubscribe = db.collection('products').onSnapshot((snapshot) => {
+      setCatalog(snapshot.docs.map((doc) => ({ id: doc.id, ...withoutDocumentId(doc.data()) }) as CatalogItem));
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
@@ -188,7 +204,7 @@ export default function ProductDetailClient({
             VILLA ATELIER
           </Link>
           <div className="flex md:hidden items-center">
-            <Link href="/" className="flex items-center gap-1.5 text-[13px] font-medium text-[#382E2B] py-1.5 px-3 rounded-[20px] bg-[#F4F0EA] border border-[#EBE5DF] no-underline whitespace-nowrap">
+            <Link href="/" className="affordance flex items-center gap-1.5 text-[13px] font-medium text-[#382E2B] py-1.5 px-3 rounded-[20px] bg-[#F4F0EA] border border-[#EBE5DF] no-underline whitespace-nowrap">
               <span>←</span> 返回首頁
             </Link>
           </div>
@@ -206,7 +222,7 @@ export default function ProductDetailClient({
         </div>
 
         <div className="hidden md:flex items-center gap-3.75 shrink-0">
-          <Link href="/" className="flex items-center gap-1.5 text-[13px] font-medium cursor-pointer text-[#382E2B] py-2 px-3.5 rounded-[20px] bg-[#F4F0EA] border border-[#EBE5DF] no-underline transition hover:bg-[#B35B48] hover:text-white whitespace-nowrap">
+          <Link href="/" className="affordance flex items-center gap-1.5 text-[13px] font-medium cursor-pointer text-[#382E2B] py-2 px-3.5 rounded-[20px] bg-[#F4F0EA] border border-[#EBE5DF] no-underline hover:bg-[#B35B48] hover:text-white whitespace-nowrap">
             <span>←</span> 返回首頁
           </Link>
         </div>
@@ -252,6 +268,7 @@ export default function ProductDetailClient({
           </div>
 
           <div className="text-[20px] md:text-[22px] font-semibold font-mono text-[#B35B48] mb-3.75">HKD {Number(product.price).toFixed(1)}</div>
+          <ColorSwatches product={product} products={catalog.length ? catalog : [product]} className="mb-4" />
           {stockLabel && (
             <p className={`-mt-2 mb-3.75 text-[13px] font-semibold ${soldOut ? 'text-[#7A6E65]' : 'text-[#B35B48]'}`}>
               {stockLabel}
@@ -273,7 +290,7 @@ export default function ProductDetailClient({
             </div>
             <button 
               type="button"
-              className="grow bg-[#B35B48] text-white p-4 border-none rounded-xl text-[15px] font-semibold cursor-pointer transition hover:bg-[#9B4C3A] hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(179,91,72,0.2)] shadow-xs disabled:cursor-not-allowed disabled:bg-[#C9B8B0] disabled:hover:translate-y-0 disabled:hover:shadow-none"
+              className="affordance grow bg-[#B35B48] text-white p-4 border-none rounded-xl text-[15px] font-semibold cursor-pointer hover:bg-[#9B4C3A] shadow-xs disabled:cursor-not-allowed disabled:bg-[#C9B8B0]"
               onClick={addToCart}
               disabled={soldOut}
             >

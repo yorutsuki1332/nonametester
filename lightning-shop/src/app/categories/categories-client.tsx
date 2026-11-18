@@ -9,6 +9,10 @@ import { auth, db } from '@/lib/firebase';
 import { withoutDocumentId } from '@/lib/errors';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import CatalogFilters from '@/components/CatalogFilters';
+import ColorSwatches from '@/components/ColorSwatches';
+import { ProductSkeletonGrid } from '@/components/ProductSkeleton';
+import { applyCatalogFilters, colorChoices, isCatalogSort, type CatalogColor, type CatalogSort } from '@/lib/catalog';
 import { hotStockLabel } from '@/lib/stock-hint';
 
 interface Product {
@@ -19,6 +23,11 @@ interface Product {
   tag?: string;
   stock?: number | null;
   images?: string[];
+  bagType?: string;
+  colorName?: string;
+  colorHex?: string;
+  colorGroup?: string;
+  colors?: CatalogColor[];
   createdAt?: firebase.firestore.Timestamp;
 }
 
@@ -42,46 +51,8 @@ const CATEGORY_MARK: Record<string, string> = {
   'DAILY WEAR': '👕',
 };
 
-const SORT_OPTIONS = [
-  { id: 'newest', label: '最新上架' },
-  { id: 'price-desc', label: '價格高至低' },
-  { id: 'price-asc', label: '價格低至高' },
-  { id: 'hot', label: '熱銷程度' },
-] as const;
-
-type CatalogSort = (typeof SORT_OPTIONS)[number]['id'];
-
 function isCategoryId(value: string): value is (typeof CATEGORIES)[number]['id'] {
   return CATEGORIES.some((item) => item.id === value);
-}
-
-function isSortId(value: string): value is CatalogSort {
-  return SORT_OPTIONS.some((item) => item.id === value);
-}
-
-function createdAtMs(product: Product) {
-  const createdAt = product.createdAt;
-  if (!createdAt) return 0;
-  if (typeof createdAt.toMillis === 'function') return createdAt.toMillis();
-  return typeof createdAt.seconds === 'number' ? createdAt.seconds * 1000 : 0;
-}
-
-function sortProducts(list: Product[], sort: CatalogSort) {
-  const result = [...list];
-  if (sort === 'price-desc') {
-    result.sort((a, b) => Number(b.price) - Number(a.price) || createdAtMs(b) - createdAtMs(a));
-  } else if (sort === 'price-asc') {
-    result.sort((a, b) => Number(a.price) - Number(b.price) || createdAtMs(b) - createdAtMs(a));
-  } else if (sort === 'hot') {
-    result.sort((a, b) => {
-      const hotA = a.tag?.trim().toUpperCase() === 'HOT' ? 0 : 1;
-      const hotB = b.tag?.trim().toUpperCase() === 'HOT' ? 0 : 1;
-      return hotA - hotB || createdAtMs(b) - createdAtMs(a);
-    });
-  } else {
-    result.sort((a, b) => createdAtMs(b) - createdAtMs(a));
-  }
-  return result;
 }
 
 export default function CategoriesClient() {
@@ -92,7 +63,11 @@ export default function CategoriesClient() {
   const keyword = searchParams.get('q') || '';
   const hotOnly = searchParams.get('hot') === '1';
   const sortParam = searchParams.get('sort') || 'newest';
-  const sort: CatalogSort = isSortId(sortParam) ? sortParam : 'newest';
+  const sort: CatalogSort = isCatalogSort(sortParam) ? sortParam : 'newest';
+  const priceMin = searchParams.get('min') || '';
+  const priceMax = searchParams.get('max') || '';
+  const bagType = searchParams.get('bag') || 'all';
+  const color = searchParams.get('color') || 'all';
 
   const [products, setProducts] = useState<Product[]>([]);
   const [ready, setReady] = useState(false);
@@ -131,23 +106,37 @@ export default function CategoriesClient() {
     return result;
   }, [products]);
 
-  const visible = useMemo(() => {
-    const lower = keyword.trim().toLowerCase();
-    const filtered = products.filter((product) => {
-      if (category !== 'all' && product.category?.trim() !== category) return false;
-      if (hotOnly && product.tag?.trim().toUpperCase() !== 'HOT') return false;
-      if (!lower) return true;
-      return [product.name, product.category, product.tag].some((value) => value?.toLowerCase().includes(lower));
-    });
-    return sortProducts(filtered, sort);
-  }, [products, category, keyword, hotOnly, sort]);
+  const visible = useMemo(() => applyCatalogFilters(products, {
+    keyword,
+    category,
+    hotOnly,
+    sort,
+    priceMin,
+    priceMax,
+    bagType,
+    color,
+  }), [products, category, keyword, hotOnly, sort, priceMin, priceMax, bagType, color]);
 
-  const updateQuery = (nextCategory: string, nextKeyword: string, nextHot = hotOnly, nextSort = sort) => {
+  const updateQuery = (
+    nextCategory: string,
+    nextKeyword: string,
+    nextHot = hotOnly,
+    nextSort: CatalogSort = sort,
+    extra: Partial<{ priceMin: string; priceMax: string; bagType: string; color: string }> = {},
+  ) => {
+    const nextMin = extra.priceMin ?? priceMin;
+    const nextMax = extra.priceMax ?? priceMax;
+    const nextBag = extra.bagType ?? bagType;
+    const nextColor = extra.color ?? color;
     const params = new URLSearchParams();
     if (nextCategory !== 'all') params.set('category', nextCategory);
     if (nextKeyword) params.set('q', nextKeyword);
     if (nextHot) params.set('hot', '1');
     if (nextSort !== 'newest') params.set('sort', nextSort);
+    if (nextMin.trim()) params.set('min', nextMin.trim());
+    if (nextMax.trim()) params.set('max', nextMax.trim());
+    if (nextBag !== 'all') params.set('bag', nextBag);
+    if (nextColor !== 'all') params.set('color', nextColor);
     const query = params.toString();
     router.replace(query ? `/categories?${query}` : '/categories', { scroll: false });
   };
@@ -194,7 +183,7 @@ export default function CategoriesClient() {
                 key={item.id}
                 type="button"
                 onClick={() => updateQuery(item.id, draft, false)}
-                className={`cursor-pointer rounded-full px-5 py-2.5 text-[13px] font-medium transition ${
+                className={`affordance cursor-pointer rounded-full px-5 py-2.5 text-[13px] font-medium ${
                   active
                     ? 'bg-[#B35B48] text-white shadow-xs'
                     : 'border border-[#EBE5DF] bg-[#F4F0EA] text-[#5C4D42] hover:bg-[#E6DCD2]'
@@ -206,7 +195,7 @@ export default function CategoriesClient() {
           })}
         </div>
 
-        <div className="mx-auto mb-12 flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mx-auto mb-12 flex max-w-4xl flex-col gap-3">
           <input
             type="text"
             value={draft}
@@ -217,21 +206,36 @@ export default function CategoriesClient() {
             }}
             placeholder="🔍 在此分類中搜尋商品名稱或材質..."
             aria-label="搜尋目錄"
-            className="min-w-0 flex-1 rounded-full border border-[#EBE5DF] bg-white px-5 py-3.5 text-[14px] shadow-[0_2px_10px_rgba(56,46,43,0.02)] outline-none transition focus:border-[#B35B48]"
+            className="min-w-0 rounded-full border border-[#EBE5DF] bg-white px-5 py-3.5 text-[14px] shadow-[0_2px_10px_rgba(56,46,43,0.02)] outline-none transition focus:border-[#B35B48]"
           />
-          <select
-            aria-label="排列方式"
-            value={sort}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (isSortId(value)) updateQuery(category, draft, hotOnly, value);
+          <CatalogFilters
+            sort={sort}
+            bagType={bagType}
+            color={color}
+            priceMin={priceMin}
+            priceMax={priceMax}
+            colors={colorChoices(products)}
+            onChange={(patch) => {
+              const nextSort = patch.sort && isCatalogSort(patch.sort) ? patch.sort : sort;
+              updateQuery(category, draft, hotOnly, nextSort, {
+                priceMin: patch.priceMin ?? priceMin,
+                priceMax: patch.priceMax ?? priceMax,
+                bagType: patch.bagType ?? bagType,
+                color: patch.color ?? color,
+              });
             }}
-            className="shrink-0 cursor-pointer rounded-full border border-[#EBE5DF] bg-[#F4F0EA] px-5 py-3.5 text-[14px] text-[#382E2B] outline-none focus:border-[#B35B48]"
-          >
-            {SORT_OPTIONS.map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
-            ))}
-          </select>
+          />
+          {(priceMin || priceMax || bagType !== 'all' || color !== 'all') && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => updateQuery(category, draft, hotOnly, sort, { priceMin: '', priceMax: '', bagType: 'all', color: 'all' })}
+                className="affordance cursor-pointer rounded-full border border-[#EBE5DF] bg-white px-4 py-2 text-[12px] text-[#382E2B]"
+              >
+                清除價格、包款與色系
+              </button>
+            </div>
+          )}
         </div>
 
         {hotOnly && (
@@ -249,7 +253,7 @@ export default function CategoriesClient() {
 
         <div className="grid grid-cols-1 gap-[36px_26px] md:grid-cols-3">
           {!ready ? (
-            <p className="col-span-full py-16 text-center text-[#888]">正在載入選品...</p>
+            <ProductSkeletonGrid count={6} />
           ) : visible.length === 0 ? (
             <p className="col-span-full py-16 text-center text-[#888]">沒有找到符合條件的選品。</p>
           ) : (
@@ -285,10 +289,11 @@ export default function CategoriesClient() {
                     </div>
                   </Link>
                   <div className="px-4 pb-4">
+                    <ColorSwatches product={product} products={products} className="mb-3" />
                     <button
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="w-full cursor-pointer rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] py-2.5 text-[13px] font-medium text-[#382E2B] transition hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]"
+                      className="affordance w-full cursor-pointer rounded-lg border border-[#EBE5DF] bg-[#FAF7F2] py-2.5 text-[13px] font-medium text-[#382E2B] hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]"
                       disabled={soldOut}
                     >
                       {soldOut ? '已售完' : '加入購物車'}

@@ -18,36 +18,21 @@ export default function SiteFooter({ onMemberClick }: SiteFooterProps) {
         <p className="text-[11px] text-[#7A7670] tracking-[0.2em] font-light">
           STUDIO OF ARTFUL LIVING & DESIGN
         </p>
-        <div className="flex items-center space-x-6 pt-2 text-[11px] text-[#7A7670] tracking-widest">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2 text-[11px] tracking-widest text-[#7A7670]">
           {onMemberClick ? (
-            <button type="button" onClick={onMemberClick} className={`${linkClass} bg-transparent border-none cursor-pointer p-0`}>
+            <button type="button" onClick={onMemberClick} className={`${linkClass} cursor-pointer border-none bg-transparent p-0`}>
               會員權益
             </button>
           ) : (
-            <Link href="/account" className={linkClass}>
-              會員權益
-            </Link>
+            <Link href="/account" className={linkClass}>會員權益</Link>
           )}
-          <span>·</span>
-          <Link href="/categories" className={linkClass}>
-            全站目錄
-          </Link>
-          <span>·</span>
-          <Link href="/journey" className={linkClass}>
-            品牌誌
-          </Link>
-          <span>·</span>
-          <Link href="/lookbook" className={linkClass}>
-            造型集
-          </Link>
-          <span>·</span>
-          <Link href="/#curated-section" className={linkClass}>
-            配送說明
-          </Link>
-          <span>·</span>
-          <Link href="/#curated-section" className={linkClass}>
-            聯絡我們
-          </Link>
+          <Link href="/categories" className={linkClass}>全站目錄</Link>
+          <Link href="/promotions" className={linkClass}>活動推廣</Link>
+          <Link href="/journey" className={linkClass}>品牌誌</Link>
+          <Link href="/lookbook" className={linkClass}>造型集</Link>
+          <Link href="/about" className={linkClass}>關於我們</Link>
+          <Link href="/qa" className={linkClass}>常見問題</Link>
+          <Link href="/contact" className={linkClass}>聯絡我們</Link>
         </div>
         <p className="pt-4 text-[10px] text-[#7A7670]/80 tracking-[0.2em] uppercase">
           © 2026 VILLA ATELIER STUDIO. ALL RIGHTS RESERVED.

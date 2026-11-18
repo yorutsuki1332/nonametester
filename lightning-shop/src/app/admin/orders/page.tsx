@@ -32,6 +32,9 @@ export default function AdminOrdersListPage() {
   const [ordersMap, setOrdersMap] = useState<{ [key: string]: Order }>({});
   const [allList, setAllList] = useState<Order[]>([]);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [rowTracking, setRowTracking] = useState<{ [id: string]: string }>({});
+  const [advancingId, setAdvancingId] = useState('');
   const [selectedOrderIds, setSelectedOrderIds] = useState<{ [id: string]: boolean }>({});
   const [isBatchShipOpen, setIsBatchShipOpen] = useState(false);
   const [batchTracking, setBatchTracking] = useState<{ [id: string]: string }>({});
@@ -75,15 +78,14 @@ export default function AdminOrdersListPage() {
 
   const filteredList = useMemo(() => {
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) return allList;
-
-    return allList.filter(o => {
-      const idMatch = o.id && o.id.toLowerCase().includes(keyword);
-      const nameMatch = o.name && o.name.toLowerCase().includes(keyword);
-      const emailMatch = o.email && o.email.toLowerCase().includes(keyword);
-      return idMatch || nameMatch || emailMatch;
+    return allList.filter((order) => {
+      const status = order.status || 'pending';
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
+      if (!keyword) return true;
+      const itemMatch = order.items?.some((item) => `${item.name || ''} ${item.id || ''}`.toLowerCase().includes(keyword));
+      return [order.id, order.name, order.email].some((value) => value?.toLowerCase().includes(keyword)) || !!itemMatch;
     });
-  }, [searchKeyword, allList]);
+  }, [searchKeyword, statusFilter, allList]);
 
   const handleOrderEmailDisplay = (email?: string) => {
     if (!email) return '未提供';
@@ -153,36 +155,43 @@ export default function AdminOrdersListPage() {
   };
 
   // 執行狀態更新
-  const executeUpdateStatus = async () => {
-    if (!selectedOrder || !targetStatus) return;
-    const trackingNumber = trackingDraft.trim();
-    if (targetStatus === 'shipping' && !trackingNumber) {
+  const advanceOrder = async (order: Order, nextStatus: string, trackingNumber = '') => {
+    if (nextStatus === 'shipping' && !trackingNumber) {
       alert('請填寫物流追蹤編號');
-      return;
+      return false;
     }
+    setAdvancingId(order.id);
     try {
       const update: { status: string; trackingNumber?: string; trackingCarrier?: string; shippedAt?: firebase.firestore.FieldValue } = {
-        status: targetStatus,
+        status: nextStatus,
       };
-      if (targetStatus === 'shipping') {
+      if (nextStatus === 'shipping') {
         update.trackingNumber = trackingNumber;
         update.trackingCarrier = '順豐速遞';
         update.shippedAt = firebase.firestore.FieldValue.serverTimestamp();
       }
-      await db.collection("orders").doc(selectedOrder.id).update(update);
-      setIsConfirmOpen(false);
-
+      await db.collection("orders").doc(order.id).update(update);
       const statusNames: { [key: string]: string } = {
         paid: '已確認付款',
-        preparing: '已完成備貨',
-        shipping: '已完成發貨',
-        completed: '已完成訂單',
+        preparing: '備貨中',
+        shipping: '配送中',
+        completed: '已完成',
       };
-      const emailNote = targetStatus === 'shipping' ? await notifyShipped(selectedOrder, trackingNumber) : '';
-      showToast(`✅ 訂單狀態已更新為：${statusNames[targetStatus] || targetStatus}${emailNote}`);
+      const emailNote = nextStatus === 'shipping' ? await notifyShipped(order, trackingNumber) : '';
+      showToast(`✅ 訂單狀態已更新為：${statusNames[nextStatus] || nextStatus}${emailNote}`);
+      return true;
     } catch (error: unknown) {
       alert('更新失敗：' + errorMessage(error));
+      return false;
+    } finally {
+      setAdvancingId('');
     }
+  };
+
+  const executeUpdateStatus = async () => {
+    if (!selectedOrder || !targetStatus) return;
+    const updated = await advanceOrder(selectedOrder, targetStatus, trackingDraft.trim());
+    if (updated) setIsConfirmOpen(false);
   };
 
   // 取消訂單流程
@@ -212,6 +221,27 @@ export default function AdminOrdersListPage() {
       default: return '待處理 / 確認中';
     }
   };
+
+  const orderStatus = (order: Order) => order.status || 'pending';
+
+  const statusFilters = [
+    { id: 'all', label: '全部' },
+    { id: 'pending', label: '待處理 / 確認中' },
+    { id: 'paid', label: '已確認付款' },
+    { id: 'preparing', label: '備貨中' },
+    { id: 'shipping', label: '配送中' },
+    { id: 'completed', label: '已完成' },
+    { id: 'cancelled', label: '已取消' },
+  ] as const;
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: allList.length };
+    allList.forEach((order) => {
+      const status = orderStatus(order);
+      counts[status] = (counts[status] || 0) + 1;
+    });
+    return counts;
+  }, [allList]);
 
   const canBatchShip = (status?: string) => (status || 'pending') === 'preparing';
   const shippableOrders = filteredList.filter((order) => canBatchShip(order.status));
@@ -290,13 +320,37 @@ export default function AdminOrdersListPage() {
       </div>
 
       <div className="mb-6.25 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <input 
-          type="text" 
-          value={searchKeyword}
-          onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full max-w-100 p-[12px_18px] border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48] transition"
-          placeholder="🔍 搜尋訂單 ID、收件人或信箱..." 
-        />
+        <div className="flex w-full max-w-2xl flex-col gap-2 sm:flex-row">
+          <input 
+            type="text" 
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            aria-label="搜尋訂單"
+            className="w-full p-[12px_18px] border border-[#EBE5DF] rounded-[30px] text-[14px] outline-none bg-white shadow-[0_2px_10px_rgba(56,46,43,0.02)] focus:border-[#B35B48] transition"
+            placeholder="🔍 搜尋訂單編號、顧客名稱或商品名稱..." 
+          />
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="篩選訂單狀態">
+          {statusFilters.map((item) => {
+            const active = statusFilter === item.id;
+            const count = statusCounts[item.id] || 0;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setStatusFilter(item.id)}
+                className={`cursor-pointer rounded-full border px-3 py-2 text-[12px] ${
+                  active
+                    ? 'border-[#B35B48] bg-[#B35B48] text-white'
+                    : 'border-[#EBE5DF] bg-white text-[#382E2B] hover:bg-[#F4F0EA]'
+                }`}
+              >
+                {item.label} ({count})
+              </button>
+            );
+          })}
+        </div>
         {selectedShipCount > 0 && (
           <button
             type="button"
@@ -338,7 +392,7 @@ export default function AdminOrdersListPage() {
               {allList.length === 0 ? (
                 <tr><td colSpan={7} className="text-center text-[#7A6E65] py-7.5">目前尚無任何訂單紀錄</td></tr>
               ) : filteredList.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-[#7A6E65] py-7.5">沒有找到符合條件的訂單</td></tr>
+                <tr><td colSpan={7} className="text-center text-[#7A6E65] py-7.5">沒有符合這個狀態或關鍵字的訂單</td></tr>
               ) : (
                 filteredList.map(o => {
                   const status = o.status || 'pending';
@@ -388,8 +442,32 @@ export default function AdminOrdersListPage() {
                           {getStatusLabel(status)}
                         </span>
                       </td>
-                      <td className="flex flex-col md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle mt-3 md:mt-0 pt-3 md:pt-3.75 md:whitespace-nowrap md:text-right">
-                        <button className="w-full md:w-auto bg-[#B35B48] text-white border-none p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#9B4C3A] transition shadow-xs" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
+                      <td className="flex flex-col gap-2 md:table-cell py-3 md:py-3.75 md:px-3.75 border-t md:border-t-0 border-[#EBE5DF] md:border-b md:border-[#EBE5DF] md:align-middle mt-3 md:mt-0 pt-3 md:pt-3.75 md:text-right">
+                        <div className="flex flex-col items-stretch gap-2 md:items-end">
+                          {status === 'pending' && (
+                            <button type="button" disabled={advancingId === o.id} onClick={() => advanceOrder(o, 'paid')} className="cursor-pointer rounded-md bg-[#382E2B] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#4E403B] disabled:opacity-60">確認付款</button>
+                          )}
+                          {status === 'paid' && (
+                            <button type="button" disabled={advancingId === o.id} onClick={() => advanceOrder(o, 'preparing')} className="cursor-pointer rounded-md bg-[#C28C7A] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#B35B48] disabled:opacity-60">改為備貨中</button>
+                          )}
+                          {status === 'preparing' && (
+                            <div className="flex w-full flex-col gap-2 md:w-44">
+                              <input
+                                value={rowTracking[o.id] || ''}
+                                onChange={(event) => setRowTracking((current) => ({ ...current, [o.id]: event.target.value }))}
+                                aria-label={`訂單 ${o.id} 的物流追蹤編號`}
+                                placeholder="順豐運單編號"
+                                autoComplete="off"
+                                className="w-full rounded-md border border-[#EBE5DF] bg-white px-2 py-1.5 font-mono text-[12px] outline-none focus:border-[#B35B48]"
+                              />
+                              <button type="button" disabled={advancingId === o.id} onClick={() => advanceOrder(o, 'shipping', (rowTracking[o.id] || '').trim())} className="cursor-pointer rounded-md bg-[#B35B48] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#9B4C3A] disabled:opacity-60">標記出貨</button>
+                            </div>
+                          )}
+                          {status === 'shipping' && (
+                            <button type="button" disabled={advancingId === o.id} onClick={() => advanceOrder(o, 'completed')} className="cursor-pointer rounded-md bg-emerald-700 px-3 py-2 text-[12px] font-semibold text-white hover:bg-emerald-800 disabled:opacity-60">標為已完成</button>
+                          )}
+                          <button className="w-full md:w-auto bg-white text-[#382E2B] border border-[#EBE5DF] p-2.5 md:p-[6px_14px] rounded-md cursor-pointer text-[14px] md:text-[13px] hover:bg-[#F4F0EA] transition" onClick={() => openOrderModal(o.id)}>檢視詳情</button>
+                        </div>
                       </td>
                     </tr>
                   );

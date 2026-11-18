@@ -22,6 +22,13 @@ import {
 } from '@/lib/shipping';
 import { SF_REGIONS, sfPickupLabel } from '@/lib/sf-stores';
 import SfStorePicker from '@/components/SfStorePicker';
+import ColorSwatches from '@/components/ColorSwatches';
+import { ProductSkeletonGrid } from '@/components/ProductSkeleton';
+import {
+  applyCatalogFilters,
+  type CatalogColor,
+  type CatalogQuery,
+} from '@/lib/catalog';
 
 interface Product {
   id: string;
@@ -32,10 +39,13 @@ interface Product {
   stock?: number | null;
   images?: string[];
   description?: string;
+  bagType?: string;
+  colorName?: string;
+  colorHex?: string;
+  colorGroup?: string;
+  colors?: CatalogColor[];
   createdAt?: firebase.firestore.Timestamp;
 }
-
-type CatalogSort = 'newest' | 'price-desc' | 'hot';
 
 interface CartItem {
   id: string;
@@ -79,53 +89,6 @@ interface TierItem {
   badge: string;
   threshold: number;
   discount: number;
-}
-
-function createdAtMs(product: Product) {
-  const createdAt = product.createdAt;
-  if (!createdAt) return 0;
-  if (typeof createdAt.toMillis === 'function') return createdAt.toMillis();
-  return typeof createdAt.seconds === 'number' ? createdAt.seconds * 1000 : 0;
-}
-
-function hotRank(tag?: string) {
-  return tag && tag.trim().toUpperCase() === 'HOT' ? 0 : 1;
-}
-
-function sortCatalog(list: Product[], sort: CatalogSort) {
-  const result = [...list];
-  if (sort === 'price-desc') {
-    result.sort((a, b) => Number(b.price) - Number(a.price) || createdAtMs(b) - createdAtMs(a));
-  } else if (sort === 'hot') {
-    result.sort((a, b) => hotRank(a.tag) - hotRank(b.tag) || createdAtMs(b) - createdAtMs(a));
-  } else {
-    result.sort((a, b) => createdAtMs(b) - createdAtMs(a));
-  }
-  return result;
-}
-
-function filterCatalog(list: Product[], keyword: string, category: string, hotOnly = false, sort: CatalogSort = 'newest') {
-  let result = list;
-
-  if (category !== 'all') {
-    result = result.filter(p => p.category && p.category.trim() === category);
-  }
-
-  if (hotOnly) {
-    result = result.filter(p => p.tag && p.tag.trim().toUpperCase() === 'HOT');
-  }
-
-  const lower = keyword.trim().toLowerCase();
-  if (lower) {
-    result = result.filter(p => {
-      const nameMatch = p.name && p.name.toLowerCase().includes(lower);
-      const catMatch = p.category && p.category.toLowerCase().includes(lower);
-      const tagMatch = p.tag && p.tag.toLowerCase().includes(lower);
-      return nameMatch || catMatch || tagMatch;
-    });
-  }
-
-  return sortCatalog(result, sort);
 }
 
 function buyNGetMDiscount(items: CartItem[], buyN: number, freeM: number, tierRate: number) {
@@ -406,10 +369,9 @@ export default function Home() {
   const [catalogReady, setCatalogReady] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [catalogSort, setCatalogSort] = useState<CatalogSort>('newest');
   const [hotOnly, setHotOnly] = useState(false);
   const [curatedLimit, setCuratedLimit] = useState<3 | 6>(6);
-  const catalogQuery = useRef({ keyword: '', category: 'all', hotOnly: false, sort: 'newest' as CatalogSort });
+  const catalogQuery = useRef<CatalogQuery>({ keyword: '', category: 'all', hotOnly: false, sort: 'newest', priceMin: '', priceMax: '', bagType: 'all', color: 'all' });
   
   // 互動狀態
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -519,9 +481,13 @@ export default function Home() {
       keyword: searchKeyword,
       category: selectedCategory,
       hotOnly,
-      sort: catalogSort,
+      sort: 'newest',
+      priceMin: '',
+      priceMax: '',
+      bagType: 'all',
+      color: 'all',
     };
-  }, [searchKeyword, selectedCategory, hotOnly, catalogSort]);
+  }, [searchKeyword, selectedCategory, hotOnly]);
 
   useEffect(() => {
     const unsubscribeTier = db.collection("settings").doc("member_tiers").onSnapshot((doc) => {
@@ -540,9 +506,8 @@ export default function Home() {
       snapshot.forEach((doc) => {
         list.push({ id: doc.id, ...withoutDocumentId(doc.data()) } as Product);
       });
-      const { keyword, category, hotOnly, sort } = catalogQuery.current;
       setProducts(list);
-      setFilteredProducts(filterCatalog(list, keyword, category, hotOnly, sort));
+      setFilteredProducts(applyCatalogFilters(list, catalogQuery.current));
       setCatalogReady(true);
     }, () => {
       setCatalogReady(true);
@@ -704,49 +669,33 @@ export default function Home() {
     };
   }, []);
 
-  const filterProducts = (keyword: string, category: string, nextHotOnly = hotOnly, sort = catalogSort) => {
-    setFilteredProducts(filterCatalog(products, keyword, category, nextHotOnly, sort));
+  const refilter = (patch: Partial<CatalogQuery>) => {
+    const next: CatalogQuery = { ...catalogQuery.current, ...patch };
+    catalogQuery.current = next;
+    setSearchKeyword(next.keyword);
+    setSelectedCategory(next.category);
+    setHotOnly(next.hotOnly);
+    setFilteredProducts(applyCatalogFilters(products, next));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const keyword = e.target.value;
-    catalogQuery.current = { keyword, category: selectedCategory, hotOnly: false, sort: catalogSort };
-    setSearchKeyword(keyword);
-    setHotOnly(false);
-    filterProducts(keyword, selectedCategory, false);
+    refilter({ keyword: e.target.value, hotOnly: false });
   };
 
   const handleMegaSelect = (category: string, keyword: string) => {
-    catalogQuery.current = { keyword, category, hotOnly: false, sort: catalogSort };
-    setSearchKeyword(keyword);
-    setSelectedCategory(category);
-    setHotOnly(false);
-    filterProducts(keyword, category, false);
+    refilter({ keyword, category, hotOnly: false });
   };
 
   const showAllProducts = () => {
-    catalogQuery.current = { keyword: '', category: 'all', hotOnly: false, sort: catalogSort };
-    setSearchKeyword('');
-    setSelectedCategory('all');
-    setHotOnly(false);
-    filterProducts('', 'all', false);
+    refilter({ keyword: '', category: 'all', hotOnly: false });
   };
 
   const showHotPicks = () => {
-    catalogQuery.current = { keyword: '', category: 'all', hotOnly: true, sort: catalogSort };
-    setSearchKeyword('');
-    setSelectedCategory('all');
-    setHotOnly(true);
-    filterProducts('', 'all', true);
+    refilter({ keyword: '', category: 'all', hotOnly: true });
   };
 
   const showNewestArrivals = () => {
-    catalogQuery.current = { keyword: '', category: 'all', hotOnly: false, sort: 'newest' };
-    setSearchKeyword('');
-    setSelectedCategory('all');
-    setHotOnly(false);
-    setCatalogSort('newest');
-    filterProducts('', 'all', false, 'newest');
+    refilter({ keyword: '', category: 'all', hotOnly: false, sort: 'newest' });
   };
 
   const handleBanner = (action: 'bags' | 'newest' | 'hot') => {
@@ -1319,7 +1268,7 @@ export default function Home() {
         <div className="flex items-center gap-4">
           <Link 
             href={currentUser ? "/account" : "#"}
-            className="text-[13px] font-medium cursor-pointer text-[#382E2B] p-2 md:py-1.5 md:px-3 rounded-md bg-[#F4F0EA] border border-[#EBE5DF] transition hover:bg-[#C28C7A] hover:text-white flex items-center justify-center gap-1.5 group"
+            className="affordance text-[13px] font-medium cursor-pointer text-[#382E2B] p-2 md:py-1.5 md:px-3 rounded-md bg-[#F4F0EA] border border-[#EBE5DF] hover:bg-[#C28C7A] hover:text-white flex items-center justify-center gap-1.5 group"
             onClick={(e) => {
               if (!currentUser) {
                 e.preventDefault();
@@ -1342,7 +1291,7 @@ export default function Home() {
             </span>
           </Link>
 
-          <button type="button" aria-label={`購物車，${totalCount} 件`} className="cursor-pointer relative p-1.5 flex items-center bg-transparent border-none" onClick={() => setIsCartOpen(true)}>
+          <button type="button" aria-label={`購物車，${totalCount} 件`} className="affordance cursor-pointer relative p-1.5 flex items-center bg-transparent border-none" onClick={() => setIsCartOpen(true)}>
             <svg className="w-5.5 h-5.5 fill-none stroke-[#382E2B] stroke-[1.5]" viewBox="0 0 24 24">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
               <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -1445,7 +1394,7 @@ export default function Home() {
                   key={limit}
                   type="button"
                   onClick={() => setCuratedLimit(limit)}
-                  className={`cursor-pointer rounded-full border-none px-2.5 py-0.5 transition ${
+                  className={`affordance cursor-pointer rounded-full border-none px-2.5 py-0.5 ${
                     curatedLimit === limit ? 'bg-[#B35B48] font-medium text-white' : 'bg-transparent text-[#6E6058]'
                   }`}
                 >
@@ -1480,9 +1429,11 @@ export default function Home() {
           )}
         </div>
         <div className="grid grid-cols-1 gap-[50px_30px] sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProducts.slice(0, curatedLimit).length === 0 ? (
+          {!catalogReady ? (
+            <ProductSkeletonGrid count={curatedLimit} />
+          ) : filteredProducts.slice(0, curatedLimit).length === 0 ? (
             <div className="col-span-full py-16 text-center">
-              {catalogReady ? (
+              {(
                 <>
                   <p className="text-[#888]">沒有找到符合條件的選品。</p>
                   <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -1502,8 +1453,6 @@ export default function Home() {
                     </button>
                   </div>
                 </>
-              ) : (
-                <p className="text-[#888]">正在載入選品...</p>
               )}
             </div>
           ) : (
@@ -1565,7 +1514,8 @@ export default function Home() {
                   </Link>
 
                   <div className="p-4 pt-0">
-                    <button className="w-full bg-[#FAF7F2] border border-[#EBE5DF] rounded-lg py-2.5 text-[13px] font-medium text-[#382E2B] cursor-pointer transition hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]" onClick={() => addToCart(p.id)} disabled={soldOut}>
+                    <ColorSwatches product={p} products={products} className="mb-3" />
+                    <button className="affordance w-full bg-[#FAF7F2] border border-[#EBE5DF] rounded-lg py-2.5 text-[13px] font-medium text-[#382E2B] cursor-pointer hover:bg-[#B35B48] hover:text-white disabled:cursor-not-allowed disabled:bg-[#F4F0EA] disabled:text-[#A3958B] disabled:hover:bg-[#F4F0EA] disabled:hover:text-[#A3958B]" onClick={() => addToCart(p.id)} disabled={soldOut}>
                       {soldOut ? '已售完' : '加入購物車'}
                     </button>
                   </div>
@@ -1579,7 +1529,7 @@ export default function Home() {
           <div className="mt-14 mb-6 text-center">
             <Link
               href={catalogHref}
-              className="inline-flex max-w-full items-center justify-center rounded-full border border-[#B35B48] px-5 py-3 text-[13px] font-semibold text-[#B35B48] no-underline transition hover:bg-[#B35B48] hover:text-white sm:px-8 sm:py-3.5 sm:tracking-[1.5px]"
+              className="affordance inline-flex max-w-full items-center justify-center rounded-full border border-[#B35B48] px-5 py-3 text-[13px] font-semibold text-[#B35B48] no-underline hover:bg-[#B35B48] hover:text-white sm:px-8 sm:py-3.5 sm:tracking-[1.5px]"
             >
               瀏覽全部選品 ({filteredProducts.length} 件) →
             </Link>

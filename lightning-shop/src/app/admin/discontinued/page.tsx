@@ -6,6 +6,9 @@ import { db } from '@/lib/firebase';
 import firebase from 'firebase/compat/app';
 import imageCompression from 'browser-image-compression';
 import { errorMessage } from '@/lib/errors';
+import ColorSwatches from '@/components/ColorSwatches';
+import VariantFields from '@/components/VariantFields';
+import { variantFields, type CatalogColor } from '@/lib/catalog';
 
 interface DiscontinuedProduct {
   id: string;
@@ -16,6 +19,11 @@ interface DiscontinuedProduct {
   description?: string;
   images?: string[];
   sku?: string;
+  bagType?: string;
+  colorName?: string;
+  colorHex?: string;
+  colorGroup?: string;
+  colors?: CatalogColor[];
   createdAt?: firebase.firestore.Timestamp;
   discontinuedAt?: firebase.firestore.Timestamp;
 }
@@ -36,6 +44,11 @@ export default function AdminDiscontinuedListPage() {
   const [editTag, setEditTag] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editBagType, setEditBagType] = useState('');
+  const [editColorGroup, setEditColorGroup] = useState('');
+  const [editColorName, setEditColorName] = useState('');
+  const [editColorHex, setEditColorHex] = useState('');
+  const [editColors, setEditColors] = useState<CatalogColor[]>([]);
 
   // 圖片編輯狀態
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -143,6 +156,11 @@ export default function AdminDiscontinuedListPage() {
     setEditTag(product.tag || '');
     setEditPrice(String(product.price || 0));
     setEditDescription(product.description || '');
+    setEditBagType(product.bagType || '');
+    setEditColorGroup(product.colorGroup || '');
+    setEditColorName(product.colorName || '');
+    setEditColorHex(product.colorHex || '');
+    setEditColors(product.colors ? product.colors.map((color) => ({ ...color })) : []);
 
     setExistingImages(product.images ? [...product.images] : []);
     setNewImageFiles([]);
@@ -236,6 +254,14 @@ export default function AdminDiscontinuedListPage() {
         price: parseFloat(editPrice),
         description: editDescription,
         images: finalImages,
+        ...variantFields({
+          id: editId,
+          bagType: editBagType,
+          colorGroup: editColorGroup,
+          colorName: editColorName,
+          colorHex: editColorHex,
+          colors: editColors,
+        }),
       };
 
       await db.collection("discontinued_products").doc(editId).update(updatedData);
@@ -263,6 +289,7 @@ export default function AdminDiscontinuedListPage() {
         price: product.price,
         description: product.description || "",
         images: product.images || [],
+        ...variantFields(product),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -302,6 +329,7 @@ export default function AdminDiscontinuedListPage() {
             price: product.price,
             description: product.description || "",
             images: product.images || [],
+            ...variantFields(product),
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           });
 
@@ -412,7 +440,10 @@ export default function AdminDiscontinuedListPage() {
                     </td>
                     <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle font-medium text-[#382E2B] text-right md:text-left">
                       <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold text-right">商品名稱</span>
-                      <span className="w-50 md:w-auto">{p.name}</span>
+                      <span className="flex w-50 flex-col items-end gap-2 md:w-auto md:items-start">
+                        <span>{p.name}</span>
+                        <ColorSwatches product={p} products={allList} linkable={false} />
+                      </span>
                     </td>
                     <td className="flex justify-between items-center py-1.5 md:py-3.75 md:px-3.75 md:table-cell md:border-b md:border-[#EBE5DF] md:align-middle text-[#6E6058]">
                       <span className="md:hidden text-[#7A6E65] text-[12px] font-semibold">商品分類</span>
@@ -468,6 +499,18 @@ export default function AdminDiscontinuedListPage() {
                     <option value="HOT">熱賣單品 (HOT)</option>
                   </select>
                 </div>
+                <VariantFields
+                  bagType={editBagType}
+                  colorGroup={editColorGroup}
+                  colorName={editColorName}
+                  colorHex={editColorHex}
+                  colors={editColors}
+                  onBagType={setEditBagType}
+                  onColorGroup={setEditColorGroup}
+                  onColorName={setEditColorName}
+                  onColorHex={setEditColorHex}
+                  onColors={setEditColors}
+                />
                 <div className="mb-5">
                   <label className="block text-[13px] font-semibold mb-2 text-[#6E6058]">商品售價 (HKD)</label>
                   <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full p-3 border border-[#EBE5DF] rounded-lg text-[14px] outline-none bg-white focus:border-[#B35B48]" step="0.1" min="0" required />

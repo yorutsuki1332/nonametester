@@ -239,9 +239,13 @@ const MENU_DATA: Record<string, CategoryItem> = {
 const CATEGORY_ORDER = ['all', 'BAGS', 'ACCESSORY', 'DAILY WEAR'] as const;
 
 const PAGE_LINKS = [
-  { href: '/categories', label: '全站目錄 / CATALOG', short: '全站目錄' },
-  { href: '/journey', label: '品牌誌 / JOURNEY', short: '品牌誌' },
-  { href: '/lookbook', label: '造型集 / LOOKBOOK', short: '造型集' },
+  { href: '/categories', label: '全站目錄' },
+  { href: '/promotions', label: '活動' },
+  { href: '/journey', label: '品牌誌' },
+  { href: '/lookbook', label: '造型集' },
+  { href: '/about', label: '關於' },
+  { href: '/qa', label: '問答' },
+  { href: '/contact', label: '聯絡' },
 ] as const;
 
 export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) {
@@ -377,7 +381,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
             if (isOpen) closeMenu();
             else openMenu();
           }}
-          className={`flex items-center gap-2 px-5 py-2 rounded-full font-medium text-xs sm:text-sm shadow-xs transition shrink-0 cursor-pointer ${
+          className={`affordance flex items-center gap-2 px-5 py-2 rounded-full font-medium text-xs sm:text-sm shrink-0 cursor-pointer ${
             isOpen || selectedCategory === 'all'
               ? 'bg-[#A8573E] text-white'
               : 'bg-[#F2ECE4] hover:bg-[#E6DCD2] text-[#5C4D42]'
@@ -398,19 +402,18 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
 
         <span className="hidden shrink-0 select-none text-[#EBE5DF] md:inline">|</span>
 
-        <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 md:flex-nowrap md:gap-7" aria-label="頁面導覽">
+        <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 md:gap-x-5" aria-label="頁面導覽">
           {PAGE_LINKS.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`py-1 text-[13px] tracking-[1px] transition md:tracking-[1.5px] ${
+                className={`py-1 text-[13px] tracking-[1px] transition ${
                   active ? 'font-semibold text-[#B35B48]' : 'text-[#5C4D42] hover:text-[#B35B48]'
                 }`}
               >
-                <span className="md:hidden">{item.short}</span>
-                <span className="hidden md:inline">{item.label}</span>
+                {item.label}
               </Link>
             );
           })}
@@ -454,7 +457,7 @@ export default function MegaMenu({ selectedCategory, onSelect }: MegaMenuProps) 
                       replayFade(catKey);
                       onSelect(catKey, '');
                     }}
-                    className={`flex items-center justify-between rounded-xl text-sm transition cursor-pointer max-md:w-auto max-md:shrink-0 max-md:px-3 max-md:py-2 md:w-full md:px-4 md:py-3 ${
+                    className={`affordance flex items-center justify-between rounded-xl text-sm cursor-pointer max-md:w-auto max-md:shrink-0 max-md:px-3 max-md:py-2 md:w-full md:px-4 md:py-3 ${
                       isActive
                         ? 'font-bold bg-[#A8573E] text-white shadow-xs'
                         : 'font-medium text-[#5C4D42] hover:bg-[#F2ECE4]'
