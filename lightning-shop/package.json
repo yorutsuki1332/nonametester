@@ -13,7 +13,7 @@
     "@vercel/blob": "^2.8.2",
     "browser-image-compression": "^2.0.2",
     "firebase": "^13.1.0",
-    "next": "16.4.3",
+    "next": "16.4.6",
     "postcss": "^8.5.32",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -26,7 +26,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^5"
   },

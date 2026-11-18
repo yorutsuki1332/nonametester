@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   images: {
     // 本機代理（如 Clash fake-ip）會把 Blob 網域解析成 198.18.x.x。
     // 允許的來源仍只限下方 remotePatterns。
